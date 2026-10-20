@@ -14,7 +14,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const opts = laufoptionen(p, o, signal); const verbrauch = neuerVerbrauch(); const t0 = Date.now();
     if (!body.erzwingen) { const g = teamlaufNoetig(opts); if (!g.noetig) { senden({ typ: "team_uebersprungen", grund: g.grund }); return; } }
     senden({ typ: "team_start", testmodus: opts.testmodus });
-    const r = await teamlauf({ ...opts, verbrauch, erzwingen: true, vorhanden: body.neu ? undefined : o.experten, gleichzeitig: Number(process.env.HIGHSTACK_TEAM_CONCURRENCY ?? 3), onEreignis: senden });
+    const r = await teamlauf({ ...opts, verbrauch, erzwingen: true, ohne: Object.entries(p.experten ?? {}).filter(([, an]) => !an).map(([k]) => k), vorhanden: body.neu ? undefined : o.experten, gleichzeitig: Number(process.env.HIGHSTACK_TEAM_CONCURRENCY ?? 3), onEreignis: senden });
     const frisch = (await s.objekt(t, params.id)) ?? o;
     for (const [id, b] of Object.entries(r.berichte)) if ("ergebnis" in b && !b.ausSpeicher) frisch.experten[id] = { ergebnis: b.ergebnis, schritte: b.schritte, am: Date.now(), verlauf: [], hash: b.hash };
     if (r.komitee && !r.komitee.ausSpeicher) frisch.experten.komitee = { ergebnis: r.komitee.ergebnis, schritte: r.komitee.schritte, am: Date.now(), verlauf: [], hash: r.komitee.hash };

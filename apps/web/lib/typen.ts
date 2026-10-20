@@ -16,6 +16,10 @@ export interface Profil {
   research?: Record<string, { region: string; asset: string; am: number; ergebnis: unknown; schritte: string[] }>;
   /** Gespeicherte Suchaufträge */
   suchen?: Suchauftrag[];
+  /** Eigene Strategien fürs Durchspielen */
+  strategien?: Strategie[];
+  /** Experten an/aus; fehlt ein Eintrag, ist der Experte an */
+  experten?: Record<string, boolean>;
   /** Gebuchtes Paket; bis die Abrechnung aktiv ist, frei wählbar zum Ausprobieren */
   paket?: PaketId;
 }
@@ -71,3 +75,5 @@ export interface Objektdatensatz {
   erstellt: number;
   geaendert: number;
 }
+
+export interface Strategie { id: string; name: string; szenario: Partial<Szenario>; quelle: "eigen" | "vermoegen"; notiz?: string; erstellt: number }

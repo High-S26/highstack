@@ -49,3 +49,18 @@ describe("Analyse", () => {
     expect(a.sensitivitaet).toHaveLength(7);
   });
 });
+
+import { strategieVorschlag } from "../src/strategie";
+import { BEISPIEL_ANLAGEPROFIL, BEISPIEL_INVESTOR, BEISPIEL_OBJEKT } from "../src/beispiel";
+describe("Strategievorschlag", () => {
+  it("liefert Szenario und Gründe, Tilgung nach Risikoneigung", () => {
+    const v = strategieVorschlag({ investor: { ...BEISPIEL_INVESTOR, risiko: "vorsichtig" }, anlageprofil: BEISPIEL_ANLAGEPROFIL, objekt: BEISPIEL_OBJEKT })!;
+    expect(v.szenario.tilgung).toBe(0.03);
+    expect(v.szenario.eigenkapital).toBe(BEISPIEL_INVESTOR.eigenkapital);
+    expect(v.gruende.length).toBeGreaterThan(2);
+  });
+  it("verhandelt höchstens im Rahmen der Risikoneigung", () => {
+    const v = strategieVorschlag({ investor: { ...BEISPIEL_INVESTOR, risiko: "offensiv" }, anlageprofil: BEISPIEL_ANLAGEPROFIL, objekt: BEISPIEL_OBJEKT })!;
+    expect(v.szenario.kaufpreisAenderung!).toBeGreaterThanOrEqual(-0.15);
+  });
+});

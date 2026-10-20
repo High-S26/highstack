@@ -1,5 +1,6 @@
 "use client";
 import { EXPERTEN } from "@highstack/agents/src/experten";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { api, strom, verbrauchText, type Kurzurteil, type Stromereignis, type Verbrauchsanzeige } from "@/lib/client";
 import type { Objektdatensatz } from "@/lib/typen";
@@ -72,7 +73,8 @@ function Rueckfrage({ objekt, id }: { objekt: Objektdatensatz; id: string }) {
 
 /** Ein Experte am Objekt: starten, live Schritte sehen, Ergebnis, Rückfragen. */
 export function Expertenzeile({ objekt, id, onNeu }: { objekt: Objektdatensatz; id: string; onNeu: (o: Objektdatensatz) => void }) {
-  const m = expertMeta(id); const stand = objekt.experten[id];
+  const { profil } = useApp();
+  const m = expertMeta(id); const stand = objekt.experten[id]; const imTeam = profil?.experten?.[id] !== false;
   const [schritte, setSchritte] = useState<string[]>([]); const [laeuft, setLaeuft] = useState(false); const [fehler, setFehler] = useState<string | null>(null);
   const [verbrauch, setVerbrauch] = useState<Verbrauchsanzeige | null>(null);
   const start = async (neu = false) => {
@@ -84,7 +86,7 @@ export function Expertenzeile({ objekt, id, onNeu }: { objekt: Objektdatensatz; 
   };
   return (
     <div className="xrow">
-      <div><div className="tag">{m.rolle}</div><div className="nm">{m.titel}</div><div className="note">{m.beschreibung}</div></div>
+      <div><div className="tag">{m.rolle}{!imTeam && " · im Team ausgeschaltet"}</div><div className="nm">{m.titel}</div><div className="note">{m.beschreibung}</div></div>
       <div className="row">{stand && <span className="badge b-on">Stand {new Date(stand.am).toLocaleDateString("de-DE")}</span>}<button type="button" className={`btn sm${stand ? " ghost" : ""}`} disabled={laeuft} onClick={() => start()}>{laeuft ? "arbeitet …" : stand ? "Aktualisieren" : "Beauftragen"}</button></div>
       <div className="full">
         {verbrauch && !laeuft && <div className="note verbrauch">{verbrauch.ausSpeicher ? <>Eingaben unverändert – gespeichertes Ergebnis, kein Modellaufruf. <button type="button" className="linkbtn" onClick={() => start(true)}>Trotzdem neu erstellen</button></> : verbrauchText(verbrauch)}</div>}
@@ -95,37 +97,59 @@ export function Expertenzeile({ objekt, id, onNeu }: { objekt: Objektdatensatz; 
   );
 }
 
-/** Teamlauf mit Statustafel. */
+/** Teamlauf: Kacheln je Rolle mit Stand, Fortschritt, danach Urteil des Komitees oben. */
 export function Teamtafel({ objekt, onNeu }: { objekt: Objektdatensatz; onNeu: (o: Objektdatensatz) => void }) {
-  const [status, setStatus] = useState<Record<string, { zustand: string; letzte: string }>>({});
-  const [laeuft, setLaeuft] = useState(false); const [ende, setEnde] = useState<{ komitee: unknown; compliance: { freigabe: boolean; beanstandungen: { experte: string; problem: string; korrektur: string }[] } | null } | null>(null);
+  const { profil } = useApp();
+  type Zst = { zustand: "wartet" | "arbeitet" | "fertig" | "gespeichert" | "Fehler" | "aus"; text: string };
+  const an = (id: string) => profil?.experten?.[id] !== false;
+  const rollen = ["makler", "verwalter", "bank", "vermoegen", "steuer", "recht", ...(Object.keys(objekt.module).length ? ["projektentwickler"] : []), ...(objekt.dokumente.some(d => d.text) ? ["dokumentpruefer"] : []), "komitee"];
+  const kern = (e: unknown) => String((e as { kernaussage?: string })?.kernaussage ?? (e as { synthese?: { zusammenfassung: string } })?.synthese?.zusammenfassung ?? "");
+  const ausSpeicher = (): Record<string, Zst> => Object.fromEntries(rollen.map(r => [r, !an(r) ? { zustand: "aus", text: "im Team ausgeschaltet" } : objekt.experten[r] ? { zustand: "gespeichert", text: kern(objekt.experten[r]!.ergebnis) } : { zustand: "wartet", text: expertMeta(r).beschreibung }]));
+  const [status, setStatus] = useState<Record<string, Zst>>(ausSpeicher);
+  const [laeuft, setLaeuft] = useState(false); const [fehler, setFehler] = useState<string | null>(null);
+  const [ende, setEnde] = useState<{ komitee: unknown; compliance: { freigabe: boolean; quelle?: string; beanstandungen: { experte: string; problem: string; korrektur: string }[] } | null } | null>(null);
   const [gate, setGate] = useState<string | null>(null); const [verbrauch, setVerbrauch] = useState<Verbrauchsanzeige | null>(null);
   const ctl = useRef<AbortController>();
-  const team = ["makler", "verwalter", "bank", "vermoegen", "steuer", "recht", ...(Object.keys(objekt.module).length ? ["projektentwickler"] : []), ...(objekt.dokumente.some(d => d.text) ? ["dokumentpruefer"] : []), "komitee", "compliance"];
+  const aktiv = rollen.filter(an);
   const start = async (erzwingen = false) => {
-    setLaeuft(true); setEnde(null); setGate(null); setVerbrauch(null); setStatus({});
+    setLaeuft(true); setEnde(null); setGate(null); setVerbrauch(null); setFehler(null);
     ctl.current = new AbortController();
     try {
       await strom(`/api/objekte/${objekt.id}/team`, { erzwingen }, e => {
         if (e.typ === "team_uebersprungen") setGate(String(e.grund));
-        if (e.typ === "team_start") setStatus(Object.fromEntries(team.map(t => [t, { zustand: "wartet", letzte: expertMeta(t).beschreibung }])));
+        if (e.typ === "team_start") setStatus(s => Object.fromEntries(Object.entries(s).map(([k, v]) => [k, v.zustand === "aus" ? v : { zustand: "wartet", text: v.text }])));
         if (e.typ === "verbrauch") setVerbrauch(e as unknown as Verbrauchsanzeige);
-        if (e.experte) setStatus(s => ({ ...s, [e.experte!]: { zustand: e.typ === "fertig" ? (e.ausSpeicher ? "aus Speicher" : "fertig") : e.typ === "fehler" ? "Fehler" : "arbeitet", letzte: e.typ === "fertig" ? String((e.ergebnis as { kernaussage?: string; synthese?: { zusammenfassung: string } })?.kernaussage ?? (e.ergebnis as { synthese?: { zusammenfassung: string } })?.synthese?.zusammenfassung ?? "fertig") : e.text ?? e.meldung ?? "" } }));
-        if (e.typ === "team_fertig") { setEnde({ komitee: e.komitee, compliance: e.compliance as never }); setStatus(s => ({ ...s, compliance: { zustand: "fertig", letzte: (e.compliance as { freigabe?: boolean; quelle?: string } | null)?.freigabe ? `Freigegeben (${(e.compliance as { quelle?: string }).quelle === "modell" ? "nach Modellprüfung" : "Regelprüfung, ohne Modell"})` : "Beanstandungen, siehe unten" } })); }
+        if (e.experte && rollen.includes(e.experte)) setStatus(s => ({ ...s, [e.experte!]: { zustand: e.typ === "fertig" ? (e.ausSpeicher ? "gespeichert" : "fertig") : e.typ === "fehler" ? "Fehler" : "arbeitet", text: e.typ === "fertig" ? kern(e.ergebnis) : e.text ?? e.meldung ?? s[e.experte!]?.text ?? "" } }));
+        if (e.typ === "team_fertig") setEnde({ komitee: e.komitee, compliance: e.compliance as never });
+        if (e.typ === "abbruch") setFehler(e.meldung ?? "Abgebrochen");
       }, ctl.current.signal);
       onNeu(await api.objekt(objekt.id));
-    } catch (err) { if ((err as Error).name !== "AbortError") setStatus(s => ({ ...s, _: { zustand: "Fehler", letzte: (err as Error).message } })); }
+    } catch (err) { if ((err as Error).name !== "AbortError") setFehler((err as Error).message); }
     finally { setLaeuft(false); }
   };
-  const cls = (z: string) => ({ wartet: "b-plan", arbeitet: "b-warn", fertig: "b-on", "aus Speicher": "b-on" } as Record<string, string>)[z] ?? "b-plan";
+  const fertig = aktiv.filter(r => ["fertig", "gespeichert"].includes(status[r]?.zustand ?? "")).length;
+  const komitee = ende?.komitee ?? (an("komitee") ? objekt.experten.komitee?.ergebnis : null);
+  const LABEL: Record<Zst["zustand"], string> = { wartet: "wartet", arbeitet: "arbeitet …", fertig: "fertig", gespeichert: "vorhanden", Fehler: "Fehler", aus: "aus" };
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <div className="row"><button type="button" className="btn" disabled={laeuft} onClick={() => start()}>{laeuft ? "Team arbeitet …" : "Ganzes Team beauftragen"}</button>{laeuft && <button type="button" className="btn ghost sm" onClick={() => ctl.current?.abort()}>Stopp</button>}<span className="note">{team.length} Rollen · unveränderte Ergebnisse werden wiederverwendet</span></div>
+    <div className="team">
+      <div className="team-h">
+        <button type="button" className="btn" disabled={laeuft} onClick={() => start()}>{laeuft ? "Team arbeitet …" : "Ganzes Team beauftragen"}</button>
+        {laeuft && <button type="button" className="btn ghost sm" onClick={() => ctl.current?.abort()}>Stopp</button>}
+        <span className="note">{aktiv.length} von {rollen.length} Rollen aktiv · unveränderte Ergebnisse werden wiederverwendet · <Link href="/experten">Experten an- und ausschalten</Link></span>
+      </div>
+      {laeuft && <div className="prog" role="progressbar" aria-valuemin={0} aria-valuemax={aktiv.length} aria-valuenow={fertig}><div style={{ width: `${(fertig / Math.max(1, aktiv.length)) * 100}%` }} /><span>{fertig} von {aktiv.length} fertig</span></div>}
       {gate && <div className="gate"><b>Teamlauf nicht gestartet</b><p>{gate}</p><div className="row"><button type="button" className="btn ghost sm" onClick={() => start(true)}>Trotzdem beauftragen</button><span className="note">Tipp: erst Kurzurteil im Tab Ergebnis, Gestaltung oder Unterlagen ergänzen.</span></div></div>}
+      {fehler && <div className="gate"><b>Teamlauf unterbrochen</b><p>{fehler}</p></div>}
+      {!!komitee && !laeuft && <Ergebnis id="komitee" ergebnis={komitee} />}
+      {ende?.compliance && !ende.compliance.freigabe && <ul className="flags">{ende.compliance.beanstandungen.map((b, i) => <li key={i} className="crit">Compliance ({b.experte}): {b.problem}. {b.korrektur}</li>)}</ul>}
+      {ende?.compliance?.freigabe && <p className="note">Compliance: freigegeben ({ende.compliance.quelle === "modell" ? "nach Modellprüfung" : "Regelprüfung, ohne Modellaufruf"}).</p>}
+      <div className="tgrid">{rollen.map(r => { const st: Zst = !an(r) ? { zustand: "aus", text: "im Team ausgeschaltet" } : status[r]!.zustand === "aus" ? { zustand: objekt.experten[r] ? "gespeichert" : "wartet", text: objekt.experten[r] ? kern(objekt.experten[r]!.ergebnis) : expertMeta(r).beschreibung } : status[r]!; const m = expertMeta(r); return (
+        <div key={r} className={`tcard z-${st.zustand}`}>
+          <div className="tc-h"><span className="tc-r">{m.rolle}</span><span className="tc-s">{LABEL[st.zustand]}</span></div>
+          <b>{m.titel}</b>
+          <p>{st.text}</p>
+        </div>); })}</div>
       {verbrauch && !laeuft && <div className="note verbrauch">Verbrauch dieses Laufs: {verbrauchText(verbrauch)}</div>}
-      {Object.keys(status).length > 0 && <div className="board">{Object.entries(status).map(([id, s]) => <div key={id} className="agrow"><div><div className="nm">{id === "_" ? "Teamlauf" : `${expertMeta(id).rolle} · ${expertMeta(id).titel}`}</div><div className="note">{s.letzte}</div></div><span className={`badge ${cls(s.zustand)}`}>{s.zustand}</span></div>)}</div>}
-      {ende?.compliance && !ende.compliance.freigabe && <ul className="flags">{ende.compliance.beanstandungen.map((b, i) => <li key={i} className="crit">Compliance ({b.experte}): {b.problem} – {b.korrektur}</li>)}</ul>}
-      {!!ende?.komitee && <Ergebnis id="komitee" ergebnis={ende.komitee} />}
     </div>
   );
 }

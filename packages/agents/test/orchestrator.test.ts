@@ -68,6 +68,13 @@ describe("Orchestrator", () => {
     const r2 = await teamlauf({ ...basis(), eingabe: e2, vorhanden });
     expect(r2.verbrauch.aufrufe).toBe(0);
   });
+  it("ausgeschaltete Experten laufen nicht mit", async () => {
+    const r = await teamlauf({ ...basis(), eingabe: { ...eingabe, module: { moebliert: {} } }, ohne: ["steuer", "recht", "komitee"] });
+    expect(Object.keys(r.berichte)).not.toContain("steuer");
+    expect(Object.keys(r.berichte)).not.toContain("recht");
+    expect(r.komitee).toBeNull();
+    expect(r.compliance?.quelle).toBe("regeln");
+  });
   it("Dokumentprüfer läuft zuerst und gibt Befunde an die anderen", async () => {
     const dokumente: Dokumentquelle = { liste: () => [{ schluessel: "protokolle", titel: "WEG-Protokolle", status: "erhalten" }], lies: async () => ({ titel: "WEG-Protokolle", text: "Sonderumlage 85.000 €" }) };
     const reihenfolge: string[] = [];

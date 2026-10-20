@@ -53,7 +53,8 @@ export function teamlaufNoetig(o: Pick<Laufoptionen, "eingabe" | "analyse" | "do
  * Stufe 3, Teamlauf: Dokumentprüfer zuerst (falls Unterlagen), dann Fachexperten parallel mit seinen Befunden,
  * Projektentwickler bei Gestaltung, Komitee, Compliance per Regeln (Modell nur bei Treffern).
  */
-export async function teamlauf(o: Laufoptionen & { gleichzeitig?: number; erzwingen?: boolean; vorhanden?: Record<string, Gespeichert> }): Promise<Teamergebnis> {
+export async function teamlauf(o: Laufoptionen & { gleichzeitig?: number; erzwingen?: boolean; vorhanden?: Record<string, Gespeichert>; ohne?: string[] }): Promise<Teamergebnis> {
+  const aus = new Set(o.ohne ?? []);
   const verbrauch = o.verbrauch ?? neuerVerbrauch();
   const a = o.analyse ?? rechne(o.eingabe);
   const opts: Laufoptionen = { ...o, analyse: a, verbrauch };
@@ -65,15 +66,17 @@ export async function teamlauf(o: Laufoptionen & { gleichzeitig?: number; erzwin
     catch (e) { if (o.signal?.aborted) throw e; berichte[id] = { fehler: (e as Error).message }; }
   };
   let befunde: Record<string, unknown> | undefined;
-  if ((o.dokumente?.liste() ?? []).some(d => d.status !== "offen")) {
+  if (!aus.has("dokumentpruefer") && (o.dokumente?.liste() ?? []).some(d => d.status !== "offen")) {
     await lauf("dokumentpruefer");
     const d = berichte.dokumentpruefer; if (d && "ergebnis" in d) befunde = { befundeUnterlagen: kurz(d.ergebnis) };
   }
   const team: string[] = [...TEAM_KERN];
   if (Object.keys(o.eingabe.module ?? {}).length) team.push("projektentwickler");
+  for (const x of aus) { const i = team.indexOf(x); if (i >= 0) team.splice(i, 1); }
   await mitBegrenzung(team.map(id => () => lauf(id, befunde)), o.gleichzeitig ?? 3, o.signal);
   const fertig = Object.fromEntries(Object.entries(berichte).sort(([x], [y]) => x.localeCompare(y)).filter(([, v]) => "ergebnis" in v).map(([k, v]) => [k, kurz((v as { ergebnis: Bericht }).ergebnis)]));
   if (!Object.keys(fertig).length) return { ...leer, berichte };
+  if (aus.has("komitee")) { const regeln = regelpruefung(Object.fromEntries(Object.entries(berichte).filter(([, v]) => "ergebnis" in v).map(([k, v]) => [k, (v as { ergebnis: Bericht }).ergebnis]))); return { berichte, komitee: null, compliance: { ...regeln, quelle: "regeln" }, verbrauch }; }
   const komitee = await mitSpeicher<Komiteeurteil>("komitee", { ...opts, zusatz: { berichteDerExperten: fertig } }, o.vorhanden?.komitee, "Die Fachexperten haben berichtet (berichteDerExperten). Prüfe ihre Befunde gegeneinander, rechne nur Strittiges nach und fälle das Urteil.");
   const regeln = regelpruefung({ ...Object.fromEntries(Object.entries(berichte).filter(([, v]) => "ergebnis" in v).map(([k, v]) => [k, (v as { ergebnis: Bericht }).ergebnis])), komitee: komitee.ergebnis });
   let compliance: Teamergebnis["compliance"] = { ...regeln, quelle: "regeln" };

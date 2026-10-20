@@ -4,6 +4,7 @@ import { useState } from "react";
 import { EINSTUFUNG, eur, kennzahl, num, pct, STRUKTUR, teur, vorzeichen } from "@/lib/format";
 import type { Objektdatensatz } from "@/lib/typen";
 import { Auswahl, Haken, Kacheln, Text, Zahl } from "../Felder";
+import { Strategien } from "./Strategien";
 import { expertMeta } from "../Experten";
 
 type Setze = (patch: Partial<Objektdatensatz>) => void;
@@ -80,19 +81,37 @@ export function Ergebnisbereich({ a, apName }: { a: Analyse; apName: string }) {
   );
 }
 
-const REGLER: { key: keyof Szenario; label: string; min: number; max: number; schritt: number; fmt: (v: number, a: Analyse) => string; prozent?: boolean; relativ?: boolean }[] = [
-  { key: "kaufpreisAenderung", label: "Kaufpreis nach Verhandlung", min: -0.25, max: 0.1, schritt: 0.01, fmt: (v, a) => `${eur((a.simulation?.kaufpreis ?? 0))} (${vorzeichen(v, x => pct(x, 0))})` },
-  { key: "eigenkapital", label: "Eigenkapital-Einsatz", min: 0, max: 1, schritt: 0.01, relativ: true, fmt: v => eur(v) },
-  { key: "sollzins", label: "Sollzins", min: 0.01, max: 0.07, schritt: 0.0005, fmt: v => pct(v, 2) },
-  { key: "tilgung", label: "Anfangstilgung", min: 0.005, max: 0.05, schritt: 0.001, fmt: v => pct(v, 1) },
-  { key: "anschlusszinsAufschlag", label: "Anschlusszins nach Zinsbindung", min: -0.01, max: 0.04, schritt: 0.0025, fmt: v => `${vorzeichen(v, x => num(x * 100, 2))} %-Pkt.` },
-  { key: "mietFaktor", label: "Miete gegenüber heute", min: 0.8, max: 1.4, schritt: 0.01, fmt: v => vorzeichen(v - 1, x => pct(x, 0)) },
-  { key: "mietsteigerung", label: "Mietsteigerung p. a.", min: 0, max: 0.05, schritt: 0.0025, fmt: v => pct(v, 2) },
-  { key: "kostensteigerung", label: "Kostensteigerung p. a.", min: 0, max: 0.05, schritt: 0.0025, fmt: v => pct(v, 2) },
-  { key: "leerstandZusatz", label: "Leerstand zusätzlich", min: 0, max: 0.15, schritt: 0.005, fmt: v => pct(v, 1) },
-  { key: "wertentwicklung", label: "Wertentwicklung p. a.", min: -0.02, max: 0.05, schritt: 0.0025, fmt: v => vorzeichen(v, x => pct(x, 2)) },
-  { key: "haltedauer", label: "Haltedauer", min: 3, max: 30, schritt: 1, fmt: v => `${v} Jahre` },
+type Regel = { key: keyof Szenario; label: string; min: number; max: number; schritt: number; einheit: string; zeige: (v: number, a: Analyse) => string; frei: (v: number, a: Analyse) => number; aus: (n: number, a: Analyse) => number; hint?: string };
+const kp0 = (a: Analyse) => a.simulation ? a.simulation.kaufpreis / (1 + a.szenario.kaufpreisAenderung) : 0;
+const prozentRegel = (key: keyof Szenario, label: string, min: number, max: number, schritt: number, d = 2, vz = false): Regel => ({ key, label, min, max, schritt, einheit: "%", zeige: v => vz ? vorzeichen(v, x => pct(x, d)) : pct(v, d), frei: v => Math.round(v * 10000) / 100, aus: n => n / 100 });
+/** Regler mit großen Spannen; im Feld daneben ist jeder Wert frei eintragbar, auch außerhalb der Spanne. */
+const REGLER: Regel[] = [
+  { key: "kaufpreisAenderung", label: "Kaufpreis nach Verhandlung", min: -0.6, max: 0.3, schritt: 0.005, einheit: "€", zeige: (v, a) => `${vorzeichen(v, x => pct(x, 1))}`, frei: (v, a) => Math.round(kp0(a) * (1 + v)), aus: (n, a) => kp0(a) ? n / kp0(a) - 1 : 0, hint: "Spanne −60 % bis +30 %, im Feld jeder Betrag" },
+  { key: "eigenkapital", label: "Eigenkapital-Einsatz", min: 0, max: 0, schritt: 1000, einheit: "€", zeige: v => eur(v), frei: v => Math.round(v), aus: n => n },
+  prozentRegel("sollzins", "Sollzins", 0, 0.12, 0.0005),
+  prozentRegel("tilgung", "Anfangstilgung", 0, 0.1, 0.001, 1),
+  { key: "anschlusszinsAufschlag", label: "Anschlusszins nach Zinsbindung", min: -0.03, max: 0.06, schritt: 0.0025, einheit: "%-Pkt.", zeige: v => `${vorzeichen(v, x => num(x * 100, 2))} %-Pkt.`, frei: v => Math.round(v * 10000) / 100, aus: n => n / 100 },
+  { key: "mietFaktor", label: "Miete gegenüber heute", min: 0.5, max: 2, schritt: 0.01, einheit: "€/Monat", zeige: v => vorzeichen(v - 1, x => pct(x, 0)), frei: (v, a) => Math.round((a.simulation?.miete0 ?? 0) / (a.szenario.mietFaktor || 1) * v), aus: (n, a) => { const b = (a.simulation?.miete0 ?? 0) / (a.szenario.mietFaktor || 1); return b ? n / b : 1; } },
+  prozentRegel("mietsteigerung", "Mietsteigerung p. a.", -0.03, 0.08, 0.0025, 2, true),
+  prozentRegel("kostensteigerung", "Kostensteigerung p. a.", -0.02, 0.08, 0.0025),
+  prozentRegel("leerstandZusatz", "Leerstand zusätzlich", 0, 0.5, 0.005, 1),
+  prozentRegel("wertentwicklung", "Wertentwicklung p. a.", -0.06, 0.08, 0.0025, 2, true),
+  { key: "haltedauer", label: "Haltedauer", min: 1, max: 40, schritt: 1, einheit: "Jahre", zeige: v => `${v} Jahre`, frei: v => v, aus: n => Math.max(1, Math.min(60, Math.round(n))) },
 ];
+
+/** Ein Regler: Schieber für schnelles Spielen, Feld für den genauen, freien Wert. */
+function Reglerzeile({ r, a, wert, setze, maxEk }: { r: Regel; a: Analyse; wert: number; setze: (v: number) => void; maxEk: number }) {
+  const max = r.key === "eigenkapital" ? maxEk : r.max;
+  const frei = r.frei(wert, a);
+  return (
+    <div className="sl">
+      <span className="sl-l">{r.label}</span><output>{r.zeige(wert, a)}</output>
+      <input type="range" min={r.min} max={max} step={r.schritt} value={Math.min(max, Math.max(r.min, wert))} aria-label={r.label} onChange={e => setze(Number(e.target.value))} />
+      <div className="sl-f"><Zahl label={<span className="sr">{r.label} genau</span>} einheit={r.einheit} wert={frei} onChange={n => n != null && setze(r.aus(n, a))} /></div>
+      {r.hint && <span className="hint">{r.hint}</span>}
+    </div>
+  );
+}
 
 function Verlauf({ a }: { a: Analyse }) {
   const reihen = [["konservativ", a.vorlagen.konservativ, "var(--s-k)", 1.25], ["optimistisch", a.vorlagen.optimistisch, "var(--s-o)", 1.25], ["ihre", a.simulation, "var(--accent)", 2.5]].filter(r => r[1]) as [string, Simulation, string, number][];
@@ -135,13 +154,9 @@ export function Durchspielen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; 
     <>
       <section className="panel">
         <div className="ph"><h2>Durchspielen</h2><button className="btn ghost sm" type="button" onClick={() => setze({ szenario: {} })}>Zurücksetzen</button></div>
-        <div className="chips">{(Object.keys(VORLAGEN) as (keyof typeof VORLAGEN)[]).map(n => <button key={n} type="button" className="chip" onClick={() => vorlage(n)}>{n[0]!.toUpperCase() + n.slice(1)}</button>)}</div>
+        <Strategien o={o} a={a} setze={setze} vorlage={vorlage} />
         <div className="simgrid">
-          <div className="sliders">{REGLER.map(r => { const v = r.relativ ? (s.eigenkapital / Math.max(1, p.eigenkapital)) : (s[r.key] as number); return (
-            <div key={r.key} className="sl"><span>{r.label}</span><output>{r.fmt(r.relativ ? s.eigenkapital : v, a)}</output>
-              <input type="range" min={r.min} max={r.max} step={r.schritt} value={v} aria-label={r.label} onChange={e => { const x = Number(e.target.value); setzeWert(r.key, r.relativ ? x * p.eigenkapital : x); }} />
-              {r.key === "mietFaktor" && m && <span className="hint">{eur(m.miete0)} pro Monat{o.objekt.marktmieteQm && o.objekt.wohnflaeche ? ` · Mietspiegel ${eur(o.objekt.marktmieteQm * o.objekt.wohnflaeche)}` : ""}</span>}
-            </div>); })}</div>
+          <div className="sliders">{REGLER.map(r => <Reglerzeile key={r.key} r={r} a={a} wert={s[r.key] as number} setze={v => setzeWert(r.key, v)} maxEk={Math.max(p.eigenkapital * 1.5, m?.gesamtinvestition ?? 0)} />)}</div>
           <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
             {m ? <div className="res">{([["Cashflow Jahr 1 / Monat", eur(m.cashflowJahr1Monat)], ["Ø Cashflow / Monat", eur(m.cashflowSchnittMonat)], ["Zuzahlung gesamt", m.cashflowSumme < 0 ? eur(-m.cashflowSumme) : "keine"], ["Nettovermögen am Ende", teur(m.nettovermoegenEnde)], ["Eigenkapitalrendite vor Steuern", pct(m.irr)], ["DSCR Jahr 1", num(m.dscrJahr1)]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong>{v}</strong></div>)}</div> : <div className="empty">Für das Durchspielen fehlen Kaufpreis oder Miete.</div>}
             <Verlauf a={a} />
