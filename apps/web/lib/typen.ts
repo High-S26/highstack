@@ -1,4 +1,8 @@
 import type { Anlageprofil, Assetklasse, Investorenprofil, Objekt, Szenario } from "@highstack/engine";
+import type { PaketId } from "./quellen";
+
+/** Was ein Suchauftrag sucht: Objektklassen plus Grundstücke und Ferienimmobilien */
+export type Suchklasse = Assetklasse | "Grundstück" | "Ferienimmobilie";
 
 export type Status = "kandidat" | "pruefung" | "bestand";
 export type Modulwerte = Record<string, Record<string, number | string | boolean>>;
@@ -12,6 +16,8 @@ export interface Profil {
   research?: Record<string, { region: string; asset: string; am: number; ergebnis: unknown; schritte: string[] }>;
   /** Gespeicherte Suchaufträge */
   suchen?: Suchauftrag[];
+  /** Gebuchtes Paket; bis die Abrechnung aktiv ist, frei wählbar zum Ausprobieren */
+  paket?: PaketId;
 }
 
 /** Ein Suchauftrag: was gesucht wird (Anlageprofil) und wo (Region, Assetklasse). Treffer hängen per suchId daran. */
@@ -20,12 +26,14 @@ export interface Suchauftrag {
   name: string;
   anlageprofilId: string;
   region: string;
-  asset: Assetklasse;
+  asset: Suchklasse;
   aktiv: boolean;
   notiz?: string;
   erstellt: number;
   /** letzte Sichtung von Inseraten */
   gesichtet?: number;
+  /** Hintergrundsuche */
+  hintergrund?: { aktiv: boolean; takt: "taeglich" | "mehrmals" | "stuendlich"; umkreisKm: number | null; quellen: string[] };
 }
 
 export interface Dokument {

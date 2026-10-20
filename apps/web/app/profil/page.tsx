@@ -2,17 +2,10 @@
 import { useState } from "react";
 import { useApp } from "@/components/App";
 import { Anlageprofilformular, Investorformular, Spielraum } from "@/components/Profilteile";
+import { Paketvergleich } from "@/components/Quellen";
 import { neuesAnlageprofil } from "@/lib/vorgaben";
 import { pct } from "@/lib/format";
 
-const FUNKTIONEN: [string, string, string, string][] = [
-  ["Plattform", "Investorenprofil & mehrere Anlageprofile", "Live", "Alle"], ["Suchen", "Inserate sichten und ranken", "Live", "Basis"], ["Suchen", "Markt-Briefing", "Live", "Pro"],
-  ["Prüfen", "Ergebnis, Durchspielen, Sensitivität", "Live", "Basis"], ["Prüfen", "Steuern in eigener Struktur & Vergleich", "Live", "Pro"], ["Prüfen", "Unterlagen mit Upload & Prüfung", "Live", "Pro"],
-  ["Gestaltung", "Umnutzung, möbliert, Kurzzeit, Grundstück, Aufteilung, Aufstockung, Sanierung, Zusatzerträge", "Live", "Pro"],
-  ["Experten", "Team aus acht Fachexperten, Komitee, Compliance", "Live", "Pro"], ["Experten", "Rückfragen mit Rechenwerkzeugen", "Live", "Pro"],
-  ["Suchen", "Suchagenten & Newsletter automatisch", "Geplant", "Family Office"], ["Portfolio", "Bestand: Mieten, Darlehen, Fristen", "Geplant", "Family Office"],
-  ["Plattform", "Anmeldung per Magic Link / Passkey, mehrere Nutzer je Mandant", "Geplant", "Family Office"], ["Plattform", "Tarife & Abrechnung", "Geplant", "Alle"],
-];
 
 export default function ProfilSeite() {
   const { profil, setzeProfil } = useApp();
@@ -34,10 +27,7 @@ export default function ProfilSeite() {
         </div>
       </div>
       <Spielraum apId={aktiv} />
-      <section className="panel"><details><summary>Funktionen &amp; Tarife</summary>
-        <p className="note">Tarife sind je Funktion hinterlegt; Bezahlung ist noch nicht aktiv.</p>
-        <div className="flist">{FUNKTIONEN.map(([s, n, st, t]) => <div key={n} className="frow"><div><div>{n}</div><div className="note">{s}</div></div><span className={`badge ${st === "Live" ? "b-on" : "b-plan"}`}>{st}</span><span className="badge b-tier">{t}</span></div>)}</div>
-      </details></section>
+      <Paketvergleich />
     </div>
   );
 }

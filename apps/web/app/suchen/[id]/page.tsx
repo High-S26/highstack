@@ -6,7 +6,8 @@ import { useApp } from "@/components/App";
 import { Ergebnis } from "@/components/Experten";
 import { Objektliste } from "@/components/Objektliste";
 import { Anlageprofilformular } from "@/components/Profilteile";
-import { ASSETS, useSuchen } from "@/components/Suchen";
+import { Hintergrundsuche } from "@/components/Quellen";
+import { ASSETS, URLAUBSREGIONEN, useSuchen } from "@/components/Suchen";
 import { api } from "@/lib/client";
 import type { Suchauftrag } from "@/lib/typen";
 
@@ -48,6 +49,7 @@ export default function Suchauftrag({ params }: { params: { id: string } }) {
             <div className="fields">
               <label>Region<input value={s.region} onChange={e => setze({ region: e.target.value })} placeholder="z. B. Düsseldorf-Bilk" /></label>
               <label>Assetklasse<select value={s.asset} onChange={e => setze({ asset: e.target.value as Suchauftrag["asset"] })}>{ASSETS.map(a => <option key={a}>{a}</option>)}</select></label>
+              {s.asset === "Ferienimmobilie" && <div className="full regvor"><span className="flabel">Ferien- und Inselregionen</span>{URLAUBSREGIONEN.map(g => <div key={g.gruppe} className="regg"><span className="note">{g.gruppe}</span><div className="chips">{g.regionen.map(r => <button key={r} type="button" className="chip" aria-pressed={s.region === r} onClick={() => setze({ region: r, name: s.name.startsWith("Ferienimmobilie") || s.name === "Neue Suche" ? `Ferienimmobilie ${r}` : s.name })}>{r}</button>)}</div></div>)}<div className="hint">Für Ferienimmobilien rechnet das Modul „Kurzzeit- und Serviced Apartments“ Auslastung und Tagespreise. Im Ausland sind Steuern und Recht vor Ort noch nicht abgebildet.</div></div>}
               <label className="full">Anlageprofil<select value={s.anlageprofilId} onChange={e => setze({ anlageprofilId: e.target.value })}>{profil!.anlageprofile.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
               <label className="full">Notiz<textarea style={{ minHeight: 60 }} value={s.notiz ?? ""} onChange={e => setze({ notiz: e.target.value })} placeholder="z. B. nur Altbau, Nähe U-Bahn" /></label>
             </div>
@@ -64,6 +66,7 @@ export default function Suchauftrag({ params }: { params: { id: string } }) {
           <section className="panel"><div className="ph"><h2>Treffer</h2><span className="tag">{liste.length ? `${liste.length} Kandidaten` : "noch keine"}</span></div>
             <Objektliste kandidat objekte={liste} leer={<><b>Noch keine Treffer</b><span>Fügen Sie links Inserate ein. Die besten Treffer stehen oben, mit „Prüfen“ geht ein Objekt in die Tiefe.</span></>} />
           </section>
+          <Hintergrundsuche s={s} setze={setze} />
           <section className="panel">
             <div className="ph"><h2>Markt-Briefing</h2><span className="tag">{s.region ? `${s.asset} in ${s.region}` : "Region fehlt"}</span></div>
             {!briefing && <p className="note">Lage, Mieten, Preise und Entwicklung der Region, mit Quellen. Grundlage für die Lagebewertung der Treffer.</p>}

@@ -54,7 +54,7 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
   return (
     <div className="view">
       <div className="objbar">
-        {o.status === "kandidat" && o.suchId ? <Link className="btn ghost sm" href={`/suchen/${o.suchId}`}>← Suchauftrag</Link> : <Link className="btn ghost sm" href={o.status === "bestand" ? "/portfolio" : "/pruefen"}>← {o.status === "bestand" ? "Portfolio" : "Prüfen"}</Link>}
+        {o.status === "kandidat" && o.suchId ? <Link className="btn ghost sm" href={`/suchen/${o.suchId}`}>← Suchauftrag</Link> : <Link className="btn ghost sm" href={o.status === "bestand" ? "/portfolio" : "/pruefen"}>← {o.status === "bestand" ? "Bestand" : "Prüfen"}</Link>}
         <h1>{o.objekt.titel || "Objekt"}</h1>
         <label>Anlageprofil<select value={o.anlageprofilId} onChange={e => setze({ anlageprofilId: e.target.value })}>{profil.anlageprofile.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
         <label>Status<select value={o.status} onChange={e => setze({ status: e.target.value as Objektdatensatz["status"] })}><option value="kandidat">Kandidat</option><option value="pruefung">In Prüfung</option><option value="bestand">Bestand</option></select></label>

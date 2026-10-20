@@ -1,14 +1,14 @@
 "use client";
 import Link from "next/link";
 import { useApp } from "@/components/App";
+import { Quellenuebersicht } from "@/components/Quellen";
 import { useSuchen } from "@/components/Suchen";
 import { EINSTUFUNG } from "@/lib/format";
 
-const QUELLEN: [string, string][] = [["Inserate, Suchagent-Mails und Newsletter einfügen", "aktiv"], ["Suchagenten von ImmoScout24 und Immowelt automatisch lesen", "geplant"], ["Makler-Newsletter automatisch lesen", "geplant"], ["Zwangsversteigerungen (ZVG-Portal)", "geplant"], ["Lizenzierte Marktdaten über mehrere Märkte", "geplant"]];
 const datum = (t?: number) => t ? new Date(t).toLocaleDateString("de-DE", { day: "numeric", month: "short" }) : "noch nie";
 
 export default function Suchauftraege() {
-  const { anlageprofil, analyseVon } = useApp();
+  const { anlageprofil, analyseVon, profil } = useApp();
   const { suchen, treffer, neu, aendere, loesche } = useSuchen();
   return (
     <div className="view">
@@ -29,6 +29,7 @@ export default function Suchauftraege() {
                   <span className={`badge ${s.aktiv ? "b-on" : "b-plan"}`}>{s.aktiv ? "Aktiv" : "Pausiert"}</span>
                 </div>
                 <div className="sc-meta">{[s.asset, s.region || "alle Regionen", anlageprofil(s.anlageprofilId).name].join(", ")}</div>
+                <div className="sc-bg">{s.hintergrund?.aktiv && (profil!.paket ?? "basis") !== "basis" ? `Sucht im Hintergrund · ${s.hintergrund.quellen.length} Quellen${s.hintergrund.umkreisKm ? ` · ${s.hintergrund.umkreisKm} km` : ""}` : "Nur eingefügte Inserate"}</div>
                 <dl className="sc-stats">
                   <div><dt>Treffer</dt><dd>{t.length}</dd></div>
                   <div><dt>Opportunities</dt><dd>{opp}</dd></div>
@@ -45,7 +46,7 @@ export default function Suchauftraege() {
           })}
         </div>
       )}
-      <section className="panel"><div className="ph"><h2>Quellen</h2><span className="tag">woher Treffer kommen</span></div><div className="src">{QUELLEN.map(([t, s]) => <div key={t}><span>{t}</span><span className={`badge ${s === "aktiv" ? "b-on" : "b-plan"}`}>{s}</span></div>)}</div></section>
+      <Quellenuebersicht />
     </div>
   );
 }
