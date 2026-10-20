@@ -41,7 +41,7 @@ export default function Portfolio() {
   ];
   return (
     <div className="view">
-      <h1>Bestand</h1>
+      <h1>Portfolio</h1>
       <nav className="zyklus" aria-label="Investment-Zyklus">{zyklus.map(([l, n, href], i) => <Link key={l} href={href} className={i >= 3 ? "z-on" : ""}><b>{n}</b><span>{l}</span></Link>)}</nav>
       <div className="seg seg-tabs" role="tablist">{BEREICHE.map(([k, l]) => <label key={k} className="segi"><input type="radio" name="bereich" checked={bereich === k} onChange={() => setBereich(k)} /><span>{l}</span></label>)}</div>
       {bereich === "bestand" && <>
