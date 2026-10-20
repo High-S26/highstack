@@ -11,7 +11,7 @@ export default function Uebersicht() {
   const { profil, objekte, analyseVon, setzeObjekt } = useApp(); const router = useRouter();
   if (!profil?.onboarded) return null;
   const kandidaten = objekte.filter(o => o.status === "kandidat"), pruefung = objekte.filter(o => o.status === "pruefung"), bestand = objekte.filter(o => o.status === "bestand");
-  const neu = async (beispiel: boolean) => { const o = await api.neuesObjekt({ beispiel }); setzeObjekt(o); router.push(`/objekt/${o.id}`); };
+  const neu = async (beispiel: boolean) => { const da = beispiel && objekte.find(x => x.objekt.titel?.startsWith("Beispiel:")); if (da) { router.push(`/objekt/${da.id}`); return; } const o = await api.neuesObjekt({ beispiel }); setzeObjekt(o); router.push(`/objekt/${o.id}`); };
   const aufgaben: { text: string; href: string; label: string }[] = [];
   kandidaten.map(o => [o, analyseVon(o)] as const).filter(([, a]) => a.bewertung.einstufung !== "pass").sort((a, b) => (b[1].bewertung.score ?? -1) - (a[1].bewertung.score ?? -1)).slice(0, 3).forEach(([o, a]) => aufgaben.push({ text: `Kandidat prüfen: ${o.objekt.titel} (${Math.round(a.bewertung.score ?? 0)})`, href: `/objekt/${o.id}`, label: "Öffnen" }));
   pruefung.forEach(o => {
@@ -29,7 +29,7 @@ export default function Uebersicht() {
           <div className="todo">{aufgaben.length ? aufgaben.map(a => <div key={a.text}><span>{a.text}</span><Link className="btn ghost sm" href={a.href}>{a.label}</Link></div>) : <div><span className="note">Nichts offen. Sichten Sie neue Inserate in der Suche.</span></div>}</div>
         </section>
         <section className="panel"><h2>Schnellstart</h2>
-          <div className="row"><Link className="btn" href="/suchen">Inserate sichten</Link><button className="btn ghost" type="button" onClick={() => neu(false)}>Einzelnes Objekt prüfen</button><button className="btn ghost" type="button" onClick={() => neu(true)}>Beispielobjekt</button></div>
+          <div className="row"><Link className="btn" href="/suchen">Inserate sichten</Link><button className="btn ghost" type="button" onClick={() => neu(false)}>+ Neues Objekt</button><button className="btn ghost" type="button" onClick={() => neu(true)}>Beispielobjekt</button></div>
           <p className="note">Suchen findet und rankt Kandidaten nach Ihrem Anlageprofil. Prüfen geht bei einem Objekt in die Tiefe, bis zu Gestaltungsvarianten und dem Urteil des Teams.</p>
         </section>
       </div>
