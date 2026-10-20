@@ -1,5 +1,5 @@
 import { BEISPIEL_OBJEKT, type Anlageprofil, type Investorenprofil, type Objekt } from "@highstack/engine";
-import type { Dokument, Objektdatensatz, Profil } from "./typen";
+import type { Dokument, Objektdatensatz, Profil, Suchauftrag } from "./typen";
 
 export const id = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
@@ -33,4 +33,10 @@ export function standardDokumente(asset: string): Dokument[] {
 export function neuesObjekt(anlageprofilId: string, beispiel = false, status: Objektdatensatz["status"] = "pruefung"): Objektdatensatz {
   const objekt = beispiel ? { ...BEISPIEL_OBJEKT } : { ...LEERES_OBJEKT };
   return { id: id(), status, anlageprofilId, objekt, szenario: {}, module: {}, expose: "", dokumente: standardDokumente(objekt.asset), experten: {}, erstellt: Date.now(), geaendert: Date.now() };
+}
+
+export function neueSuche(p: Profil, name?: string): Suchauftrag {
+  const ap = p.anlageprofile.find(a => a.id === p.aktivesAnlageprofil) ?? p.anlageprofile[0]!;
+  const region = ap.regionen[0] ?? "";
+  return { id: id(), name: name ?? ([ap.assetklassen[0] ?? "ETW", region].filter(Boolean).join(" ") || "Neue Suche"), anlageprofilId: ap.id, region, asset: ap.assetklassen[0] ?? "ETW", aktiv: true, erstellt: Date.now() };
 }
