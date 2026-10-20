@@ -57,7 +57,19 @@ export const EXTRAKTION_SCHEMA = {
   required: ["objekte"],
 } as const;
 
-export const SCHEMA_JE_AUSGABE: Record<string, object> = { bericht: BERICHT_SCHEMA, komitee: KOMITEE_SCHEMA, compliance: COMPLIANCE_SCHEMA, extraktion: EXTRAKTION_SCHEMA };
+export const KURZURTEIL_SCHEMA = {
+  type: "object",
+  properties: {
+    kernaussage: { ...str, description: "Ein Satz mit der entscheidenden Zahl" },
+    einstufung: { type: "string", enum: ["Opportunity", "Watch", "Pass"] },
+    fragen: { type: "array", items: { type: "object", properties: { an: str, frage: str }, required: ["an", "frage"] }, description: "Die drei wichtigsten offenen Fragen" },
+    verhandlungsansatz: str,
+    naechster_schritt: str,
+  },
+  required: ["kernaussage", "einstufung", "fragen", "verhandlungsansatz", "naechster_schritt"],
+} as const;
+
+export const SCHEMA_JE_AUSGABE: Record<string, object> = { kurzurteil: KURZURTEIL_SCHEMA, bericht: BERICHT_SCHEMA, komitee: KOMITEE_SCHEMA, compliance: COMPLIANCE_SCHEMA, extraktion: EXTRAKTION_SCHEMA };
 
 export interface Bericht {
   kernaussage: string; bewertung: "positiv" | "neutral" | "kritisch";
@@ -72,3 +84,4 @@ export interface Komiteeurteil {
   synthese: { urteil: "Opportunity" | "Watch" | "Pass"; zusammenfassung: string; widersprueche?: string[]; naechste_schritte: string[]; verhandlung?: string };
 }
 export interface Compliancebefund { freigabe: boolean; beanstandungen: { experte: string; stelle?: string; problem: string; korrektur: string }[] }
+export interface Kurzurteil { kernaussage: string; einstufung: "Opportunity" | "Watch" | "Pass"; fragen: { an: string; frage: string }[]; verhandlungsansatz: string; naechster_schritt: string }

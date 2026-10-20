@@ -3,7 +3,7 @@ import { analyse } from "@highstack/engine";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/App";
-import { Expertenzeile, FACHEXPERTEN, Teamtafel } from "@/components/Experten";
+import { Expertenzeile, FACHEXPERTEN, Kurzurteilpanel, Teamtafel } from "@/components/Experten";
 import { Daten, Durchspielen, Ergebnisbereich, Gestaltung, Steuern } from "@/components/objekt/Teile";
 import { Unterlagen } from "@/components/objekt/Unterlagen";
 import { api } from "@/lib/client";
@@ -49,14 +49,14 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
       <div className="grid">
         <div className="col" data-mobil-versteckt={tab !== "daten" ? "ja" : undefined}><Daten o={o} a={a} setze={setze} /></div>
         <div className="col">
-          {tab === "ergebnis" || tab === "daten" ? <Ergebnisbereich a={a} apName={anlageprofil(o.anlageprofilId).name} /> : null}
+          {tab === "ergebnis" || tab === "daten" ? <><Ergebnisbereich a={a} apName={anlageprofil(o.anlageprofilId).name} />{o.objekt.kaufpreis ? <Kurzurteilpanel objekt={o} onNeu={neuVomServer} /> : null}</> : null}
           {tab === "spielen" && <Durchspielen o={o} a={a} setze={setze} />}
           {tab === "gestaltung" && <Gestaltung o={o} a={a} setze={setze} />}
           {tab === "steuern" && <Steuern a={a} />}
           {tab === "unterlagen" && <Unterlagen o={o} setze={setze} onNeu={neuVomServer} />}
           {tab === "experten" && <>
-            <section className="panel"><div className="ph"><h2>Team beauftragen</h2><span className="tag">Fachexperten, Komitee, Compliance</span></div><Teamtafel objekt={o} onNeu={neuVomServer} /></section>
-            <section className="panel"><div className="ph"><h2>Einzelne Experten</h2><span className="tag">Ergebnisse bleiben gespeichert</span></div>{FACHEXPERTEN.map(id => <Expertenzeile key={id} objekt={o} id={id} onNeu={neuVomServer} />)}</section>
+            <section className="panel"><div className="ph"><h2>Team beauftragen</h2><span className="tag">Stufe 3 · Fachexperten, Komitee, Compliance</span></div><Teamtafel objekt={o} onNeu={neuVomServer} /></section>
+            <section className="panel"><div className="ph"><h2>Einzelne Experten</h2><span className="tag">Stufe 2 · gezielt einzeln</span></div>{FACHEXPERTEN.map(id => <Expertenzeile key={id} objekt={o} id={id} onNeu={neuVomServer} />)}</section>
           </>}
         </div>
       </div>

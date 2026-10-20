@@ -4,6 +4,7 @@ export * from "./schemas";
 export * from "./tools";
 export * from "./runtime";
 export * from "./orchestrator";
+export * from "./compliance";
 export * from "./mock";
 import { anthropicClient, STANDARD_MODELLE, type LlmClient, type Modelle } from "./llm";
 import { testClient } from "./mock";

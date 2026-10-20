@@ -277,3 +277,9 @@ a{color:var(--accent)}
 .huerden{margin:0;padding-left:18px;display:grid;gap:3px;font-size:12.5px;color:var(--muted)}
 .testband{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:8px 12px;font-size:13px}
 @media (max-width:900px){[data-mobil-versteckt="ja"]{display:none}}
+
+/* Stufenmodell */
+.gate{border:1px solid var(--warn);background:var(--warn-soft);border-radius:12px;padding:12px 14px;display:grid;gap:6px}
+.gate p{margin:0}
+.verbrauch{font-variant-numeric:tabular-nums}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent,#2b5bd7);text-decoration:underline;cursor:pointer;font:inherit}

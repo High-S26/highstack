@@ -4,7 +4,7 @@ titel: Unterlagen prüfen
 rolle: Due Diligence
 beschreibung: Stimmen Unterlagen und Exposé überein, und was fehlt?
 werkzeuge: [lies_unterlagen]
-modell: expert
+modell: fast
 ausgabe: bericht
 ---
 # Rolle

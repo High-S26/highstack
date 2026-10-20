@@ -4,7 +4,7 @@ titel: Markt-Briefing
 rolle: Markt & Research
 beschreibung: Wie läuft der Markt in einer Region für eine Assetklasse, und passt er zum Spielraum?
 werkzeuge: []
-modell: expert
+modell: fast
 ausgabe: bericht
 ---
 # Rolle

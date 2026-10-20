@@ -22,16 +22,17 @@ export function testClient(): LlmClient {
       const offen = tools.filter(t => t !== "abgabe" && beispielEingaben[t] && !bisher.includes(t));
       if (!erzwungen && offen.length) {
         const t = offen[0]!;
-        return { stop_reason: "tool_use", content: beispielEingaben[t]!.map(input => ({ type: "tool_use" as const, id: id(), name: t, input })) };
+        return { stop_reason: "tool_use", usage: { input_tokens: 1000, output_tokens: 100 }, content: beispielEingaben[t]!.map(input => ({ type: "tool_use" as const, id: id(), name: t, input })) };
       }
-      if (!tools.includes("abgabe")) return { stop_reason: "end_turn", content: [{ type: "text", text: "Testmodus: Antwort auf Ihre Rückfrage, gerechnet mit dem Rechenwerk." }] };
+      if (!tools.includes("abgabe")) return { stop_reason: "end_turn", usage: { input_tokens: 1000, output_tokens: 100 }, content: [{ type: "text", text: "Testmodus: Antwort auf Ihre Rückfrage, gerechnet mit dem Rechenwerk." }] };
       const schema = (a.tools!.find(t => t.name === "abgabe")!.input_schema as { required?: string[] }).required ?? [];
       let input: unknown;
-      if (schema.includes("rollen")) input = { rollen: ["Makler", "WEG-Verwalter", "Vermögensverwalter", "Bankentscheider"].map(r => ({ rolle: r, urteil: "neutral", konfidenz: "mittel", begruendungen: [`Testmodus: Einschätzung ${r}`], warnsignale: [], fragen: [] })), synthese: { urteil: "Watch", zusammenfassung: "Testmodus: Gesamturteil auf Basis der Berichte.", widersprueche: [], naechste_schritte: ["Mit echtem API-Key erneut ausführen"], verhandlung: "Testmodus" } };
+      if (schema.includes("verhandlungsansatz")) input = { kernaussage: "Testmodus: Kurzurteil.", einstufung: "Watch", fragen: [{ an: "Makler", frage: "Testfrage" }], verhandlungsansatz: "Testmodus", naechster_schritt: "Mit echtem API-Key erneut ausführen" };
+      else if (schema.includes("rollen")) input = { rollen: ["Makler", "WEG-Verwalter", "Vermögensverwalter", "Bankentscheider"].map(r => ({ rolle: r, urteil: "neutral", konfidenz: "mittel", begruendungen: [`Testmodus: Einschätzung ${r}`], warnsignale: [], fragen: [] })), synthese: { urteil: "Watch", zusammenfassung: "Testmodus: Gesamturteil auf Basis der Berichte.", widersprueche: [], naechste_schritte: ["Mit echtem API-Key erneut ausführen"], verhandlung: "Testmodus" } };
       else if (schema.includes("freigabe")) input = { freigabe: true, beanstandungen: [] };
       else if (schema.includes("objekte")) input = { objekte: [] };
       else input = { kernaussage: "Testmodus: Ergebnis ohne echtes Modell.", bewertung: "neutral", kennzahlen: [{ label: "Testwert", wert: "–", hinweis: "Testmodus" }], abschnitte: [{ titel: "Testmodus", punkte: ["Für echte Ergebnisse ANTHROPIC_API_KEY setzen."] }], fragen: [], naechste_schritte: [], grenzen: "Testmodus ohne Aussagekraft." };
-      return { stop_reason: "tool_use", content: [{ type: "tool_use", id: id(), name: "abgabe", input }] };
+      return { stop_reason: "tool_use", usage: { input_tokens: 1000, output_tokens: 300 }, content: [{ type: "tool_use", id: id(), name: "abgabe", input }] };
     },
   };
 }
