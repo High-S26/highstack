@@ -12,7 +12,8 @@
     "build": "npm run build -w @highstack/web",
     "test": "vitest run",
     "typecheck": "tsc -p packages/engine && tsc -p packages/agents && npm run typecheck -w @highstack/web",
-    "team": "tsx packages/agents/src/cli.ts"
+    "team": "tsx packages/agents/src/cli.ts",
+    "neu": "git pull && npm install --no-audit --no-fund && rm -rf apps/web/.next && git log --oneline -1 && npm run dev"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
