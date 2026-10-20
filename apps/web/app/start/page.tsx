@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Anlageprofil, Assetklasse, Struktur } from "@highstack/engine";
 import { useApp } from "@/components/App";
-import { Auswahl, BUNDESLAENDER, Text, Zahl } from "@/components/Felder";
+import { Auswahl, BUNDESLAENDER, Marken, Text, Zahl } from "@/components/Felder";
 import { eur, pct } from "@/lib/format";
 import { api } from "@/lib/client";
 
@@ -55,7 +55,7 @@ export default function Start() {
         <div className="opts full" role="radiogroup" aria-label="Strategie">
           {([["Cashflow", "Laufender Überschuss zuerst"], ["Mix", "Cashflow und Wertzuwachs"], ["Wertsteigerung", "Gute Lagen, langer Atem"], ["Value-Add", "Sanieren, umnutzen, Mieten heben"]] as [Anlageprofil["strategie"], string][]).map(([v, s]) => <label key={v} className="opt"><input type="radio" name="strat" checked={ap.strategie === v} onChange={() => setAp({ ...ap, strategie: v })} />{v}<small>{s}</small></label>)}
         </div>
-        <Text voll label="Regionen (Städte, Stadtteile)" platzhalter="z. B. Düsseldorf, Neuss, Krefeld" wert={ap.regionen.join(", ")} onChange={v => setAp({ ...ap, regionen: v.split(/[,;]+/).map(s => s.trim()).filter(Boolean) })} />
+        <Marken voll label="Regionen" platzhalter="z. B. Düsseldorf, dann Enter" hinweis="Städte oder Stadtteile. Enter oder Komma fügt hinzu." werte={ap.regionen} onChange={v => setAp({ ...ap, regionen: v })} />
         <div className="full"><div className="note" style={{ marginBottom: 6 }}>Assetklassen</div>
           <div className="chips">{(["ETW", "MFH", "EFH/ZFH", "Gewerbe"] as Assetklasse[]).map(a => <label key={a} className="chip"><input type="checkbox" checked={ap.assetklassen.includes(a)} onChange={e => setAp({ ...ap, assetklassen: e.target.checked ? [...ap.assetklassen, a] : ap.assetklassen.filter(x => x !== a) })} /> {a}</label>)}</div>
         </div>

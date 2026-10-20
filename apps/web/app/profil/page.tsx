@@ -27,7 +27,7 @@ export default function ProfilSeite() {
         <div className="col">
           <section className="panel">
             <div className="ph"><h2>Anlageprofile</h2><span className="tag">was Sie suchen</span></div>
-            <div className="olist">{profil!.anlageprofile.map(a => <div key={a.id} className="orow"><div><button type="button" className="t" onClick={() => setAktiv(a.id)}>{a.name}</button><div className="m">{[a.strategie, a.assetklassen.join("/"), a.regionen.join(", ") || "alle Regionen", `≥ ${pct(a.minBruttorendite)}`].join(" · ")}</div></div><div className="a">{a.id === aktiv && <span className="badge b-tier">wird bearbeitet</span>}</div></div>)}</div>
+            <div className="olist">{profil!.anlageprofile.map(a => <div key={a.id} className="orow plain"><div><button type="button" className="t" onClick={() => setAktiv(a.id)}>{a.name}</button><div className="m">{[a.strategie, a.assetklassen.join("/"), a.regionen.join(", ") || "alle Regionen", `≥ ${pct(a.minBruttorendite)}`].join(" · ")}</div></div><div className="a">{a.id === aktiv && <span className="badge b-tier">wird bearbeitet</span>}</div></div>)}</div>
             <div className="row"><button type="button" className="btn ghost sm" onClick={hinzu}>Anlageprofil hinzufügen</button>{profil!.anlageprofile.length > 1 && <button type="button" className="btn danger sm" onClick={loeschen}>Ausgewähltes löschen</button>}</div>
           </section>
           <Anlageprofilformular apId={aktiv} />

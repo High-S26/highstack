@@ -212,7 +212,7 @@ export function Gestaltung({ o, a, setze }: { o: Objektdatensatz; a: Analyse; se
         const gruppen = [...new Set(m.parameter.map(p => p.gruppe))];
         return (
           <details key={m.id} className={`mod${aktiv ? " on" : ""}`} open={aktiv}>
-            <summary><span><b>{m.name}</b><br /><span className="note">{m.kurz}</span></span><label className="check" onClick={e => e.stopPropagation()}><input type="checkbox" checked={aktiv} onChange={e => an(m.id, e.target.checked)} /> aktiv</label></summary>
+            <summary><span><b>{m.name}</b><br /><span className="note">{m.kurz}</span></span><label className="switch" onClick={e => e.stopPropagation()}><input type="checkbox" role="switch" checked={aktiv} onChange={e => an(m.id, e.target.checked)} aria-label={`${m.name} aktiv`} /><span className="track-s" aria-hidden="true" /><span>{aktiv ? "aktiv" : "aus"}</span></label></summary>
             <div className="body">
               {!aktiv && <p className="note">Aktivieren, um mit Ihren Werten zu rechnen. Hürden: {m.huerden.slice(0, 2).join("; ")} …</p>}
               {aktiv && <>
