@@ -19,7 +19,7 @@ export default function Login() {
   return (
     <div className="login">
       <div className="login-card">
-        <div className="brand"><Logo groesse={36} /></div>
+        <div className="brand"><Logo zusatz /></div>
         <h1>Anmelden</h1>
         {zustand !== "gesendet" ? <form onSubmit={senden} className="login-f">
           <p className="lead">Sie bekommen einen Link per E-Mail. Kein Passwort nötig.</p>
