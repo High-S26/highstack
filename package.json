@@ -3,7 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "description": "highstack.si – privates Family Office für Immobilien: Rechenwerk, Experten-Agenten, App",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "npm run dev -w @highstack/web",
     "build": "npm run build -w @highstack/web",
@@ -12,9 +15,12 @@
     "team": "tsx packages/agents/src/cli.ts"
   },
   "devDependencies": {
+    "@types/node": "^22.15.21",
     "tsx": "4.20.5",
     "typescript": "5.6.3",
     "vitest": "2.1.9"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
