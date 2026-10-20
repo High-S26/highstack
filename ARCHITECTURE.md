@@ -42,7 +42,7 @@ Investor ──Auftrag──▶ Orchestrator (teamlauf)
 4. Management-Säule: Mieten, Darlehen, Fristen, Push-Hinweise.
 5. PDF-Bericht je Objekt; Partnernetz (Steuerberater, Kanzlei, Finanzierung).
 
-## Stufenmodell (Branch `light`)
+## Stufenmodell der Agenten
 
 | Stufe | Was | Modellaufrufe |
 |---|---|---|
