@@ -7,7 +7,7 @@ export const maxDuration = 300;
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { experte: expId, frage } = (await req.json()) as { experte: string; frage: string };
   if (!frage?.trim()) return Response.json({ fehler: "Frage fehlt" }, { status: 400 });
-  const s = await speicher(); const t = mandant(req);
+  const s = await speicher(req); const t = mandant(req);
   const o = await s.objekt(t, params.id); const stand = o?.experten[expId];
   if (!o || !stand) return Response.json({ fehler: "Kein Ergebnis dieses Experten vorhanden" }, { status: 404 });
   const p = await s.profil(t);

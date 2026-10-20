@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useApp } from "@/components/App";
 import { Anlageprofilformular, Investorformular, Spielraum } from "@/components/Profilteile";
 import { Paketvergleich } from "@/components/Quellen";
+import { Zugang } from "@/components/Zugang";
 import { neuesAnlageprofil } from "@/lib/vorgaben";
 import { pct } from "@/lib/format";
 
@@ -27,6 +28,7 @@ export default function ProfilSeite() {
         </div>
       </div>
       <Spielraum apId={aktiv} />
+      <Zugang />
       <Paketvergleich />
     </div>
   );

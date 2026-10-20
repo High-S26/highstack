@@ -7,7 +7,7 @@ export const maxDuration = 800;
 /** Teamlauf als Ereignisstrom. Bei Pass ohne Gestaltung/Unterlagen nur mit erzwingen; unveränderte Experten kommen aus dem Speicher. */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const body = (await req.json().catch(() => ({}))) as { erzwingen?: boolean; neu?: boolean };
-  const s = await speicher(); const t = mandant(req);
+  const s = await speicher(req); const t = mandant(req);
   const o = await s.objekt(t, params.id); if (!o) return Response.json({ fehler: "Nicht gefunden" }, { status: 404 });
   const p = await s.profil(t);
   return ereignisstrom(async (senden, signal) => {

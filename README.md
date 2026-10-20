@@ -36,3 +36,7 @@ npm test
 ## Rechtlicher Rahmen
 
 Ausgaben dienen der Information und Vorbereitung. Keine individuelle Steuerberatung (§ 5 StBerG), keine Rechtsdienstleistung im Einzelfall (RDG), keine Makler- oder Darlehensvermittlung (§§ 34c, 34i GewO). Die Experten übergeben Verbindliches als Fragen an Steuerberater, Notar, Anwalt oder Architekt; die Compliance-Rolle prüft jede Teamausgabe.
+
+## Online betreiben
+
+Anleitung für Server, Domain, Anmeldung und Sicherung: [DEPLOY.md](DEPLOY.md). Lokal ohne `AUTH_SECRET` läuft die App ohne Anmeldung.

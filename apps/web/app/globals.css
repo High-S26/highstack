@@ -474,3 +474,14 @@ a{color:var(--accent)}
 .hdsw .track-s{background:rgba(255,255,255,.3)}
 .xcard.off .bd,.xcard.off .ft{opacity:.55}
 .xcard .hd b{padding-right:96px}
+
+/* Anmeldung */
+.login{min-height:80vh;display:grid;place-items:center;padding:24px 0}
+.login-card{width:min(100%,420px);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-panel);padding:28px;display:grid;gap:16px}
+.login-card .brand{font-size:30px}
+.login-f{display:grid;gap:14px}
+.einladen{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:end}
+.einladen .hint{grid-column:1/-1}
+.einladen .seg{min-width:200px}
+@media (max-width:640px){.einladen{grid-template-columns:minmax(0,1fr)}}
+.who .btn{margin-left:4px}

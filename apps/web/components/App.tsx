@@ -45,7 +45,11 @@ export function App({ children }: { children: ReactNode }) {
   const pfad = usePathname(); const router = useRouter();
   const speicherTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => { Promise.all([api.profil(), api.objekte(), api.status()]).then(([p, o, s]) => {
+  const [ich, setIch] = useState<{ aktiv: boolean; email?: string; rolle?: string } | null>(null);
+  const login = pfad === "/login";
+  useEffect(() => { if (!login) fetch("/api/auth/ich").then(r => r.status === 401 ? (location.href = "/login", null) : r.json()).then(d => d && setIch(d)).catch(() => undefined); }, [login]);
+  const abmelden = async () => { await fetch("/api/auth/abmelden", { method: "POST" }); location.href = "/login"; };
+  useEffect(() => { if (login) return; Promise.all([api.profil(), api.objekte(), api.status()]).then(([p, o, s]) => {
     // Bestehende Daten ohne Suchaufträge: je Anlageprofil einen anlegen und Kandidaten zuordnen.
     if (!p.suchen) {
       p.suchen = p.anlageprofile.map(ap => ({ ...neueSuche({ ...p, aktivesAnlageprofil: ap.id }), name: ap.name }));
@@ -53,7 +57,7 @@ export function App({ children }: { children: ReactNode }) {
       api.speichereProfil(p);
     }
     setProfil(p); setObjekte(o); setTestmodus(s.testmodus);
-  }).catch(e => setToast({ text: e.message })); }, []);
+  }).catch(e => setToast({ text: e.message })); }, [login]);
   objekteRef.current = objekte;
   useEffect(() => { if (profil && !profil.onboarded && pfad !== "/start") router.replace("/start"); }, [profil, pfad, router]);
   const schliesseToast = useCallback(() => { clearTimeout(toastTimer.current); const f = ablaufRef.current; ablaufRef.current = null; f?.(); setToast(null); }, []);
@@ -84,6 +88,7 @@ export function App({ children }: { children: ReactNode }) {
   const wert = useMemo<AppZustand>(() => ({ profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion }), [profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion]);
   const aktiv = (href: string) => href === "/" ? pfad === "/" : pfad.startsWith(href) || (href === "/pruefen" && pfad.startsWith("/objekt"));
 
+  if (login) return <>{children}</>;
   return (
     <Ctx.Provider value={wert}>
       <div className="wrap">
@@ -92,7 +97,7 @@ export function App({ children }: { children: ReactNode }) {
           {profil?.onboarded && <nav className="nav" aria-label="Hauptnavigation">
             {NAV.map(([href, label, d]) => <Link key={href} href={href} className="navb" aria-current={aktiv(href) ? "page" : undefined}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d={d} /></svg>{label}</Link>)}
           </nav>}
-          <div className="who"><span>{testmodus ? "Testmodus" : "Lokal"}</span></div>
+          <div className="who">{ich?.aktiv ? <><span title={ich.rolle === "inhaber" ? "Inhaber" : "Mitglied"}>{ich.email}</span><button type="button" className="btn ghost sm" onClick={abmelden}>Abmelden</button></> : <span>{testmodus ? "Testmodus" : "Lokal"}</span>}</div>
         </div>
         {testmodus && <div className="testband"><b>Testmodus.</b> Alle Berechnungen laufen, die Experten liefern Platzhalter. Für echte Einschätzungen ANTHROPIC_API_KEY in .env eintragen.</div>}
         {profil ? children : <p className="note">Lädt …</p>}

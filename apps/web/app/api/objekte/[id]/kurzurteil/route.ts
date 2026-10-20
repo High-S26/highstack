@@ -7,7 +7,7 @@ export const maxDuration = 120;
 /** Stufe 1: ein Modellaufruf auf Basis der gerechneten Zahlen. */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { neu } = (await req.json().catch(() => ({}))) as { neu?: boolean };
-  const s = await speicher(); const t = mandant(req);
+  const s = await speicher(req); const t = mandant(req);
   const o = await s.objekt(t, params.id); if (!o) return Response.json({ fehler: "Nicht gefunden" }, { status: 404 });
   const p = await s.profil(t);
   const verbrauch = neuerVerbrauch(); const t0 = Date.now();

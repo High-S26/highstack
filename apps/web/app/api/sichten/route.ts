@@ -11,7 +11,7 @@ interface Extrakt { titel: string; ort: string; asset: Assetklasse; kaufpreis: n
 export async function POST(req: Request) {
   const { text, anlageprofilId, suchId } = (await req.json()) as { text: string; anlageprofilId?: string; suchId?: string };
   if (!text?.trim()) return Response.json({ fehler: "Text fehlt" }, { status: 400 });
-  const s = await speicher(); const t = mandant(req); const p = await s.profil(t);
+  const s = await speicher(req); const t = mandant(req); const p = await s.profil(t);
   const apId = anlageprofilId ?? p.aktivesAnlageprofil; const ap = p.anlageprofile.find(a => a.id === apId) ?? p.anlageprofile[0]!;
   const { client, modelle, testmodus } = ausUmgebung();
   if (testmodus) return Response.json({ fehler: "Sichten braucht einen API-Key (ANTHROPIC_API_KEY)." }, { status: 503 });

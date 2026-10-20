@@ -8,7 +8,7 @@ export const maxDuration = 300;
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { experte: expId, neu } = (await req.json()) as { experte: string; neu?: boolean };
   try { experte(expId); } catch { return Response.json({ fehler: "Unbekannter Experte" }, { status: 400 }); }
-  const s = await speicher(); const t = mandant(req);
+  const s = await speicher(req); const t = mandant(req);
   const o = await s.objekt(t, params.id); if (!o) return Response.json({ fehler: "Nicht gefunden" }, { status: 404 });
   const p = await s.profil(t);
   return ereignisstrom(async (senden, signal) => {

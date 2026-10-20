@@ -9,7 +9,7 @@ const MUSTER: [string, RegExp][] = [["kaufvertrag", /kaufvertrag|urkunde|notar/i
 
 /** Upload einer oder mehrerer Unterlagen (multipart, Feld "dateien", optional "schluessel"). PDFs werden serverseitig in Text umgewandelt. */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const s = await speicher(); const t = mandant(req);
+  const s = await speicher(req); const t = mandant(req);
   const o = await s.objekt(t, params.id); if (!o) return Response.json({ fehler: "Nicht gefunden" }, { status: 404 });
   const form = await req.formData();
   const fest = form.get("schluessel")?.toString();

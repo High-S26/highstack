@@ -77,3 +77,5 @@ export interface Objektdatensatz {
 }
 
 export interface Strategie { id: string; name: string; szenario: Partial<Szenario>; quelle: "eigen" | "vermoegen"; notiz?: string; erstellt: number }
+
+export interface Nutzer { email: string; tenant: string; rolle: "inhaber" | "mitglied"; name?: string; eingeladenVon?: string; erstellt: number; letzterLogin?: number }
