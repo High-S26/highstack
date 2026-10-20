@@ -1,0 +1,75 @@
+"use client";
+import { analyse, type Analyse, type Anlageprofil } from "@highstack/engine";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { api } from "@/lib/client";
+import type { Objektdatensatz, Profil } from "@/lib/typen";
+
+interface AppZustand {
+  profil: Profil | null;
+  objekte: Objektdatensatz[];
+  testmodus: boolean;
+  setzeProfil: (p: Profil) => void;
+  ladeObjekte: () => Promise<void>;
+  setzeObjekt: (o: Objektdatensatz) => void;
+  entferneObjekt: (id: string) => void;
+  anlageprofil: (id?: string) => Anlageprofil;
+  analyseVon: (o: Objektdatensatz) => Analyse;
+  meldung: (t: string) => void;
+}
+const Ctx = createContext<AppZustand | null>(null);
+export const useApp = () => { const c = useContext(Ctx); if (!c) throw new Error("useApp außerhalb von App"); return c; };
+
+const NAV = [
+  ["/", "Übersicht", "M3 9.5 10 3.5l7 6V17h-4.5v-4.5h-5V17H3z"],
+  ["/suchen", "Suchen", "M8.5 3.5a5 5 0 1 0 0 10a5 5 0 1 0 0-10M12.5 12.5 17 17"],
+  ["/pruefen", "Prüfen", "M5.5 3.5h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2M7 10l2.2 2.2L13.5 8"],
+  ["/portfolio", "Portfolio", "M4.5 7h11a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5v-7A1.5 1.5 0 0 1 4.5 7M7.5 7V4.5h5V7"],
+  ["/experten", "Experten", "M7 4.4a2.6 2.6 0 1 0 0 5.2a2.6 2.6 0 1 0 0-5.2M13.5 5.3a2.2 2.2 0 1 0 0 4.4a2.2 2.2 0 1 0 0-4.4M2.5 16.5c.4-2.8 2.2-4.2 4.5-4.2s4.1 1.4 4.5 4.2M12 12.4c2.6-.3 4.9.9 5.5 4.1"],
+  ["/profil", "Profil", "M10 4a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 17c.5-3 3-4.8 6-4.8s5.5 1.8 6 4.8"],
+] as const;
+
+export function App({ children }: { children: ReactNode }) {
+  const [profil, setProfil] = useState<Profil | null>(null);
+  const [objekte, setObjekte] = useState<Objektdatensatz[]>([]);
+  const [testmodus, setTestmodus] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const pfad = usePathname(); const router = useRouter();
+  const speicherTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => { Promise.all([api.profil(), api.objekte(), api.status()]).then(([p, o, s]) => { setProfil(p); setObjekte(o); setTestmodus(s.testmodus); }).catch(e => setToast(e.message)); }, []);
+  useEffect(() => { if (profil && !profil.onboarded && pfad !== "/start") router.replace("/start"); }, [profil, pfad, router]);
+  const meldung = useCallback((t: string) => { setToast(t); setTimeout(() => setToast(null), 3500); }, []);
+
+  const setzeProfil = useCallback((p: Profil) => {
+    setProfil(p); clearTimeout(speicherTimer.current);
+    speicherTimer.current = setTimeout(() => api.speichereProfil(p).catch(() => meldung("Profil konnte nicht gespeichert werden.")), 600);
+  }, [meldung]);
+  const ladeObjekte = useCallback(async () => setObjekte(await api.objekte()), []);
+  const setzeObjekt = useCallback((o: Objektdatensatz) => setObjekte(l => { const i = l.findIndex(x => x.id === o.id); return i < 0 ? [o, ...l] : l.map(x => x.id === o.id ? o : x); }), []);
+  const entferneObjekt = useCallback((id: string) => setObjekte(l => l.filter(x => x.id !== id)), []);
+  const anlageprofil = useCallback((id?: string) => { const l = profil!.anlageprofile; return l.find(a => a.id === (id ?? profil!.aktivesAnlageprofil)) ?? l[0]!; }, [profil]);
+  const analyseVon = useCallback((o: Objektdatensatz) => analyse({ investor: profil!.investor, anlageprofil: anlageprofil(o.anlageprofilId), objekt: o.objekt, szenario: o.szenario, module: o.module }), [profil, anlageprofil]);
+
+  const wert = useMemo<AppZustand>(() => ({ profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung }), [profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung]);
+  const aktiv = (href: string) => href === "/" ? pfad === "/" : pfad.startsWith(href) || (href === "/pruefen" && pfad.startsWith("/objekt"));
+
+  return (
+    <Ctx.Provider value={wert}>
+      <div className="wrap">
+        <div className="appbar">
+          <div className="brand">high<span>stack</span>.si</div>
+          {profil?.onboarded && <nav className="nav" aria-label="Hauptnavigation">
+            {NAV.map(([href, label, d]) => <Link key={href} href={href} className="navb" aria-current={aktiv(href) ? "page" : undefined}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d={d} /></svg>{label}</Link>)}
+          </nav>}
+          <div className="who"><span>{testmodus ? "Testmodus" : "Lokal"}</span></div>
+        </div>
+        {testmodus && <div className="testband">Testmodus: Kein API-Key gesetzt. Rechenwerk und Oberfläche laufen vollständig; die Experten liefern Platzhalter. ANTHROPIC_API_KEY in .env setzen.</div>}
+        {profil ? children : <p className="note">Lädt …</p>}
+        <footer>highstack.si dient ausschließlich der Information und fundierten Aufklärung. Die Berechnungen beruhen auf Ihren Annahmen und vereinfachten Modellen. Sie ersetzen keine Anlage-, Finanzierungs-, Steuer- oder Rechtsberatung im Einzelfall.</footer>
+      </div>
+      {toast && <div className="toast" role="status">{toast}</div>}
+    </Ctx.Provider>
+  );
+}

@@ -21,6 +21,7 @@ type W = Record<string, number | string | boolean>;
 const num = (w: W, k: string) => Number(w[k] ?? 0);
 const str = (w: W, k: string) => String(w[k] ?? "");
 const bool = (w: W, k: string) => w[k] === true || w[k] === "true";
+const de = (v: number, d = 1) => v.toLocaleString("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d });
 const kz = (key: string, label: string, wert: number | null, einheit: Kennzahl["einheit"]): Kennzahl => ({ key, label, wert: wert != null && Number.isFinite(wert) ? wert : null, einheit });
 const projektKennzahlen = (r: Projektergebnis): Kennzahl[] => [
   kz("gesamtkosten", "Gesamtkosten inkl. Zinsen", r.gesamtkostenInklZinsen, "€"),
@@ -90,7 +91,7 @@ export const MODULE: Modul[] = [
       const pw = num(w, "genehmigung");
       const verlust = nebenk * 0.4 + kp * nebenkostenSatz(p) + kp * num(w, "zins") * pl / 12;
       const hinweise: Hinweis[] = [];
-      if (r.margeAufKosten < 0.15) hinweise.push({ art: "warn", text: `Marge ${(r.margeAufKosten * 100).toFixed(1)} % liegt unter der üblichen Entwicklermarge von 15–20 %.` });
+      if (r.margeAufKosten < 0.15) hinweise.push({ art: "warn", text: `Marge ${de(r.margeAufKosten * 100, 1)} % liegt unter der üblichen Entwicklermarge von 15–20 %.` });
       if (pw < 0.6) hinweise.push({ art: "crit", text: "Genehmigung unsicher: Bauvoranfrage vor Ankauf oder Kaufvertrag mit Rücktrittsrecht prüfen lassen." });
       if (str(w, "zielnutzung") === "wohnen") hinweise.push({ art: "info", text: "Für Wohnen kann der Bau-Turbo Befreiungen erleichtern; die Zustimmung der Gemeinde und eine Baugenehmigung bleiben nötig." });
       return { projekt: r, hinweise, details: { nutzflaeche: nf, noi, kostenJeQmNutzflaeche: r.gesamtkostenInklZinsen / nf },
@@ -126,7 +127,7 @@ export const MODULE: Modul[] = [
       const mehr = jahrM - kostenM - jahrU;
       const invest = n * num(w, "moebelJeEinheit");
       const hinweise: Hinweis[] = [];
-      if (num(w, "mieteMoebliertQm") > zulaessig) hinweise.push({ art: "warn", text: `Angestrebte Miete über dem zulässigen Rahmen: höchstens ${zulaessig.toFixed(2)} €/m² bei Mietpreisbremse. Gerechnet wird mit dem zulässigen Wert.` });
+      if (num(w, "mieteMoebliertQm") > zulaessig) hinweise.push({ art: "warn", text: `Angestrebte Miete über dem zulässigen Rahmen: höchstens ${de(zulaessig, 2)} €/m² bei Mietpreisbremse. Gerechnet wird mit dem zulässigen Wert.` });
       if (mehr <= 0) hinweise.push({ art: "crit", text: "Möbliert lohnt sich mit diesen Annahmen nicht gegenüber der unmöblierten Vermietung." });
       hinweise.push({ art: "info", text: "Der Regierungsentwurf Mietrecht II ist noch kein Gesetz. Das Modul rechnet mit dem eingestellten Zuschlag; ohne gesonderten Ausweis gälte die Wohnung künftig als unmöbliert." });
       return { hinweise, details: { zulaessigQm: Number.isFinite(zulaessig) ? zulaessig : null, mieteQm },
@@ -203,8 +204,8 @@ export const MODULE: Modul[] = [
       }
       const pw = num(w, "genehmigung"); const verlust = nebenk * 0.4 + gp * nebenkostenSatz(p) + gp * num(w, "zins") * num(w, "planungMonate") / 12;
       const hinweise: Hinweis[] = [];
-      if (residual == null) hinweise.push({ art: "crit", text: `Selbst ohne Grundstückskosten wird die Zielmarge von ${(ziel * 100).toFixed(0)} % nicht erreicht: Verkaufspreis, Baukosten oder Dichte passen nicht zusammen.` });
-      else hinweise.push(gp > residual ? { art: "crit", text: `Für ${(ziel * 100).toFixed(0)} % Marge dürfte das Grundstück höchstens ${Math.round(residual).toLocaleString("de-DE")} € kosten.` } : { art: "good", text: `Der Grundstückspreis liegt unter dem Residualwert von ${Math.round(residual).toLocaleString("de-DE")} €.` });
+      if (residual == null) hinweise.push({ art: "crit", text: `Selbst ohne Grundstückskosten wird die Zielmarge von ${de(ziel * 100, 0)} % nicht erreicht: Verkaufspreis, Baukosten oder Dichte passen nicht zusammen.` });
+      else hinweise.push(gp > residual ? { art: "crit", text: `Für ${de(ziel * 100, 0)} % Marge dürfte das Grundstück höchstens ${Math.round(residual).toLocaleString("de-DE")} € kosten.` } : { art: "good", text: `Der Grundstückspreis liegt unter dem Residualwert von ${Math.round(residual).toLocaleString("de-DE")} €.` });
       return { projekt: r, hinweise, details: { bgf, wohnflaeche: wfl, noi, residualwert: residual },
         kennzahlen: [...projektKennzahlen(r), kz("bgf", "Bruttogeschossfläche", bgf, "m²"), kz("wfl", "Wohnfläche", wfl, "m²"), kz("residual", "Residualwert Grundstück bei Zielmarge", residual, "€"), kz("residualQm", "Residualwert je m² Grundstück", residual == null ? null : residual / num(w, "grundstueckQm"), "€/m²"), kz("erwartet", "Erwarteter Gewinn mit Baurechtsrisiko", risikoAngepasst(r, pw, verlust), "€")] };
     },
@@ -314,8 +315,8 @@ export const MODULE: Modul[] = [
       const energie = num(w, "pvJahr") + num(w, "ladeJahr"), uebrige = num(w, "werbungJahr") + num(w, "mobilfunkJahr");
       const hinweise: Hinweis[] = [];
       if (p.struktur === "gmbh" || p.struktur === "offen") {
-        if (mieteJahr > 0 && energie / mieteJahr > 0.1) hinweise.push({ art: "crit", text: `PV und Ladepunkte machen ${(energie / mieteJahr * 100).toFixed(0)} % der Mieteinnahmen aus; über 10 % gefährdet die erweiterte Kürzung in der GmbH.` });
-        if (uebrige > 0) hinweise.push({ art: "warn", text: `Werbung und Mobilfunk: ${(mieteJahr > 0 ? uebrige / mieteJahr * 100 : 0).toFixed(1)} % der Mieteinnahmen. Ob das die erweiterte Kürzung berührt, mit dem Steuerberater klären.` });
+        if (mieteJahr > 0 && energie / mieteJahr > 0.1) hinweise.push({ art: "crit", text: `PV und Ladepunkte machen ${de(energie / mieteJahr * 100, 0)} % der Mieteinnahmen aus; über 10 % gefährdet die erweiterte Kürzung in der GmbH.` });
+        if (uebrige > 0) hinweise.push({ art: "warn", text: `Werbung und Mobilfunk: ${de(mieteJahr > 0 ? uebrige / mieteJahr * 100 : 0, 1)} % der Mieteinnahmen. Ob das die erweiterte Kürzung berührt, mit dem Steuerberater klären.` });
       }
       return { hinweise, kennzahlen: [kz("jahr", "Zusatzertrag pro Jahr", jahr, "€"), kz("invest", "Investition", invest, "€"), kz("summe", `Ertrag über ${num(w, "laufzeit")} Jahre nach Investition`, jahr * num(w, "laufzeit") - invest, "€"), kz("amortisation", "Amortisation", jahr > 0 && invest > 0 ? invest / jahr : null, "Jahre"), kz("anteil", "Anteil an den Mieteinnahmen", mieteJahr > 0 ? jahr / mieteJahr : null, "%")] };
     },
