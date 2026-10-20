@@ -41,3 +41,19 @@ Investor ──Auftrag──▶ Orchestrator (teamlauf)
 3. Automatische Sichtung von Suchagent-Mails und Newslettern; lizenzierte Marktdaten.
 4. Management-Säule: Mieten, Darlehen, Fristen, Push-Hinweise.
 5. PDF-Bericht je Objekt; Partnernetz (Steuerberater, Kanzlei, Finanzierung).
+
+## Stufenmodell (Branch `light`)
+
+| Stufe | Was | Modellaufrufe |
+|---|---|---|
+| 0 Rechnen | Kennzahlen, Spielraum, Szenarien, Sensitivität, Steuern, Gestaltungsmodule (`@highstack/engine`) | 0 |
+| 1 Kurzurteil | Kernaussage, Fragen, Verhandlungsansatz (`/api/objekte/[id]/kurzurteil`) | 1 |
+| 2 Einzelexperte | gezielt eine Rolle, Ergebnis gespeichert | 1–3 |
+| 3 Teamlauf | Dokumentprüfer zuerst → Fachexperten mit seinen Befunden → Komitee → Compliance | ca. 10–20 |
+
+- **Gate:** Bei Einstufung *Pass* ohne Gestaltung und ohne Unterlagen startet der Teamlauf nur mit „Trotzdem beauftragen“ (`erzwingen`).
+- **Speicher:** Jeder Lauf erhält einen Fingerabdruck (`eingabeHash`: Kontext, Unterlagen, Zusatz, Skill-Version). Unverändert → gespeichertes Ergebnis, kein Aufruf.
+- **Compliance:** zuerst Regelprüfung im Code (`compliance.ts`); das Modell prüft nur bei Treffern.
+- **Modell je Rolle:** stark (`expert`) nur für Komitee, Recht, Projektentwicklung; übrige Rollen `fast`.
+- **Weniger Werkzeuge:** Steuer ohne Werkzeuge, Verwalter/Bank nur Szenario bzw. Zielpreis; was im Kontext steht, wird nicht neu gerechnet.
+- **Verbrauch:** Aufrufe, Tokens und Dauer werden je Lauf gemessen und in der Oberfläche angezeigt.

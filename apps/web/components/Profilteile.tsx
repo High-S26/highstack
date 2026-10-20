@@ -2,7 +2,7 @@
 import { params, spielraum, type Anlageprofil, type Assetklasse, type Investorenprofil } from "@highstack/engine";
 import { eur, num, pct, STRUKTUR } from "@/lib/format";
 import { useApp } from "./App";
-import { Auswahl, BUNDESLAENDER, Haken, Text, Zahl } from "./Felder";
+import { Auswahl, BUNDESLAENDER, Haken, Marken, Text, Zahl } from "./Felder";
 
 export function Spielraum({ apId }: { apId: string }) {
   const { profil, setzeProfil, anlageprofil } = useApp();
@@ -35,7 +35,7 @@ export function Investorformular() {
       <div className="fields">
         <Zahl label="Eigenkapital" einheit="€" wert={inv.eigenkapital} onChange={v => set("eigenkapital", v ?? 0)} schritt={1000} />
         <Zahl label="Kreditrahmen" einheit="€" wert={inv.kreditrahmen} onChange={v => set("kreditrahmen", v ?? 0)} schritt={1000} />
-        <Auswahl label="Bundesland" wert={inv.bundesland} optionen={BUNDESLAENDER} onChange={v => set("bundesland", v)} />
+        <Auswahl liste label="Bundesland" wert={inv.bundesland} optionen={BUNDESLAENDER} onChange={v => set("bundesland", v)} />
         <Auswahl label="Erwerb als" wert={inv.struktur} optionen={[["privat", "Privat"], ["gbr", "GbR"], ["gmbh", "GmbH"], ["offen", "Noch offen"]]} onChange={v => set("struktur", v)} />
         {inv.struktur !== "gmbh" && <Zahl label="Grenzsteuersatz" prozent wert={inv.grenzsteuersatz} onChange={v => set("grenzsteuersatz", v ?? 0)} />}
         {inv.struktur === "gbr" && <Zahl label="Ihr Anteil an der GbR" prozent wert={inv.gbrAnteil} onChange={v => set("gbrAnteil", v ?? 0)} />}
@@ -71,11 +71,11 @@ export function Anlageprofilformular({ apId, kompakt }: { apId: string; kompakt?
       <div className="fields">
         <Text label="Name" wert={ap.name} onChange={v => set({ name: v })} />
         <Auswahl label="Strategie" wert={ap.strategie} optionen={[["Cashflow", "Cashflow"], ["Mix", "Mix"], ["Wertsteigerung", "Wertsteigerung"], ["Value-Add", "Value-Add"]]} onChange={v => set({ strategie: v })} />
-        <Text label="Regionen" voll wert={ap.regionen.join(", ")} platzhalter="Städte oder Stadtteile, durch Komma getrennt" onChange={v => set({ regionen: v.split(/[,;]+/).map(s => s.trim()).filter(Boolean) })} />
+        <Marken label="Regionen" voll werte={ap.regionen} platzhalter="z. B. Düsseldorf, dann Enter" hinweis="Städte oder Stadtteile. Enter oder Komma fügt hinzu." onChange={v => set({ regionen: v })} />
         <div className="full"><div className="note" style={{ marginBottom: 6 }}>Assetklassen</div>
           <div className="chips">{ASSETS.map(a => <label key={a} className="chip"><input type="checkbox" checked={ap.assetklassen.includes(a)} onChange={e => set({ assetklassen: e.target.checked ? [...ap.assetklassen, a] : ap.assetklassen.filter(x => x !== a) })} /> {a}</label>)}</div>
         </div>
-        <Zahl label="Kaufpreis bis" einheit="€" hinweis={`finanzierbar ${eur(finanzierbar)}`} wert={ap.preisMax} onChange={v => set({ preisMax: v })} schritt={5000} />
+        <Zahl label="Kaufpreis bis" einheit="€" hinweis={`Finanzierbar wären ${eur(finanzierbar)}`} wert={ap.preisMax} onChange={v => set({ preisMax: v })} schritt={5000} />
         <Zahl label="Min. Bruttorendite" prozent wert={ap.minBruttorendite} onChange={v => set({ minBruttorendite: v ?? 0 })} schritt={0.1} />
         <Zahl label="Max. Kaufpreisfaktor" wert={ap.maxFaktor} onChange={v => set({ maxFaktor: v })} schritt={0.5} />
         <Zahl label="Min. Cashflow" einheit="€/Monat" wert={ap.minCashflow} onChange={v => set({ minCashflow: v ?? 0 })} schritt={10} />

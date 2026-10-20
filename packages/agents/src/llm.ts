@@ -10,7 +10,10 @@ export interface LlmAnfrage {
   model: string; max_tokens: number; system: string; messages: Nachricht[];
   tools?: Werkzeugdefinition[]; tool_choice?: { type: "auto" } | { type: "any" } | { type: "tool"; name: string };
 }
-export interface LlmAntwort { content: Block[]; stop_reason: string | null }
+export interface LlmAntwort { content: Block[]; stop_reason: string | null; usage?: { input_tokens: number; output_tokens: number } }
+/** Verbrauch eines Laufs; wird von der Laufzeit hochgezählt. */
+export interface Verbrauch { aufrufe: number; inputTokens: number; outputTokens: number; ms: number }
+export const neuerVerbrauch = (): Verbrauch => ({ aufrufe: 0, inputTokens: 0, outputTokens: 0, ms: 0 });
 /** Schmale Schnittstelle zum Modell, damit Laufzeit und Tests ohne echte API auskommen. */
 export interface LlmClient { erstelle(a: LlmAnfrage, signal?: AbortSignal): Promise<LlmAntwort> }
 
@@ -19,7 +22,7 @@ export function anthropicClient(apiKey: string): LlmClient {
   return {
     async erstelle(a, signal) {
       const res = await client.messages.create(a as unknown as Anthropic.MessageCreateParamsNonStreaming, { signal });
-      return { content: res.content.filter(b => b.type === "text" || b.type === "tool_use") as Block[], stop_reason: res.stop_reason };
+      return { content: res.content.filter(b => b.type === "text" || b.type === "tool_use") as Block[], stop_reason: res.stop_reason, usage: { input_tokens: res.usage.input_tokens, output_tokens: res.usage.output_tokens } };
     },
   };
 }

@@ -42,6 +42,8 @@ export interface Expertenstand {
   ergebnis: unknown;
   schritte: string[];
   am: number;
+  /** Fingerabdruck der Eingaben; gleich = Ergebnis wird wiederverwendet */
+  hash?: string;
   verlauf: { rolle: "nutzer" | "experte"; text: string }[];
 }
 
