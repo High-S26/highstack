@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api } from "@/lib/client";
 import type { Objektdatensatz, Profil } from "@/lib/typen";
 import { neueSuche } from "@/lib/vorgaben";
+import { Logo } from "./Logo";
 
 interface AppZustand {
   profil: Profil | null;
@@ -93,7 +94,7 @@ export function App({ children }: { children: ReactNode }) {
     <Ctx.Provider value={wert}>
       <div className="wrap">
         <div className="appbar">
-          <Link href="/" className="brand" aria-label="highstack, zur Übersicht">high<span>stack</span></Link>
+          <Link href="/" className="brand" aria-label="highstack, zur Übersicht"><Logo /></Link>
           {profil?.onboarded && <nav className="nav" aria-label="Hauptnavigation">
             {NAV.map(([href, label, d]) => <Link key={href} href={href} className="navb" aria-current={aktiv(href) ? "page" : undefined}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d={d} /></svg>{label}</Link>)}
           </nav>}

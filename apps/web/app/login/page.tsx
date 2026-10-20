@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Logo } from "@/components/Logo";
 
 const FEHLER: Record<string, string> = { link: "Der Link ist abgelaufen oder wurde schon benutzt. Fordern Sie einfach einen neuen an.", zugang: "Für diese Adresse gibt es keinen Zugang. Bitten Sie den Inhaber des Kontos um eine Einladung." };
 
@@ -18,7 +19,7 @@ export default function Login() {
   return (
     <div className="login">
       <div className="login-card">
-        <div className="brand">high<span>stack</span></div>
+        <div className="brand"><Logo groesse={36} /></div>
         <h1>Anmelden</h1>
         {zustand !== "gesendet" ? <form onSubmit={senden} className="login-f">
           <p className="lead">Sie bekommen einen Link per E-Mail. Kein Passwort nötig.</p>
