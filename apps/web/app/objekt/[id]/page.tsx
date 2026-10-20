@@ -51,6 +51,14 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
   };
   const neuVomServer = (x: Objektdatensatz) => { setO(x); setzeObjekt(x); };
   const b = a.bewertung;
+  // Stand je Reiter statt Nummern: die Reiter sind eine empfohlene, keine feste Reihenfolge
+  const nMod = Object.keys(o.module).length, nDok = o.dokumente.filter(d => d.dateiId).length, nExp = Object.keys(o.experten).filter(k => k !== "kurzurteil").length;
+  const stand: Partial<Record<Tab, { text: string; titel: string }>> = {
+    spielen: Object.keys(o.szenario).length ? { text: "✓", titel: "eigene Annahmen gesetzt" } : undefined,
+    gestaltung: nMod ? { text: String(nMod), titel: `${nMod} Gestaltung aktiv` } : undefined,
+    unterlagen: nDok ? { text: String(nDok), titel: `${nDok} Unterlagen hochgeladen` } : undefined,
+    experten: nExp ? { text: String(nExp), titel: `${nExp} Expertenergebnisse` } : undefined,
+  };
   return (
     <div className="view">
       <div className="objbar">
@@ -62,7 +70,7 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
         <button type="button" className="btn sm danger" onClick={() => { offen.current = {}; aktuell.current = null; const ziel = o.status === "kandidat" && o.suchId ? `/suchen/${o.suchId}` : o.status === "bestand" ? "/portfolio" : "/pruefen"; loesche([o.id], `„${o.objekt.titel || "Objekt"}“ gelöscht`, () => router.push(ziel)); }}>Löschen</button>
       </div>
       <nav className="tabs" role="tablist" aria-label="Schritte">
-        {TABS.map(([k, l], i) => <button key={k} type="button" role="tab" className={`tab${k === "daten" ? " only-m" : ""}`} aria-selected={tab === k} onClick={() => setTab(k)}><span className="n">{i + 1}</span>{l}</button>)}
+        {TABS.map(([k, l]) => { const z = stand[k]; return <button key={k} type="button" role="tab" className={`tab${k === "daten" ? " only-m" : ""}`} aria-selected={tab === k} onClick={() => setTab(k)}>{l}{z && <span className="tz" title={z.titel}>{z.text}</span>}</button>; })}
         <div className="mini" aria-live="polite"><span>{b.score == null ? "–" : Math.round(b.score)}</span><span className={`pill ${b.einstufung ? "p-" + b.einstufung : ""}`}>{b.einstufung ? EINSTUFUNG[b.einstufung] : "–"}</span></div>
       </nav>
       <div className="grid">

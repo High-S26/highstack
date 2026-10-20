@@ -1,5 +1,12 @@
 "use client";
 import { useId, useState, type ReactNode } from "react";
+import { erklaerung } from "@/lib/erklaerungen";
+import { Info } from "./Info";
+
+const Beschriftung = ({ htmlFor, label, info }: { htmlFor?: string; label: ReactNode; info?: string }) => {
+  const t = info ?? erklaerung(label);
+  return <div className="lrow"><label htmlFor={htmlFor}>{label}</label>{t && <Info text={t} label={typeof label === "string" ? label : undefined} />}</div>;
+};
 
 /** Deutsche Zahl lesen: „245.000“, „3,8“, „1.250,50“ */
 export function leseZahl(t: string): number | null {
@@ -10,7 +17,7 @@ export function leseZahl(t: string): number | null {
 const zeige = (v: number) => v.toLocaleString("de-DE", { maximumFractionDigits: 3 });
 
 /** Zahlenfeld mit Tausenderpunkten, Einheit im Feld und Hilfetext darunter. `prozent`: gespeichert als Dezimalzahl. */
-export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, leerErlaubt, min, max }: { label: ReactNode; wert: number | null | undefined; onChange: (v: number | null) => void; prozent?: boolean; schritt?: number; einheit?: string; voll?: boolean; hinweis?: string; leerErlaubt?: boolean; min?: number; max?: number }) {
+export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, leerErlaubt, min, max, info }: { info?: string; label: ReactNode; wert: number | null | undefined; onChange: (v: number | null) => void; prozent?: boolean; schritt?: number; einheit?: string; voll?: boolean; hinweis?: string; leerErlaubt?: boolean; min?: number; max?: number }) {
   const id = useId();
   const intern = wert == null ? null : prozent ? Math.round(wert * 100000) / 1000 : wert;
   const [fokus, setFokus] = useState(false); const [roh, setRoh] = useState("");
@@ -19,7 +26,7 @@ export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, l
   const suffix = prozent ? "%" : einheit;
   return (
     <div className={`fld${voll ? " full" : ""}${fehler ? " err" : ""}`}>
-      <label htmlFor={id}>{label}</label>
+      <Beschriftung htmlFor={id} label={label} info={info} />
       <div className="adorn">
         <input id={id} type="text" inputMode="decimal" autoComplete="off" value={anzeige} aria-describedby={hinweis || fehler ? `${id}-h` : undefined} aria-invalid={!!fehler}
           onFocus={e => { setRoh(intern == null ? "" : zeige(intern)); setFokus(true); requestAnimationFrame(() => e.target.select()); }}
@@ -33,7 +40,7 @@ export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, l
 }
 export function Text({ label, wert, onChange, voll, platzhalter, hinweis }: { label: string; wert: string; onChange: (v: string) => void; voll?: boolean; platzhalter?: string; hinweis?: string }) {
   const id = useId();
-  return <div className={`fld${voll ? " full" : ""}`}><label htmlFor={id}>{label}</label><input id={id} type="text" value={wert} placeholder={platzhalter} onChange={e => onChange(e.target.value)} />{hinweis && <div className="hint">{hinweis}</div>}</div>;
+  return <div className={`fld${voll ? " full" : ""}`}><Beschriftung htmlFor={id} label={label} /><input id={id} type="text" value={wert} placeholder={platzhalter} onChange={e => onChange(e.target.value)} />{hinweis && <div className="hint">{hinweis}</div>}</div>;
 }
 /** Auswahl: bis vier kurze Optionen als Segmente (alles auf einen Blick, ein Tipp), sonst als Liste. */
 export function Auswahl<T extends string>({ label, wert, optionen, onChange, voll, liste }: { label: string; wert: T; optionen: [T, string][]; onChange: (v: T) => void; voll?: boolean; liste?: boolean }) {
@@ -41,15 +48,16 @@ export function Auswahl<T extends string>({ label, wert, optionen, onChange, vol
   const segmente = !liste && optionen.length <= 4 && optionen.reduce((n, [, l]) => n + l.length, 0) <= 30;
   if (segmente) return (
     <div className={`fld${voll ? " full" : ""}`} role="radiogroup" aria-labelledby={id}>
-      <span id={id} className="flabel">{label}</span>
+      <div className="lrow"><span id={id} className="flabel">{label}</span>{erklaerung(label) && <Info text={erklaerung(label)!} label={label} />}</div>
       <div className="seg">{optionen.map(([v, l]) => <label key={v} className="segi"><input type="radio" name={id} value={v} checked={wert === v} onChange={() => onChange(v)} /><span>{l}</span></label>)}</div>
     </div>
   );
-  return <div className={`fld${voll ? " full" : ""}`}><label htmlFor={id}>{label}</label><select id={id} value={wert} onChange={e => onChange(e.target.value as T)}>{optionen.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>;
+  return <div className={`fld${voll ? " full" : ""}`}><Beschriftung htmlFor={id} label={label} /><select id={id} value={wert} onChange={e => onChange(e.target.value as T)}>{optionen.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>;
 }
 /** Ja/Nein als Schalter */
 export function Haken({ label, wert, onChange }: { label: string; wert: boolean; onChange: (v: boolean) => void }) {
-  return <label className="switch full"><input type="checkbox" role="switch" checked={wert} onChange={e => onChange(e.target.checked)} /><span className="track-s" aria-hidden="true" /><span>{label}</span></label>;
+  const t = erklaerung(label);
+  return <div className="full swrow"><label className="switch"><input type="checkbox" role="switch" checked={wert} onChange={e => onChange(e.target.checked)} /><span className="track-s" aria-hidden="true" /><span>{label}</span></label>{t && <Info text={t} label={label} />}</div>;
 }
 /** Mehrere Begriffe (z. B. Regionen) als Marken: Enter oder Komma fügt hinzu, × entfernt. */
 export function Marken({ label, werte, onChange, platzhalter, voll, hinweis }: { label: string; werte: string[]; onChange: (v: string[]) => void; platzhalter?: string; voll?: boolean; hinweis?: string }) {
@@ -57,7 +65,7 @@ export function Marken({ label, werte, onChange, platzhalter, voll, hinweis }: {
   const add = (x: string) => { const n = x.split(/[,;]+/).map(s => s.trim()).filter(s => s && !werte.includes(s)); if (n.length) onChange([...werte, ...n]); setT(""); };
   return (
     <div className={`fld${voll ? " full" : ""}`}>
-      <label htmlFor={id}>{label}</label>
+      <Beschriftung htmlFor={id} label={label} />
       <div className="tags" onClick={e => (e.currentTarget.querySelector("input") as HTMLInputElement)?.focus()}>
         {werte.map(w => <span key={w} className="tagx">{w}<button type="button" aria-label={`${w} entfernen`} onClick={() => onChange(werte.filter(x => x !== w))}>×</button></span>)}
         <input id={id} value={t} placeholder={werte.length ? "" : platzhalter} onChange={e => { const v = e.target.value; if (/[,;]$/.test(v)) add(v); else setT(v); }}

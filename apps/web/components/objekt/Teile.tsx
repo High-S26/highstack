@@ -5,6 +5,8 @@ import { EINSTUFUNG, eur, kennzahl, num, pct, STRUKTUR, teur, vorzeichen } from 
 import type { Objektdatensatz } from "@/lib/typen";
 import { Auswahl, Haken, Kacheln, Text, Zahl } from "../Felder";
 import { Strategien } from "./Strategien";
+import { Info } from "../Info";
+import { erklaerung } from "@/lib/erklaerungen";
 import { expertMeta } from "../Experten";
 
 type Setze = (patch: Partial<Objektdatensatz>) => void;
@@ -75,7 +77,7 @@ export function Ergebnisbereich({ a, apName }: { a: Analyse; apName: string }) {
       </section>
       <section className="panel"><h2>Budget &amp; Finanzierung</h2><Kacheln eintraege={[["Kaufpreis bis", eur(k.kpMax)], ["Nebenkosten", `${eur(k.nebenkosten)} · ${pct(k.nebenkostenSatz)}`], ["Gesamtinvestition", eur(k.gesamtinvestition)], ["Darlehen", eur(k.darlehen)], ["Rate / Monat", eur(k.rateMonat)], ["Finanzierungslücke", (k.finanzierungsluecke ?? 0) > 0 ? eur(k.finanzierungsluecke) : "keine"]]} /></section>
       <section className="panel"><details><summary>Alle Kennzahlen</summary>
-        <div className="tbl"><table><thead><tr><th>Kennzahl</th><th className="num">Wert</th><th>Schwelle</th></tr></thead><tbody>{zeilen.map(([l, v, s, c]) => <tr key={l}><td><span className={`dot d-${c}`} />{l}</td><td className="num">{v}</td><td className="note">{s}</td></tr>)}</tbody></table></div>
+        <div className="tbl"><table><thead><tr><th>Kennzahl</th><th className="num">Wert</th><th>Schwelle</th></tr></thead><tbody>{zeilen.map(([l, v, s, c]) => <tr key={l}><td><span className={`dot d-${c}`} />{l}{erklaerung(l) && <Info text={erklaerung(l)!} label={l} />}</td><td className="num">{v}</td><td className="note">{s}</td></tr>)}</tbody></table></div>
       </details></section>
     </>
   );
@@ -94,7 +96,7 @@ const REGLER: Regel[] = [
   { key: "mietFaktor", label: "Miete gegenüber heute", min: 0.5, max: 2, schritt: 0.01, einheit: "€/Monat", zeige: v => vorzeichen(v - 1, x => pct(x, 0)), frei: (v, a) => Math.round((a.simulation?.miete0 ?? 0) / (a.szenario.mietFaktor || 1) * v), aus: (n, a) => { const b = (a.simulation?.miete0 ?? 0) / (a.szenario.mietFaktor || 1); return b ? n / b : 1; } },
   prozentRegel("mietsteigerung", "Mietsteigerung p. a.", -0.03, 0.08, 0.0025, 2, true),
   prozentRegel("kostensteigerung", "Kostensteigerung p. a.", -0.02, 0.08, 0.0025),
-  prozentRegel("leerstandZusatz", "Leerstand zusätzlich", 0, 0.5, 0.005, 1),
+  { key: "leerstandZusatz", label: "Leerstand zusätzlich", min: 0, max: 0.5, schritt: 1 / 24, einheit: "Monate/Jahr", zeige: v => `${num(v * 12, 1)} Mon. (${pct(v, 0)})`, frei: v => Math.round(v * 12 * 10) / 10, aus: n => Math.max(0, Math.min(12, n)) / 12 },
   prozentRegel("wertentwicklung", "Wertentwicklung p. a.", -0.06, 0.08, 0.0025, 2, true),
   { key: "haltedauer", label: "Haltedauer", min: 1, max: 40, schritt: 1, einheit: "Jahre", zeige: v => `${v} Jahre`, frei: v => v, aus: n => Math.max(1, Math.min(60, Math.round(n))) },
 ];
@@ -105,7 +107,7 @@ function Reglerzeile({ r, a, wert, setze, maxEk }: { r: Regel; a: Analyse; wert:
   const frei = r.frei(wert, a);
   return (
     <div className="sl">
-      <span className="sl-l">{r.label}</span><output>{r.zeige(wert, a)}</output>
+      <span className="sl-l">{r.label}{erklaerung(r.label) && <Info text={erklaerung(r.label)!} label={r.label} />}</span><output>{r.zeige(wert, a)}</output>
       <input type="range" min={r.min} max={max} step={r.schritt} value={Math.min(max, Math.max(r.min, wert))} aria-label={r.label} onChange={e => setze(Number(e.target.value))} />
       <div className="sl-f"><Zahl label={<span className="sr">{r.label} genau</span>} einheit={r.einheit} wert={frei} onChange={n => n != null && setze(r.aus(n, a))} /></div>
       {r.hint && <span className="hint">{r.hint}</span>}

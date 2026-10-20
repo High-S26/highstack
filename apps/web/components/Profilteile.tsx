@@ -3,6 +3,8 @@ import { params, spielraum, type Anlageprofil, type Assetklasse, type Investoren
 import { eur, num, pct, STRUKTUR } from "@/lib/format";
 import { useApp } from "./App";
 import { Auswahl, BUNDESLAENDER, Haken, Marken, Text, Zahl } from "./Felder";
+import { Info } from "./Info";
+import { erklaerung } from "@/lib/erklaerungen";
 
 export function Spielraum({ apId }: { apId: string }) {
   const { profil, setzeProfil, anlageprofil } = useApp();
@@ -15,7 +17,7 @@ export function Spielraum({ apId }: { apId: string }) {
       </div>
       <div className="sub">Investorenprofil ({eur(p.eigenkapital)} Eigenkapital, {eur(p.kreditrahmen)} Kredit, {STRUKTUR[p.struktur]}) kombiniert mit Anlageprofil „{ap.name}“ ({ap.strategie}{ap.regionen.length ? `, ${ap.regionen.join(", ")}` : ""})</div>
       <div className="k">
-        {([["Kaufpreis bis", eur(sr.kpMax)], ["Rate pro Monat", eur(sr.rate)], ["Cashflow ± 0 ab", `${pct(sr.noetigeRendite)} Rendite`], ["entspricht Faktor bis", num(sr.noetigerFaktor, 1)], ["Beleihungsauslauf", pct(sr.beleihungsauslauf, 0)]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong>{v}</strong></div>)}
+        {([["Kaufpreis bis", eur(sr.kpMax)], ["Rate pro Monat", eur(sr.rate)], ["Cashflow ± 0 ab", `${pct(sr.noetigeRendite)} Rendite`], ["entspricht Faktor bis", num(sr.noetigerFaktor, 1)], ["Beleihungsauslauf", pct(sr.beleihungsauslauf, 0)]] as const).map(([l, v]) => { const t = erklaerung(l === "Kaufpreis bis" ? "Kaufpreis bis " : l); return <div key={l}><span>{l}{t && <Info text={t} label={l} />}</span><strong>{v}</strong></div>; })}
       </div>
       <div className="say">{sr.traegtSich
         ? `Ihr Ziel von ${pct(ap.minBruttorendite)} Bruttorendite trägt sich bei dieser Finanzierung: Zum Höchstpreis bleiben rund ${eur(sr.cashflowBeiZielrendite)} pro Monat.`

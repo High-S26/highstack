@@ -13,7 +13,7 @@ export function Zugang() {
   const lade = () => fetch("/api/zugang").then(r => r.json()).then(setD).catch(() => undefined);
   useEffect(() => { lade(); }, []);
   if (!d) return null;
-  if (!d.aktiv) return <section className="panel"><div className="ph"><h2>Zugang</h2><span className="badge b-plan">lokal ohne Anmeldung</span></div><p className="note">Die App läuft lokal ohne Anmeldung. Online wird sie mit AUTH_SECRET betrieben: dann melden sich Nutzer per E-Mail-Link an, und Sie laden weitere Personen hier ein.</p></section>;
+  if (!d.aktiv) return <section className="panel"><div className="ph"><h2>Zugang</h2><span className="badge b-plan">lokal ohne Anmeldung</span></div><p className="note">Die Anmeldung ist ausgeschaltet, bis der Server eingerichtet ist. Lokal ausprobieren: in der .env AUTH_SECRET (beliebiger Text) und ADMIN_EMAIL (Ihre Adresse) setzen und die App neu starten. Ohne Mailversand erscheint der Anmelde-Link dann direkt auf der Anmeldeseite.</p></section>;
   const ichInhaber = d.nutzer.find(n => n.email === d.ich)?.rolle === "inhaber";
   const einladen = async (e: React.FormEvent) => {
     e.preventDefault(); setLaeuft(true); setLink(null);
