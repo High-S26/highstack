@@ -10,18 +10,35 @@ import { api } from "@/lib/client";
 import { EINSTUFUNG } from "@/lib/format";
 import type { Objektdatensatz } from "@/lib/typen";
 
+const leer = (x: Objektdatensatz) => !x.objekt.kaufpreis && !x.objekt.wohnflaeche && !x.objekt.miete && !x.objekt.ort?.trim() && (!x.objekt.titel?.trim() || x.objekt.titel === "Neues Objekt") && !x.expose?.trim() && !x.dokumente.some(d => d.dateiId) && !Object.keys(x.experten).length;
+
 const TABS = [["daten", "Daten"], ["ergebnis", "Ergebnis"], ["spielen", "Durchspielen"], ["gestaltung", "Gestaltung"], ["steuern", "Steuern & Struktur"], ["unterlagen", "Unterlagen"], ["experten", "Experten"]] as const;
 type Tab = (typeof TABS)[number][0];
 
 export default function ObjektSeite({ params }: { params: { id: string } }) {
-  const { objekte, profil, anlageprofil, setzeObjekt, meldung } = useApp();
+  const { objekte, profil, anlageprofil, setzeObjekt, entferneObjekt, meldung } = useApp();
   const [o, setO] = useState<Objektdatensatz | null>(objekte.find(x => x.id === params.id) ?? null);
   const [tab, setTab] = useState<Tab>("ergebnis");
   const [gespeichert, setGespeichert] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout>>(); const offen = useRef<Partial<Objektdatensatz>>({});
 
   useEffect(() => { api.objekt(params.id).then(x => { setO(x); setTab(x.objekt.kaufpreis ? "ergebnis" : "daten"); const t = new URLSearchParams(window.location.search).get("tab"); if (t && TABS.some(([k]) => k === t)) setTab(t as Tab); }).catch(() => meldung("Objekt nicht gefunden.")); }, [params.id, meldung]);
-  useEffect(() => () => { clearTimeout(timer.current); if (Object.keys(offen.current).length) api.aendereObjekt(params.id, offen.current); }, [params.id]);
+  const aktuell = useRef<Objektdatensatz | null>(null); aktuell.current = o;
+  const aktiv = useRef(false);
+  useEffect(() => {
+    aktiv.current = true;
+    return () => {
+      aktiv.current = false;
+      // kurz warten: React mountet im Entwicklungsmodus doppelt; nur echtes Verlassen zählt
+      setTimeout(() => {
+        if (aktiv.current) return;
+        clearTimeout(timer.current); const x = aktuell.current;
+        // Leerer Entwurf (nichts eingetragen, nichts hochgeladen) wird beim Verlassen nicht behalten.
+        if (x && leer(x)) { offen.current = {}; entferneObjekt(x.id); api.loescheObjekt(x.id); return; }
+        if (Object.keys(offen.current).length) { api.aendereObjekt(params.id, offen.current); offen.current = {}; }
+      }, 0);
+    };
+  }, [params.id, entferneObjekt]);
 
   const a = useMemo(() => o && profil ? analyse({ investor: profil.investor, anlageprofil: anlageprofil(o.anlageprofilId), objekt: o.objekt, szenario: o.szenario, module: o.module }) : null, [o, profil, anlageprofil]);
   if (!o || !a || !profil) return <p className="note">Lädt …</p>;
