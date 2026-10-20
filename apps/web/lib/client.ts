@@ -13,7 +13,7 @@ export const api = {
   loescheObjekt: (id: string) => fetch(`/api/objekte/${id}`, { method: "DELETE" }),
   rueckfrage: (id: string, experte: string, frage: string) => fetch(`/api/objekte/${id}/rueckfrage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ experte, frage }) }).then(r => json<{ antwort: string; verlauf: { rolle: string; text: string }[] }>(r)),
   hochladen: (id: string, dateien: File[], schluessel?: string) => { const f = new FormData(); dateien.forEach(d => f.append("dateien", d)); if (schluessel) f.append("schluessel", schluessel); return fetch(`/api/objekte/${id}/dokumente`, { method: "POST", body: f }).then(r => json<{ ergebnis: { datei: string; schluessel: string; zeichen: number }[]; dokumente: Objektdatensatz["dokumente"] }>(r)); },
-  sichten: (text: string, anlageprofilId: string) => fetch("/api/sichten", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, anlageprofilId }) }).then(r => json<{ angelegt: Objektdatensatz[] }>(r)),
+  sichten: (text: string, anlageprofilId: string, suchId?: string) => fetch("/api/sichten", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, anlageprofilId, suchId }) }).then(r => json<{ angelegt: Objektdatensatz[] }>(r)),
   markt: (region: string, asset: string, anlageprofilId: string) => fetch("/api/markt", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ region, asset, anlageprofilId }) }).then(r => json<{ region: string; asset: string; am: number; ergebnis: unknown; schritte: string[] }>(r)),
 };
 

@@ -1,6 +1,7 @@
 "use client";
 import { analyse } from "@highstack/engine";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/App";
 import { Expertenzeile, FACHEXPERTEN, Teamtafel } from "@/components/Experten";
@@ -16,7 +17,7 @@ const TABS = [["daten", "Daten"], ["ergebnis", "Ergebnis"], ["spielen", "Durchsp
 type Tab = (typeof TABS)[number][0];
 
 export default function ObjektSeite({ params }: { params: { id: string } }) {
-  const { objekte, profil, anlageprofil, setzeObjekt, entferneObjekt, meldung } = useApp();
+  const { objekte, profil, anlageprofil, setzeObjekt, entferneObjekt, meldung, loesche } = useApp(); const router = useRouter();
   const [o, setO] = useState<Objektdatensatz | null>(objekte.find(x => x.id === params.id) ?? null);
   const [tab, setTab] = useState<Tab>("ergebnis");
   const [gespeichert, setGespeichert] = useState("");
@@ -53,11 +54,12 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
   return (
     <div className="view">
       <div className="objbar">
-        <Link className="btn ghost sm" href="/pruefen">← Prüfen</Link>
+        {o.status === "kandidat" && o.suchId ? <Link className="btn ghost sm" href={`/suchen/${o.suchId}`}>← Suchauftrag</Link> : <Link className="btn ghost sm" href={o.status === "bestand" ? "/portfolio" : "/pruefen"}>← {o.status === "bestand" ? "Portfolio" : "Prüfen"}</Link>}
         <h1>{o.objekt.titel || "Objekt"}</h1>
         <label>Anlageprofil<select value={o.anlageprofilId} onChange={e => setze({ anlageprofilId: e.target.value })}>{profil.anlageprofile.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
         <label>Status<select value={o.status} onChange={e => setze({ status: e.target.value as Objektdatensatz["status"] })}><option value="kandidat">Kandidat</option><option value="pruefung">In Prüfung</option><option value="bestand">Bestand</option></select></label>
         <span className="note">{gespeichert}</span>
+        <button type="button" className="btn sm danger" onClick={() => { offen.current = {}; aktuell.current = null; const ziel = o.status === "kandidat" && o.suchId ? `/suchen/${o.suchId}` : o.status === "bestand" ? "/portfolio" : "/pruefen"; loesche([o.id], `„${o.objekt.titel || "Objekt"}“ gelöscht`, () => router.push(ziel)); }}>Löschen</button>
       </div>
       <nav className="tabs" role="tablist" aria-label="Schritte">
         {TABS.map(([k, l], i) => <button key={k} type="button" role="tab" className={`tab${k === "daten" ? " only-m" : ""}`} aria-selected={tab === k} onClick={() => setTab(k)}><span className="n">{i + 1}</span>{l}</button>)}

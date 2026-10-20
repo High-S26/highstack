@@ -1,43 +1,74 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "@/lib/client";
 import { EINSTUFUNG, eur, num, pct } from "@/lib/format";
 import type { Objektdatensatz } from "@/lib/typen";
 import { useApp } from "./App";
 
-function Zeile({ o, kandidat }: { o: Objektdatensatz; kandidat?: boolean }) {
-  const { analyseVon, anlageprofil, setzeObjekt, entferneObjekt, meldung } = useApp();
-  const router = useRouter(); const [sicher, setSicher] = useState(false);
+type Sortierung = "score" | "neu" | "preis" | "rendite";
+const SORT: [Sortierung, string][] = [["score", "Beste Passung"], ["neu", "Zuletzt geändert"], ["preis", "Preis aufsteigend"], ["rendite", "Rendite absteigend"]];
+
+function Zeile({ o, kandidat, gewaehlt, waehle }: { o: Objektdatensatz; kandidat?: boolean; gewaehlt: boolean; waehle: (an: boolean) => void }) {
+  const { analyseVon, anlageprofil, setzeObjekt, loesche } = useApp();
+  const router = useRouter();
   const a = analyseVon(o); const k = a.bewertung.kennzahlen; const cls = a.bewertung.einstufung;
   const pruefen = async () => { const n = await api.aendereObjekt(o.id, { status: "pruefung" }); setzeObjekt(n); router.push(`/objekt/${o.id}`); };
-  const loeschen = async () => { if (!sicher) { setSicher(true); setTimeout(() => setSicher(false), 4000); return; } await api.loescheObjekt(o.id); entferneObjekt(o.id); meldung(kandidat ? "Kandidat verworfen." : "Objekt gelöscht."); };
+  const titel = o.objekt.titel || "Ohne Titel";
   return (
-    <div className="orow">
-      <div>
-        <Link className="t" href={`/objekt/${o.id}`}>{o.objekt.titel || "Ohne Titel"}</Link>
-        <div className="m">{[o.objekt.ort, o.objekt.kaufpreis ? eur(o.objekt.kaufpreis) : null, o.objekt.wohnflaeche ? `${o.objekt.wohnflaeche} m²` : null, anlageprofil(o.anlageprofilId).name].filter(Boolean).join(" · ")}</div>
+    <div className={`orow${gewaehlt ? " sel" : ""}`}>
+      <input type="checkbox" className="pick" checked={gewaehlt} onChange={e => waehle(e.target.checked)} aria-label={`${titel} auswählen`} />
+      <div className="body">
+        <Link className="t" href={`/objekt/${o.id}`}>{titel}</Link>
+        <div className="m">{[o.objekt.ort, o.objekt.kaufpreis ? eur(o.objekt.kaufpreis) : null, o.objekt.wohnflaeche ? `${o.objekt.wohnflaeche} m²` : null, anlageprofil(o.anlageprofilId).name].filter(Boolean).join(", ")}</div>
         <div className="k">
           {k.bruttorendite != null && <span>Rendite {pct(k.bruttorendite)}</span>}
           {k.faktor != null && <span>Faktor {num(k.faktor, 1)}</span>}
-          {k.cashflowMonat != null && <span className={k.cashflowMonat < 0 ? "dn" : "up"}>CF {eur(k.cashflowMonat)}/M.</span>}
+          {k.cashflowMonat != null && <span className={k.cashflowMonat < 0 ? "dn" : "up"}>Cashflow {eur(k.cashflowMonat)} im Monat</span>}
           {Object.keys(o.module).length > 0 && <span>{Object.keys(o.module).length} Gestaltung</span>}
+          {!a.bewertung.regionOk && <span className="note">außerhalb Ihrer Regionen</span>}
         </div>
-        {!a.bewertung.regionOk && <div className="note">außerhalb Ihrer Regionen</div>}
       </div>
       <div className="a">
-        {cls && <span className={`pill p-${cls}`}>{a.bewertung.score != null ? `${Math.round(a.bewertung.score)} · ` : ""}{EINSTUFUNG[cls]}</span>}
+        {cls ? <span className={`pill p-${cls}`}>{a.bewertung.score != null && <b>{Math.round(a.bewertung.score)}</b>}{EINSTUFUNG[cls]}</span> : <span className="pill">Daten fehlen</span>}
         {kandidat && <button type="button" className="btn sm" onClick={pruefen}>Prüfen</button>}
-        <button type="button" className="btn danger sm" onClick={loeschen}>{sicher ? "Sicher?" : kandidat ? "Verwerfen" : "Löschen"}</button>
+        <button type="button" className="icon danger" onClick={() => loesche([o.id], kandidat ? `„${titel}“ verworfen` : `„${titel}“ gelöscht`)} aria-label={kandidat ? `${titel} verwerfen` : `${titel} löschen`} title={kandidat ? "Verwerfen" : "Löschen"}>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 6h12M8 6V4.5h4V6M5.5 6l.8 10h7.4l.8-10M8.5 9v4.5M11.5 9v4.5" /></svg>
+        </button>
       </div>
     </div>
   );
 }
 
-export function Objektliste({ objekte, leer, kandidat }: { objekte: Objektdatensatz[]; leer: string; kandidat?: boolean }) {
-  const { analyseVon } = useApp();
-  if (!objekte.length) return <div className="empty"><span>{leer}</span></div>;
-  const sortiert = [...objekte].map(o => [o, analyseVon(o).bewertung.score ?? -1] as const).sort((a, b) => b[1] - a[1]).map(x => x[0]);
-  return <div className="olist">{sortiert.map(o => <Zeile key={o.id} o={o} kandidat={kandidat} />)}</div>;
+/** Objektliste mit Filter, Sortierung, Mehrfachauswahl und Löschen mit Rückgängig. */
+export function Objektliste({ objekte, leer, kandidat, werkzeuge = true }: { objekte: Objektdatensatz[]; leer: React.ReactNode; kandidat?: boolean; werkzeuge?: boolean }) {
+  const { analyseVon, loesche, setzeObjekt, meldung } = useApp();
+  const [filter, setFilter] = useState(""); const [sort, setSort] = useState<Sortierung>("score"); const [wahl, setWahl] = useState<Set<string>>(new Set());
+  const liste = useMemo(() => {
+    const f = filter.trim().toLowerCase();
+    const x = objekte.filter(o => !f || `${o.objekt.titel} ${o.objekt.ort}`.toLowerCase().includes(f)).map(o => ({ o, a: analyseVon(o) }));
+    const wert = ({ o, a }: (typeof x)[number]) => sort === "score" ? -(a.bewertung.score ?? -1) : sort === "neu" ? -o.geaendert : sort === "preis" ? (o.objekt.kaufpreis ?? Infinity) : -(a.bewertung.kennzahlen.bruttorendite ?? -1);
+    return x.sort((p, q) => wert(p) - wert(q)).map(y => y.o);
+  }, [objekte, filter, sort, analyseVon]);
+  if (!objekte.length) return <div className="empty">{leer}</div>;
+  const gewaehlt = liste.filter(o => wahl.has(o.id)); const alle = gewaehlt.length === liste.length && liste.length > 0;
+  const waehle = (id: string, an: boolean) => setWahl(s => { const n = new Set(s); if (an) n.add(id); else n.delete(id); return n; });
+  const alleIn = async () => { for (const o of gewaehlt) setzeObjekt(await api.aendereObjekt(o.id, { status: "pruefung" })); meldung(`${gewaehlt.length} in die Prüfung übernommen`); setWahl(new Set()); };
+  return (
+    <div className="olist-wrap">
+      {werkzeuge && objekte.length > 1 && <div className="toolbar">
+        <label className="check"><input type="checkbox" checked={alle} onChange={e => setWahl(e.target.checked ? new Set(liste.map(o => o.id)) : new Set())} aria-label="Alle auswählen" /></label>
+        <input type="search" className="filter" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Nach Titel oder Ort filtern" aria-label="Filtern" />
+        <select value={sort} onChange={e => setSort(e.target.value as Sortierung)} aria-label="Sortieren">{SORT.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+      </div>}
+      {gewaehlt.length > 0 && <div className="bulk" role="region" aria-label="Auswahl">
+        <span>{gewaehlt.length} ausgewählt</span>
+        {kandidat && <button type="button" className="btn sm" onClick={alleIn}>In Prüfung übernehmen</button>}
+        <button type="button" className="btn sm danger" onClick={() => { loesche(gewaehlt.map(o => o.id), `${gewaehlt.length} ${kandidat ? "verworfen" : "gelöscht"}`); setWahl(new Set()); }}>{kandidat ? "Verwerfen" : "Löschen"}</button>
+        <button type="button" className="btn sm ghost" onClick={() => setWahl(new Set())}>Auswahl aufheben</button>
+      </div>}
+      <div className="olist">{liste.length ? liste.map(o => <Zeile key={o.id} o={o} kandidat={kandidat} gewaehlt={wahl.has(o.id)} waehle={an => waehle(o.id, an)} />) : <div className="empty">Kein Treffer für „{filter}“.</div>}</div>
+    </div>
+  );
 }

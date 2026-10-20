@@ -11,7 +11,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const s = await speicher(); const t = mandant(req);
   const o = await s.objekt(t, params.id); if (!o) return Response.json({ fehler: "Nicht gefunden" }, { status: 404 });
   const patch = (await req.json()) as Partial<Objektdatensatz>;
-  const erlaubt: (keyof Objektdatensatz)[] = ["status", "anlageprofilId", "objekt", "szenario", "module", "expose", "dokumente"];
+  const erlaubt: (keyof Objektdatensatz)[] = ["status", "anlageprofilId", "suchId", "objekt", "szenario", "module", "expose", "dokumente"];
   const neu = { ...o } as Objektdatensatz;
   for (const k of erlaubt) if (k in patch) (neu as unknown as Record<string, unknown>)[k] = patch[k];
   neu.geaendert = Date.now();

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "@/lib/client";
 import type { Objektdatensatz, Profil } from "@/lib/typen";
+import { neueSuche } from "@/lib/vorgaben";
 
 interface AppZustand {
   profil: Profil | null;
@@ -17,6 +18,10 @@ interface AppZustand {
   anlageprofil: (id?: string) => Anlageprofil;
   analyseVon: (o: Objektdatensatz) => Analyse;
   meldung: (t: string) => void;
+  /** Entfernt sofort aus der Ansicht; gelöscht wird erst, wenn „Rückgängig“ nicht gedrückt wurde. */
+  loesche: (ids: string[], text: string, danach?: () => void) => void;
+  /** Meldung mit Aktion, z. B. Rückgängig */
+  meldungMitAktion: (t: string, aktion: string, tun: () => void, ablauf?: () => void) => void;
 }
 const Ctx = createContext<AppZustand | null>(null);
 export const useApp = () => { const c = useContext(Ctx); if (!c) throw new Error("useApp außerhalb von App"); return c; };
@@ -34,13 +39,32 @@ export function App({ children }: { children: ReactNode }) {
   const [profil, setProfil] = useState<Profil | null>(null);
   const [objekte, setObjekte] = useState<Objektdatensatz[]>([]);
   const [testmodus, setTestmodus] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; aktion?: string; tun?: () => void } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(); const ablaufRef = useRef<(() => void) | null>(null);
+  const objekteRef = useRef<Objektdatensatz[]>([]);
   const pfad = usePathname(); const router = useRouter();
   const speicherTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => { Promise.all([api.profil(), api.objekte(), api.status()]).then(([p, o, s]) => { setProfil(p); setObjekte(o); setTestmodus(s.testmodus); }).catch(e => setToast(e.message)); }, []);
+  useEffect(() => { Promise.all([api.profil(), api.objekte(), api.status()]).then(([p, o, s]) => {
+    // Bestehende Daten ohne Suchaufträge: je Anlageprofil einen anlegen und Kandidaten zuordnen.
+    if (!p.suchen) {
+      p.suchen = p.anlageprofile.map(ap => ({ ...neueSuche({ ...p, aktivesAnlageprofil: ap.id }), name: ap.name }));
+      for (const x of o) if (x.status === "kandidat" && !x.suchId) { const su = p.suchen.find(q => q.anlageprofilId === x.anlageprofilId); if (su) { x.suchId = su.id; api.aendereObjekt(x.id, { suchId: su.id }); } }
+      api.speichereProfil(p);
+    }
+    setProfil(p); setObjekte(o); setTestmodus(s.testmodus);
+  }).catch(e => setToast({ text: e.message })); }, []);
+  objekteRef.current = objekte;
   useEffect(() => { if (profil && !profil.onboarded && pfad !== "/start") router.replace("/start"); }, [profil, pfad, router]);
-  const meldung = useCallback((t: string) => { setToast(t); setTimeout(() => setToast(null), 3500); }, []);
+  const schliesseToast = useCallback(() => { clearTimeout(toastTimer.current); const f = ablaufRef.current; ablaufRef.current = null; f?.(); setToast(null); }, []);
+  const meldung = useCallback((t: string) => { schliesseToast(); setToast({ text: t }); toastTimer.current = setTimeout(() => setToast(null), 3500); }, [schliesseToast]);
+  const meldungMitAktion = useCallback((t: string, aktion: string, tun: () => void, ablauf?: () => void) => {
+    schliesseToast(); ablaufRef.current = ablauf ?? null;
+    setToast({ text: t, aktion, tun: () => { clearTimeout(toastTimer.current); ablaufRef.current = null; tun(); setToast(null); } });
+    toastTimer.current = setTimeout(schliesseToast, 6000);
+  }, [schliesseToast]);
+  // Ausstehende Löschungen beim Schließen des Tabs noch abschicken
+  useEffect(() => { const f = () => { const a = ablaufRef.current; ablaufRef.current = null; a?.(); }; window.addEventListener("pagehide", f); return () => window.removeEventListener("pagehide", f); }, []);
 
   const setzeProfil = useCallback((p: Profil) => {
     setProfil(p); clearTimeout(speicherTimer.current);
@@ -49,27 +73,32 @@ export function App({ children }: { children: ReactNode }) {
   const ladeObjekte = useCallback(async () => setObjekte(await api.objekte()), []);
   const setzeObjekt = useCallback((o: Objektdatensatz) => setObjekte(l => { const i = l.findIndex(x => x.id === o.id); return i < 0 ? [o, ...l] : l.map(x => x.id === o.id ? o : x); }), []);
   const entferneObjekt = useCallback((id: string) => setObjekte(l => l.filter(x => x.id !== id)), []);
+  const loesche = useCallback((ids: string[], text: string, danach?: () => void) => {
+    const weg = objekteRef.current.filter(x => ids.includes(x.id));
+    setObjekte(l => l.filter(x => !ids.includes(x.id))); danach?.();
+    meldungMitAktion(text, "Rückgängig", () => setObjekte(l => [...weg, ...l.filter(x => !ids.includes(x.id))]), () => { for (const i of ids) fetch(`/api/objekte/${i}`, { method: "DELETE", keepalive: true }); });
+  }, [meldungMitAktion]);
   const anlageprofil = useCallback((id?: string) => { const l = profil!.anlageprofile; return l.find(a => a.id === (id ?? profil!.aktivesAnlageprofil)) ?? l[0]!; }, [profil]);
   const analyseVon = useCallback((o: Objektdatensatz) => analyse({ investor: profil!.investor, anlageprofil: anlageprofil(o.anlageprofilId), objekt: o.objekt, szenario: o.szenario, module: o.module }), [profil, anlageprofil]);
 
-  const wert = useMemo<AppZustand>(() => ({ profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung }), [profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung]);
+  const wert = useMemo<AppZustand>(() => ({ profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion }), [profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion]);
   const aktiv = (href: string) => href === "/" ? pfad === "/" : pfad.startsWith(href) || (href === "/pruefen" && pfad.startsWith("/objekt"));
 
   return (
     <Ctx.Provider value={wert}>
       <div className="wrap">
         <div className="appbar">
-          <div className="brand">high<span>stack</span>.si</div>
+          <Link href="/" className="brand" aria-label="highstack, zur Übersicht">high<span>stack</span></Link>
           {profil?.onboarded && <nav className="nav" aria-label="Hauptnavigation">
             {NAV.map(([href, label, d]) => <Link key={href} href={href} className="navb" aria-current={aktiv(href) ? "page" : undefined}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d={d} /></svg>{label}</Link>)}
           </nav>}
           <div className="who"><span>{testmodus ? "Testmodus" : "Lokal"}</span></div>
         </div>
-        {testmodus && <div className="testband">Testmodus: Kein API-Key gesetzt. Rechenwerk und Oberfläche laufen vollständig; die Experten liefern Platzhalter. ANTHROPIC_API_KEY in .env setzen.</div>}
+        {testmodus && <div className="testband"><b>Testmodus.</b> Alle Berechnungen laufen, die Experten liefern Platzhalter. Für echte Einschätzungen ANTHROPIC_API_KEY in .env eintragen.</div>}
         {profil ? children : <p className="note">Lädt …</p>}
         <footer>highstack.si dient ausschließlich der Information und fundierten Aufklärung. Die Berechnungen beruhen auf Ihren Annahmen und vereinfachten Modellen. Sie ersetzen keine Anlage-, Finanzierungs-, Steuer- oder Rechtsberatung im Einzelfall.</footer>
       </div>
-      {toast && <div className="toast" role="status">{toast}</div>}
+      {toast && <div className="toast" role="status"><span>{toast.text}</span>{toast.aktion && <button type="button" onClick={toast.tun}>{toast.aktion}</button>}</div>}
     </Ctx.Provider>
   );
 }
