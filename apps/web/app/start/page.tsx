@@ -8,6 +8,7 @@ import { Spielraum } from "@/components/Profilteile";
 import { api } from "@/lib/client";
 import { eur, pct } from "@/lib/format";
 import { nachStrategie } from "@/lib/vorgaben";
+import { WizFuss, WizKopf } from "@/components/Assistent";
 
 const SCHRITTE = ["Kapital", "Erwerb", "Finanzierung", "Suche", "Spielraum"] as const;
 const STRUKTUR: [Struktur, string, string][] = [["privat", "Privat", "Im eigenen Namen"], ["gbr", "GbR", "Mit Partner oder Familie"], ["gmbh", "GmbH", "Vermögensverwaltend, bestehend oder geplant"], ["offen", "Noch offen", "Wir rechnen beide Wege zum Vergleich"]];
@@ -16,7 +17,7 @@ const STRATEGIE: [Anlageprofil["strategie"], string][] = [["Cashflow", "Laufende
 
 /** Einrichtung in fünf kurzen Schritten mit Live-Vorschau des Spielraums. */
 export default function Start() {
-  const { profil, setzeProfil, setzeObjekt } = useApp(); const router = useRouter();
+  const { profil, setzeProfil, setzeObjekt, frage } = useApp(); const router = useRouter();
   const [schritt, setSchritt] = useState(0);
   const [inv, setInv] = useState(profil!.investor);
   const [ap, setAp] = useState<Anlageprofil>(profil!.anlageprofile[0]!);
@@ -29,6 +30,16 @@ export default function Start() {
   const zumSpielraum = async () => { const p = fertigesProfil(); await api.speichereProfil(p); setzeProfil(p); setSchritt(5); };
   const mitBeispiel = async () => { const p = { ...profil!, onboarded: true }; await api.speichereProfil(p); setzeProfil(p); const o = await api.neuesObjekt({ beispiel: true }); setzeObjekt(o); router.replace(`/objekt/${o.id}`); };
   const weiter = () => schritt === 4 ? zumSpielraum() : setSchritt(s => s + 1);
+  // Abbrechen: Erstnutzer starten mit Standardwerten, Wiederkehrende verwerfen nur die Änderungen
+  const erstmals = !profil!.onboarded;
+  const abbrechen = async () => {
+    if (schritt === 5) { router.push("/"); return; }
+    if (erstmals) {
+      if (!await frage({ titel: "Einrichtung später?", text: "Sie starten mit typischen Standardwerten (50.000 € Eigenkapital, 230.000 € Kredit). Alles lässt sich jederzeit unter Profil ändern.", ja: "Mit Standardwerten starten", nein: "Weiter einrichten" })) return;
+      const p = { ...profil!, onboarded: true }; await api.speichereProfil(p); setzeProfil(p); router.replace("/"); return;
+    }
+    if (await frage({ titel: "Abbrechen?", text: "Ihre Änderungen in diesem Assistenten werden nicht übernommen. Ihr Profil bleibt wie es war.", ja: "Abbrechen", nein: "Weiter bearbeiten", gefahr: true })) router.push("/");
+  };
 
   if (schritt === 0) return (
     <div className="view wiz willkommen">
@@ -39,14 +50,14 @@ export default function Start() {
         <li><b>Objekte prüfen</b><span>Exposé hochladen, Ergebnis sehen, Annahmen durchspielen</span></li>
         <li><b>Experten fragen</b><span>Makler, Bank, Verwalter, Steuer und Recht als Team, auf Abruf</span></li>
       </ul>
-      <div className="row"><button type="button" className="btn" onClick={() => setSchritt(1)}>Einrichten</button><button type="button" className="btn ghost" onClick={mitBeispiel}>Erst ein Beispiel ansehen</button></div>
+      <div className="row"><button type="button" className="btn" onClick={() => setSchritt(1)}>Einrichten</button><button type="button" className="btn ghost" onClick={mitBeispiel}>Erst ein Beispiel ansehen</button>{!erstmals && <button type="button" className="btn ghost" onClick={() => router.push("/")}>Abbrechen</button>}</div>
       <p className="note">Alles lässt sich später unter Profil ändern. highstack informiert, berät aber nicht.</p>
     </div>
   );
 
   return (
     <div className="view wiz">
-      <ol className="wiz-steps" aria-label="Schritte">{SCHRITTE.map((l, i) => <li key={l} className={i + 1 < schritt ? "done" : i + 1 === schritt ? "now" : ""} aria-current={i + 1 === schritt ? "step" : undefined}><span>{i + 1 < schritt ? "✓" : i + 1}</span>{l}</li>)}</ol>
+      <WizKopf schritte={SCHRITTE} aktuell={schritt} gehe={n => setSchritt(n)} abbrechen={abbrechen} abbrechenText={schritt === 5 ? "Zur Übersicht" : erstmals ? "Später einrichten" : "Abbrechen"} />
       {schritt < 5 ? <div className="wiz-body wiz-pruefen">
         <div className="wiz-body">
           {schritt === 1 && <>
@@ -88,10 +99,7 @@ export default function Start() {
               <Text voll label="Name des Anlageprofils" wert={ap.name} onChange={v => setAp({ ...ap, name: v })} platzhalter="Mein erstes Investment" />
             </div>
           </>}
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <button className="btn ghost" type="button" onClick={() => setSchritt(s => s - 1)}>Zurück</button>
-            <button className="btn" type="button" onClick={weiter}>{schritt === 4 ? "Spielraum anzeigen" : "Weiter"}</button>
-          </div>
+          <WizFuss zurueck={() => setSchritt(s => s - 1)} weiter={weiter} weiterText={schritt === 4 ? "Spielraum anzeigen" : "Weiter"} />
         </div>
         <aside className="wiz-vorschau" aria-live="polite">
           <span className="flabel">Ihr Spielraum, live</span>
@@ -111,6 +119,7 @@ export default function Start() {
           <button type="button" className="wiz-karte" onClick={() => router.push("/suchen/neu")}><b>Einen Suchauftrag anlegen</b><span>Was und wo Sie suchen; Treffer werden gerankt</span></button>
           <button type="button" className="wiz-karte" onClick={() => router.push("/")}><b>Erst umsehen</b><span>Zur Übersicht mit Ihren ersten Schritten</span></button>
         </div>
+        <WizFuss zurueck={() => setSchritt(4)} />
       </div>}
     </div>
   );

@@ -656,3 +656,9 @@ footer{display:grid;gap:8px}
 .erste-l li.ok b{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
 .fundkarte{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:12px 14px;border-radius:12px;background:var(--good-soft)}
 .fundkarte span{color:var(--muted);font-size:13px;flex:1 1 200px}
+
+/* Assistent: Fußleiste und anklickbare Schritte */
+.wiz-fuss{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:16px;margin-top:4px}
+.wiz-fuss>.row:last-child{margin-left:auto}
+.wiz-sprung{font:inherit;color:inherit;background:none;border:0;padding:0;display:inline-flex;align-items:center;gap:6px;cursor:pointer;border-radius:999px}
+.wiz-sprung:hover{color:var(--fg);text-decoration:underline;text-underline-offset:3px}

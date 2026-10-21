@@ -8,6 +8,7 @@ import { Auswahl, Text, Zahl } from "@/components/Felder";
 import { api } from "@/lib/client";
 import { EINSTUFUNG, eur, num, pct } from "@/lib/format";
 import { LEERES_OBJEKT } from "@/lib/vorgaben";
+import { useAbbrechen, WizFuss, WizKopf } from "@/components/Assistent";
 
 type Quelle = "pdf" | "link" | "text" | "hand";
 const QUELLEN: { id: Quelle; titel: string; text: string; icon: string }[] = [
@@ -65,6 +66,8 @@ export default function NeuesObjekt() {
 
   const { objekte } = useApp();
   const beispiel = async () => { const da = objekte.find(x => x.objekt.titel?.startsWith("Beispiel:")); if (da) { router.push(`/objekt/${da.id}`); return; } const o = await api.neuesObjekt({ beispiel: true }); setzeObjekt(o); router.push(`/objekt/${o.id}`); };
+  const geaendert = !!quelle || !!ob.kaufpreis || !!ob.titel.trim();
+  const abbrechen = useAbbrechen("/pruefen", geaendert, "Das Objekt wird nicht angelegt; ausgelesene Werte gehen verloren.");
   const anlegen = async () => {
     setLegtAn(true);
     try {
@@ -78,10 +81,7 @@ export default function NeuesObjekt() {
   const k = a?.bewertung.kennzahlen; const einst = a?.bewertung.einstufung;
   return (
     <div className="view wiz">
-      <div className="wiz-kopf">
-        <Link className="btn ghost sm" href="/pruefen">Abbrechen</Link>
-        <ol className="wiz-steps" aria-label="Schritte">{["Quelle", "Auslesen", "Prüfen"].map((l, i) => <li key={l} className={i + 1 < schritt ? "done" : i + 1 === schritt ? "now" : ""} aria-current={i + 1 === schritt ? "step" : undefined}><span>{i + 1 < schritt ? "✓" : i + 1}</span>{l}</li>)}</ol>
-      </div>
+      <WizKopf schritte={quelle === "hand" ? ["Quelle", "Eingeben"] : ["Quelle", "Auslesen", "Prüfen"]} aktuell={quelle === "hand" && schritt === 3 ? 2 : schritt} gehe={n => setSchritt(n === 2 && quelle === "hand" ? 3 : n as 1 | 2 | 3)} abbrechen={abbrechen} />
 
       {schritt === 1 && <section className="wiz-body">
         <h1>Neues Objekt</h1>
@@ -98,7 +98,7 @@ export default function NeuesObjekt() {
         {quelle === "link" && <div className="fld"><label htmlFor="link">Link zur Anzeige</label><input id="link" type="url" inputMode="url" autoFocus value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" /></div>}
         {quelle === "text" && <div className="fld"><label htmlFor="txt">Text der Anzeige</label><textarea id="txt" autoFocus style={{ minHeight: 180 }} value={text} onChange={e => setText(e.target.value)} placeholder="Titel, Preis, Fläche, Miete, Hausgeld … einfach alles einfügen" /></div>}
         {profil!.anlageprofile.length > 1 && <Auswahl label="Prüfen gegen Anlageprofil" wert={apId} optionen={profil!.anlageprofile.map(x => [x.id, x.name] as [string, string])} onChange={setApId} />}
-        <div className="row"><button type="button" className="btn" disabled={!bereit} onClick={auslesen}>{quelle === "hand" ? "Weiter" : "Auslesen"}</button>{!quelle && <span className="note">Wählen Sie oben, womit Sie starten.</span>}</div>
+        <WizFuss weiter={auslesen} weiterAus={!bereit} weiterText={quelle === "hand" ? "Weiter" : "Auslesen"} hinweis={!quelle ? "Wählen Sie oben, womit Sie starten." : undefined} />
         <p className="note">Erst einmal schauen, wie es aussieht? <button type="button" className="linkbtn" onClick={beispiel}>Beispielobjekt öffnen</button></p>
       </section>}
 
@@ -108,7 +108,7 @@ export default function NeuesObjekt() {
         {!expose && !hinweis ? <div className="lesend" aria-live="polite"><span /><span /><span /></div> :
           <ul className="fund" aria-live="polite">{zeilen.slice(0, sichtbar).map(f => { const da = gefunden.includes(f.k); return <li key={f.k} className={da ? "ok" : "fehlt"}><span className="m">{da ? "✓" : "–"}</span><b>{f.label}</b><span>{da ? f.fmt(ob[f.k]) : "nicht gefunden, gleich ergänzen"}</span></li>; })}</ul>}
         {hinweis && <p className="hint">{hinweis}</p>}
-        {(sichtbar > zeilen.length || (!expose && hinweis)) && <div className="row"><button type="button" className="btn" onClick={() => setSchritt(3)}>Weiter zum Prüfen</button><button type="button" className="btn ghost" onClick={() => setSchritt(1)}>Andere Quelle</button></div>}
+        <WizFuss zurueck={() => setSchritt(1)} weiter={() => setSchritt(3)} weiterText="Weiter zum Prüfen" weiterAus={!(sichtbar > zeilen.length || (!expose && hinweis))} />
       </section>}
 
       {schritt === 3 && <section className="wiz-body wiz-pruefen">
@@ -126,6 +126,7 @@ export default function NeuesObjekt() {
             <div className={`erf ${markiert("hausgeldNichtUmlagefaehig")}`}><Zahl label={ob.asset === "ETW" ? "Hausgeld, nicht umlagefähig inkl. Rücklage" : "Nicht umlagefähige Kosten"} einheit="€/Monat" wert={ob.hausgeldNichtUmlagefaehig} onChange={v => set({ hausgeldNichtUmlagefaehig: v })} hinweis={gefunden.includes("hausgeldNichtUmlagefaehig") && herkunft === "muster" ? "geschätzt: 40 % des Hausgelds" : undefined} /></div>
             <div className={`erf ${markiert("baujahr")}`}><Zahl label="Baujahr" wert={ob.baujahr} onChange={v => set({ baujahr: v })} /></div>
           </div>
+          <WizFuss zurueck={() => setSchritt(quelle === "hand" ? 1 : 2)} />
         </div>
         <aside className="wiz-vorschau" aria-live="polite">
           <div className="ring" style={{ ["--p" as string]: `${(vorhanden.length / anzahlPflicht) * 100}` }}><b>{vorhanden.length}/{anzahlPflicht}</b><span>Eckdaten</span></div>
