@@ -21,7 +21,7 @@ function szenarioAus(inp: Record<string, unknown>, k: Werkzeugkontext): Szenario
   if (n(inp, "tilgung") != null) s.tilgung = n(inp, "tilgung")! / 100;
   if (n(inp, "miete_monat") != null && miete) s.mietFaktor = n(inp, "miete_monat")! / miete;
   const map: [string, keyof Szenario][] = [["mietsteigerung", "mietsteigerung"], ["kostensteigerung", "kostensteigerung"], ["wertentwicklung", "wertentwicklung"], ["leerstand_zusatz", "leerstandZusatz"], ["anschlusszins_aufschlag", "anschlusszinsAufschlag"]];
-  for (const [a, b] of map) if (n(inp, a) != null) (s as Record<string, number>)[b] = n(inp, a)! / 100;
+  for (const [a, b] of map) if (n(inp, a) != null) (s as unknown as Record<string, number>)[b] = n(inp, a)! / 100;
   if (n(inp, "hausgeld_faktor") != null) s.hausgeldFaktor = n(inp, "hausgeld_faktor")!;
   if (n(inp, "haltedauer") != null) s.haltedauer = Math.max(1, Math.min(40, Math.round(n(inp, "haltedauer")!)));
   return s;

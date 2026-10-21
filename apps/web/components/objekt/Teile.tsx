@@ -5,6 +5,7 @@ import { EINSTUFUNG, eur, kennzahl, num, pct, STRUKTUR, teur, vorzeichen } from 
 import type { Objektdatensatz } from "@/lib/typen";
 import { Auswahl, Haken, Kacheln, Text, Zahl } from "../Felder";
 import { Strategien } from "./Strategien";
+import { Positionen } from "./Positionen";
 import { Info } from "../Info";
 import { erklaerung } from "@/lib/erklaerungen";
 import { expertMeta } from "../Experten";
@@ -165,7 +166,8 @@ export function Durchspielen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; 
             <div className="legend"><span><i style={{ background: "var(--accent)" }} />Ihre Einstellung</span><span><i style={{ background: "var(--s-k)" }} />Konservativ</span><span><i style={{ background: "var(--s-o)" }} />Optimistisch</span></div>
           </div>
         </div>
-        {m && <details><summary>Forecast Jahr für Jahr</summary><div className="tbl"><table><thead><tr>{["Jahr", "Miete", "Kosten", "Zins", "Tilgung", "Cashflow", "Restschuld", "Wert", "Nettovermögen"].map(h => <th key={h} className="num">{h}</th>)}</tr></thead><tbody>{m.jahre.map(j => <tr key={j.jahr}>{[j.jahr, eur(j.miete), eur(j.kosten), eur(j.zins), eur(j.tilgung), eur(j.cashflow), eur(j.restschuld), eur(j.wert), eur(j.nettovermoegen)].map((v, i) => <td key={i} className={`num${i === 5 && j.cashflow < 0 ? " neg" : ""}`}>{v}</td>)}</tr>)}</tbody></table></div></details>}
+        <Positionen o={o} a={a} setze={setze} />
+        {m && <details><summary>Forecast Jahr für Jahr</summary><div className="tbl"><table><thead><tr>{["Jahr", "Miete", "Kosten", ...(o.szenario.positionen?.length ? ["Eigene Pos.", "Sondertilg."] : []), "Zins", "Tilgung", "Cashflow", "Restschuld", "Wert", "Nettovermögen"].map(h => <th key={h} className="num">{h}</th>)}</tr></thead><tbody>{m.jahre.map(j => { const zellen = [j.jahr, eur(j.miete), eur(j.kosten), ...(o.szenario.positionen?.length ? [eur(j.positionen), eur(j.sondertilgung)] : []), eur(j.zins), eur(j.tilgung), eur(j.cashflow), eur(j.restschuld), eur(j.wert), eur(j.nettovermoegen)]; const cfIdx = zellen.length - 4; return <tr key={j.jahr}>{zellen.map((v, i) => <td key={i} className={`num${i === cfIdx && j.cashflow < 0 ? " neg" : ""}`}>{v}</td>)}</tr>; })}</tbody></table></div></details>}
       </section>
       {m && <section className="panel">
         <div className="ph"><h2>Was bewegt das Ergebnis am stärksten?</h2><label style={{ gridAutoFlow: "column", alignItems: "center", gap: 8 }}>Messgröße<select style={{ width: "auto" }} value={metrik} onChange={e => setMetrik(e.target.value as typeof metrik)}><option value="cf">Cashflow Jahr 1</option><option value="irr">Eigenkapitalrendite</option><option value="nv">Nettovermögen am Ende</option></select></label></div>

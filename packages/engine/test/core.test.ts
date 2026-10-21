@@ -64,3 +64,26 @@ describe("Strategievorschlag", () => {
     expect(v.szenario.kaufpreisAenderung!).toBeGreaterThanOrEqual(-0.15);
   });
 });
+
+describe("Eigene Positionen", () => {
+  const basis = simuliere(p, OBJ, 720, standardSzenario(p))!;
+  it("Stellplatz +80 € im Monat hebt den Cashflow um 80 €", () => {
+    const m = simuliere(p, OBJ, 720, { ...standardSzenario(p), positionen: [{ id: "a", name: "Stellplatz", art: "einnahme", betrag: 80, takt: "monatlich", abJahr: 1 }] })!;
+    expect(m.cashflowJahr1Monat - basis.cashflowJahr1Monat).toBeCloseTo(80, 6);
+  });
+  it("Küche 6.000 € einmalig in Jahr 2 belastet nur Jahr 2", () => {
+    const m = simuliere(p, OBJ, 720, { ...standardSzenario(p), positionen: [{ id: "k", name: "Küche", art: "ausgabe", betrag: 6000, takt: "einmalig", abJahr: 2 }] })!;
+    expect(m.jahre[1]!.cashflow - basis.jahre[1]!.cashflow).toBeCloseTo(-6000, 6);
+    expect(m.jahre[2]!.cashflow).toBeCloseTo(basis.jahre[2]!.cashflow, 6);
+  });
+  it("Sondertilgung senkt die Restschuld", () => {
+    const m = simuliere(p, OBJ, 720, { ...standardSzenario(p), positionen: [{ id: "s", name: "Sondertilgung", art: "sondertilgung", betrag: 10000, takt: "einmalig", abJahr: 5 }] })!;
+    expect(basis.restschuldEnde - m.restschuldEnde).toBeGreaterThan(10000);
+    expect(m.jahre[4]!.cashflow - basis.jahre[4]!.cashflow).toBeCloseTo(-10000, 6);
+  });
+  it("Ausgabe beim Kauf (Jahr 0) erhöht den Kapitaleinsatz und senkt die Rendite", () => {
+    const m = simuliere(p, OBJ, 720, { ...standardSzenario(p), positionen: [{ id: "r", name: "Renovierung", art: "ausgabe", betrag: 15000, takt: "einmalig", abJahr: 0 }] })!;
+    expect(m.beimKauf).toBe(-15000);
+    expect(m.irr!).toBeLessThan(basis.irr!);
+  });
+});

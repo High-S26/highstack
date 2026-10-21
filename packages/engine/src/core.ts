@@ -1,4 +1,4 @@
-import type { Anlageprofil, Einstufung, Investorenprofil, Objekt, Params, Szenario } from "./types";
+import type { Anlageprofil, Einstufung, Investorenprofil, Objekt, Params, Position, Szenario } from "./types";
 
 export const GRUNDERWERBSTEUER: Record<string, number> = {
   NW: 0.065, BW: 0.05, BY: 0.035, BE: 0.06, BB: 0.065, HB: 0.05, HH: 0.055, HE: 0.06,
@@ -122,7 +122,16 @@ export const VORLAGEN = {
   optimistisch: { kaufpreisAenderung: -0.05, mietsteigerung: 0.03, kostensteigerung: 0.02, wertentwicklung: 0.03, anschlusszinsAufschlag: 0, leerstandZusatz: 0, mietFaktor: 1 },
 } satisfies Record<string, Partial<Szenario>>;
 
-export interface Jahr { jahr: number; miete: number; kosten: number; zins: number; tilgung: number; cashflow: number; restschuld: number; wert: number; nettovermoegen: number; dscr: number | null }
+export interface Jahr { jahr: number; miete: number; kosten: number; positionen: number; sondertilgung: number; zins: number; tilgung: number; cashflow: number; restschuld: number; wert: number; nettovermoegen: number; dscr: number | null }
+
+/** Betrag einer eigenen Position im Jahr t (ohne Vorzeichen) */
+export function positionImJahr(x: Position, t: number, s: Pick<Szenario, "mietsteigerung" | "kostensteigerung">): number {
+  const ab = Math.max(x.takt === "einmalig" ? 0 : 1, Math.round(x.abJahr || 0));
+  if (x.takt === "einmalig") return t === ab ? x.betrag : 0;
+  if (t < ab || (x.bisJahr != null && t > x.bisJahr)) return 0;
+  const g = x.dynamisch ? Math.pow(1 + (x.art === "einnahme" ? s.mietsteigerung : s.kostensteigerung), t - ab) : 1;
+  return (x.takt === "monatlich" ? x.betrag * 12 : x.betrag) * g;
+}
 
 /** Jahresplan über die Haltedauer mit Anschlussfinanzierung nach der Zinsbindung. */
 export function simuliere(p: Params, o: Objekt, mieteMonat: number | null, s: Szenario) {
@@ -136,6 +145,9 @@ export function simuliere(p: Params, o: Objekt, mieteMonat: number | null, s: Sz
   const hausgeld = (o.hausgeldNichtUmlagefaehig ?? 0) * (s.hausgeldFaktor ?? 1);
   const miete0 = mieteMonat * s.mietFaktor;
   let rest = darlehen, z = s.sollzins, annuitaet = darlehen * (s.sollzins + s.tilgung);
+  const pos = (s.positionen ?? []).filter(x => Number.isFinite(x.betrag) && x.betrag !== 0);
+  // Jahr 0: einmalige Positionen beim Kauf verändern den Eigenkapitaleinsatz
+  const beimKauf = pos.filter(x => x.takt === "einmalig" && (x.abJahr || 0) <= 0 && x.art !== "sondertilgung").reduce((a, x) => a + (x.art === "einnahme" ? x.betrag : -x.betrag), 0);
   const jahre: Jahr[] = [];
   for (let t = 1; t <= s.haltedauer; t++) {
     if (t === p.zinsbindung + 1 && rest > 0) { z = s.sollzins + s.anschlusszinsAufschlag; annuitaet = rest * (z + s.tilgung); }
@@ -144,16 +156,19 @@ export function simuliere(p: Params, o: Objekt, mieteMonat: number | null, s: Sz
     const zins = rest * z;
     const tilgung = Math.max(0, Math.min(rest, annuitaet - zins));
     rest -= tilgung;
-    const cashflow = miete - kosten - zins - tilgung;
+    const positionen = pos.filter(x => x.art !== "sondertilgung").reduce((a, x) => a + (x.art === "einnahme" ? 1 : -1) * positionImJahr(x, t, s), 0);
+    const sondertilgung = Math.min(rest, pos.filter(x => x.art === "sondertilgung").reduce((a, x) => a + positionImJahr(x, t, s), 0));
+    rest -= sondertilgung;
+    const cashflow = miete - kosten + positionen - zins - tilgung - sondertilgung;
     const wert = kp * Math.pow(1 + s.wertentwicklung, t);
-    jahre.push({ jahr: t, miete, kosten, zins, tilgung, cashflow, restschuld: rest, wert, nettovermoegen: wert - rest, dscr: zins + tilgung > 0 ? (miete - kosten) / (zins + tilgung) : null });
+    jahre.push({ jahr: t, miete, kosten, positionen, sondertilgung, zins, tilgung, cashflow, restschuld: rest, wert, nettovermoegen: wert - rest, dscr: zins + tilgung > 0 ? (miete - kosten + positionen) / (zins + tilgung) : null });
   }
   const ende = jahre[jahre.length - 1]!;
-  const flows = [-ekEinsatz, ...jahre.map(j => j.cashflow)];
+  const flows = [-ekEinsatz + beimKauf, ...jahre.map(j => j.cashflow)];
   flows[flows.length - 1]! += ende.wert - ende.restschuld;
   const dscrs = jahre.map(j => j.dscr).filter(fin);
   return {
-    kaufpreis: kp, gesamtinvestition: invest, nebenkostenSatz: nk, darlehen, ekEinsatz, jahre, miete0, ausfall, hausgeld,
+    kaufpreis: kp, gesamtinvestition: invest, beimKauf, nebenkostenSatz: nk, darlehen, ekEinsatz, jahre, miete0, ausfall, hausgeld,
     rateMonat: darlehen * (s.sollzins + s.tilgung) / 12,
     nettovermoegenStart: kp - darlehen,
     cashflowJahr1Monat: jahre[0]!.cashflow / 12,

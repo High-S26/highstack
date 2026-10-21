@@ -7,6 +7,7 @@ import { api } from "@/lib/client";
 import type { Objektdatensatz, Profil } from "@/lib/typen";
 import { neueSuche } from "@/lib/vorgaben";
 import { Logo } from "./Logo";
+import { Themaschalter } from "./Thema";
 
 interface AppZustand {
   profil: Profil | null;
@@ -98,7 +99,7 @@ export function App({ children }: { children: ReactNode }) {
           {profil?.onboarded && <nav className="nav" aria-label="Hauptnavigation">
             {NAV.map(([href, label, d]) => <Link key={href} href={href} className="navb" aria-current={aktiv(href) ? "page" : undefined}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d={d} /></svg>{label}</Link>)}
           </nav>}
-          <div className="who">{ich?.aktiv ? <><span title={ich.rolle === "inhaber" ? "Inhaber" : "Mitglied"}>{ich.email}</span><button type="button" className="btn ghost sm" onClick={abmelden}>Abmelden</button></> : <span>{testmodus ? "Testmodus" : "Lokal"}</span>}</div>
+          <div className="who"><Themaschalter />{ich?.aktiv ? <><span title={ich.rolle === "inhaber" ? "Inhaber" : "Mitglied"}>{ich.email}</span><button type="button" className="btn ghost sm" onClick={abmelden}>Abmelden</button></> : <span>{testmodus ? "Testmodus" : "Lokal"}</span>}</div>
         </div>
         {testmodus && <div className="testband"><b>Testmodus.</b> Alle Berechnungen laufen, die Experten liefern Platzhalter. Für echte Einschätzungen ANTHROPIC_API_KEY in .env eintragen.</div>}
         {profil ? children : <p className="note">Lädt …</p>}

@@ -76,6 +76,25 @@ export interface Szenario {
   wertentwicklung: number;
   haltedauer: number;
   hausgeldFaktor?: number;
+  /** Eigene Positionen: z. B. Stellplatz, Küche, Sondertilgung */
+  positionen?: Position[];
+}
+
+/**
+ * Eigene Position im Durchspielen. Einnahmen und Ausgaben fließen in den Cashflow,
+ * eine Sondertilgung senkt die Restschuld und kostet im Jahr der Zahlung Liquidität.
+ * Jahr 0 = beim Kauf (nur einmalig): erhöht oder senkt den Eigenkapitaleinsatz.
+ */
+export interface Position {
+  id: string;
+  name: string;
+  art: "einnahme" | "ausgabe" | "sondertilgung";
+  betrag: number;
+  takt: "einmalig" | "monatlich" | "jaehrlich";
+  abJahr: number;
+  bisJahr?: number | null;
+  /** wächst mit Miet- bzw. Kostensteigerung */
+  dynamisch?: boolean;
 }
 
 export interface Params extends Investorenprofil {

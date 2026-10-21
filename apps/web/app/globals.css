@@ -45,6 +45,7 @@ p{margin:0}
 .navb svg{width:16px;height:16px}
 .navb[aria-current="page"]{background:var(--purple);color:#fff;font-weight:600}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .navb[aria-current="page"]{color:#121417}}
+:root[data-theme="dark"] .navb[aria-current="page"]{color:#121417}
 .navb:hover{color:var(--fg)}
 .who{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 .who img{width:24px;height:24px;border-radius:50%}
@@ -494,6 +495,7 @@ a{color:var(--accent)}
 .info-b:hover,.info-b[aria-expanded="true"]{background:var(--purple);color:#fff;border-color:var(--purple)}
 .info-p{position:absolute;z-index:30;top:24px;left:-8px;width:min(300px,78vw);background:var(--anthrazit);color:#fff;font-size:12.5px;font-weight:400;line-height:1.45;padding:10px 12px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);text-transform:none;letter-spacing:0;white-space:normal}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .info-p{background:#eceef0;color:#121417}}
+:root[data-theme="dark"] .info-p{background:#eceef0;color:#121417}
 .room .info-b{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
 .room .info-p{background:#fff;color:#1f2328}
 .swrow{display:flex;align-items:center;gap:8px}
@@ -510,3 +512,27 @@ td .info{margin-left:6px}
 .logo .wort b{font-weight:600;color:var(--marke)}
 .logo .wort i{font-style:normal;color:var(--muted);font-weight:400;font-size:.62em;letter-spacing:0;margin-left:2px}
 .login-card .logo .wort{font-size:34px}
+
+/* Eigene Positionen */
+.posbox{display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.posbox h3{margin:0;font-family:var(--f-display);font-size:18px}
+.poslist{display:grid;gap:6px}
+.posrow{display:grid;grid-template-columns:minmax(140px,1.6fr) 130px 120px 110px 70px 70px 54px 32px;gap:6px;align-items:center}
+.posrow input,.posrow select{min-height:36px;padding:6px 9px;font-size:13.5px}
+.posrow .adorn input{padding-right:24px}
+.posrow .adorn .sfx{right:9px}
+.poshead{font-size:12px;color:var(--muted)}
+.posrow .switch{min-height:0}
+@media (max-width:900px){
+  .poshead{display:none}
+  .posrow{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px;border:1px solid var(--line);border-radius:12px}
+  .posrow>input:first-child{grid-column:1/-1}
+}
+
+/* Darstellung hell/dunkel */
+.thema{display:inline-flex;gap:2px;background:var(--sunk);border-radius:999px;padding:3px}
+.thema button{width:30px;height:28px;border:0;border-radius:999px;background:transparent;color:var(--muted);cursor:pointer;display:grid;place-items:center;padding:0}
+.thema button svg{width:16px;height:16px}
+.thema button[aria-checked="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.thema button:hover{color:var(--fg)}
+@media (max-width:760px){.who{gap:6px}}
