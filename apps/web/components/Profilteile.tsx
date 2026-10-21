@@ -22,7 +22,7 @@ export function Finanzierungsrahmen({ apId }: { apId: string }) {
       <div className="say">{sr.traegtSich
         ? `Ihr Ziel von ${pct(ap.minBruttorendite)} Bruttorendite trägt sich bei dieser Finanzierung: Zum Höchstpreis bleiben rund ${eur(sr.cashflowBeiZielrendite)} pro Monat.`
         : `Ihr Ziel von ${pct(ap.minBruttorendite)} Bruttorendite reicht bei dieser Finanzierung nicht für Cashflow ± 0: Zum Höchstpreis zahlen Sie rund ${eur(-sr.cashflowBeiZielrendite)} pro Monat zu. Gesucht sind Objekte ab ${pct(sr.noetigeRendite)} Rendite (Faktor bis ${num(sr.noetigerFaktor, 1)}), mehr Eigenkapital oder eine Wertsteigerungs-Strategie mit bewusster Zuzahlung.`}</div>
-      <div className="sub">Gilt für alle Deals. Den Spielraum für ein bestimmtes Objekt sehen Sie im Objekt unter Ergebnis. Annahme: 15 % der Miete für nicht umlagefähige Kosten, {pct(p.mietausfall, 0)} Mietausfall.</div>
+      <div className="sub">Gilt für alle Deals. Was bei einem bestimmten Objekt aufgeht, zeigt dort das Playbook unter Ergebnis. Annahme: 15 % der Miete für nicht umlagefähige Kosten, {pct(p.mietausfall, 0)} Mietausfall.</div>
     </section>
   );
 }

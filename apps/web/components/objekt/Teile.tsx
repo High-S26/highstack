@@ -57,8 +57,8 @@ export function Daten({ o, a, setze, zuUnterlagen }: { o: Objektdatensatz; a: An
   );
 }
 
-/** Spielraum für genau diesen Deal: Angebotspreis gegen Kapitalrahmen und Zielpreise */
-export function DealSpielraum({ o, a, zuDurchspielen }: { o: Objektdatensatz; a: Analyse; zuDurchspielen?: () => void }) {
+/** Playbook für genau diesen Deal: Angebotspreis gegen Kapitalrahmen und Zielpreise */
+export function Playbook({ o, a, zuDurchspielen }: { o: Objektdatensatz; a: Analyse; zuDurchspielen?: () => void }) {
   const angebot = mitStellplaetzen(o.objekt).kaufpreis; const k = a.bewertung.kennzahlen; const z = a.zielpreise; const ap = a.params.anlageprofil;
   if (!angebot) return null;
   const marken: [string, number | null | undefined, string][] = [["Ihr Kapital trägt bis", k.kpMax, "kapital"], ["Cashflow ± 0 bis", z.cashflowNull, "cashflow"], [`${pct(ap.minBruttorendite)} Rendite bis`, z.mindestrendite, "rendite"]];
@@ -68,8 +68,8 @@ export function DealSpielraum({ o, a, zuDurchspielen }: { o: Objektdatensatz; a:
   const grenze = Math.min(...da.map(m => m[1]));
   const verhandeln = da.length ? angebot - grenze : null;
   return (
-    <section className="panel spielraum-deal">
-      <div className="ph"><h2>Spielraum für diesen Deal</h2><span className="tag">aus Ihrem Kapital und Anlageprofil</span></div>
+    <section className="panel playbook">
+      <div className="ph"><h2>Playbook</h2><span className="tag">aus Ihrem Kapital und Anlageprofil</span></div>
       <div className="sr-skala" role="img" aria-label={`Angebot ${eur(angebot)}; ${da.map(([l, v]) => `${l} ${eur(v)}`).join("; ")}`}>
         <div className="sr-angebot" style={{ width: pos(angebot) }} />
         {da.map(([l, v, c]) => <div key={c} className={`sr-marke m-${c}${v >= angebot ? " ok" : ""}`} style={{ left: pos(v) }} title={`${l} ${eur(v)}`} />)}

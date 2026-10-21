@@ -112,7 +112,7 @@ export default function Start() {
         </aside>
       </div> : <div className="wiz-body">
         <h1>Das ist Ihr Finanzierungsrahmen</h1>
-        <p className="lead">Er gilt für alle Deals. In jedem Objekt sehen Sie dann den Spielraum für genau diesen Preis.</p>
+        <p className="lead">Er gilt für alle Deals. In jedem Objekt zeigt das Playbook, was bei genau diesem Preis aufgeht.</p>
         <Finanzierungsrahmen apId={profil!.aktivesAnlageprofil} />
         <h2 className="wiz-h2">Wie möchten Sie arbeiten?</h2>
         <div className="wiz-wahl" role="radiogroup" aria-label="Bedienmodus">
