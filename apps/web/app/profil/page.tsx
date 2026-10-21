@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useApp } from "@/components/App";
 import { Anlageprofilformular, Investorformular, Spielraum } from "@/components/Profilteile";
 import { neuesAnlageprofil } from "@/lib/vorgaben";
@@ -7,7 +8,7 @@ import { pct } from "@/lib/format";
 
 
 export default function ProfilSeite() {
-  const { profil, setzeProfil, frage } = useApp();
+  const { profil, setzeProfil, frage } = useApp(); const router = useRouter();
   const [aktiv, setAktiv] = useState(profil!.aktivesAnlageprofil);
   const hinzu = () => { const a = neuesAnlageprofil(); setzeProfil({ ...profil!, anlageprofile: [...profil!.anlageprofile, a] }); setAktiv(a.id); };
   const loeschen = async () => { if (profil!.anlageprofile.length < 2) return; const n = profil!.anlageprofile.find(a => a.id === aktiv)?.name; if (!await frage({ titel: "Anlageprofil löschen?", text: `„${n}“ wird gelöscht. Objekte und Suchaufträge, die es nutzen, werden dann am ersten verbleibenden Anlageprofil gemessen.`, ja: "Löschen", gefahr: true })) return; const rest = profil!.anlageprofile.filter(a => a.id !== aktiv); setzeProfil({ ...profil!, anlageprofile: rest, aktivesAnlageprofil: rest[0]!.id }); setAktiv(rest[0]!.id); };
@@ -20,7 +21,7 @@ export default function ProfilSeite() {
           <section className="panel">
             <div className="ph"><h2>Anlageprofile</h2><span className="tag">was Sie suchen</span></div>
             <div className="olist">{profil!.anlageprofile.map(a => <div key={a.id} className="orow plain"><div><button type="button" className="t" onClick={() => setAktiv(a.id)}>{a.name}</button><div className="m">{[a.strategie, a.assetklassen.join("/"), a.regionen.join(", ") || "alle Regionen", `≥ ${pct(a.minBruttorendite)}`].join(" · ")}</div></div><div className="a">{a.id === aktiv && <span className="badge b-tier">wird bearbeitet</span>}</div></div>)}</div>
-            <div className="row"><button type="button" className="btn ghost sm" onClick={hinzu}>Anlageprofil hinzufügen</button>{profil!.anlageprofile.length > 1 && <button type="button" className="btn danger sm" onClick={loeschen}>Ausgewähltes löschen</button>}</div>
+            <div className="row"><button type="button" className="btn ghost sm" onClick={() => router.push("/profil/neu")}>+ Anlageprofil</button>{profil!.anlageprofile.length > 1 && <button type="button" className="btn danger sm" onClick={loeschen}>Ausgewähltes löschen</button>}</div>
           </section>
           <Anlageprofilformular apId={aktiv} />
         </div>

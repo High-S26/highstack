@@ -637,3 +637,22 @@ footer{display:grid;gap:8px}
 @media (max-width:900px){.einklapp{display:none}}
 .wiz-zusammen{display:grid;gap:2px;padding:14px 16px;border:1px dashed var(--line);border-radius:14px}
 .wiz-zusammen span{color:var(--muted);font-size:13.5px}
+
+/* Onboarding */
+.willkommen{max-width:720px;padding-top:24px}
+.willkommen h1{font-size:44px}
+.vorteile{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.vorteile li{display:grid;gap:2px;padding:14px 16px 14px 46px;border:1px solid var(--line);border-radius:14px;position:relative}
+.vorteile li::before{content:"";position:absolute;left:16px;top:17px;width:16px;height:16px;border-radius:50%;background:var(--marke);box-shadow:0 0 0 4px var(--green-soft)}
+.vorteile span{color:var(--muted);font-size:13.5px}
+.wiz-h2{font-family:var(--f-display);font-size:24px;margin:8px 0 0}
+
+/* Erste Schritte */
+.erste-k{display:flex;align-items:center;gap:12px}
+.erste-l{list-style:none;margin:0;padding:0;display:grid;gap:0;border-top:1px solid var(--line)}
+.erste-l li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.erste-l li div{display:grid}
+.erste-l li span:not(.st){color:var(--muted);font-size:13px}
+.erste-l li.ok b{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+.fundkarte{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:12px 14px;border-radius:12px;background:var(--good-soft)}
+.fundkarte span{color:var(--muted);font-size:13px;flex:1 1 200px}

@@ -40,3 +40,9 @@ export function neueSuche(p: Profil, name?: string): Suchauftrag {
   const region = ap.regionen[0] ?? "";
   return { id: id(), name: name ?? ([ap.assetklassen[0] ?? "ETW", region].filter(Boolean).join(" ") || "Neue Suche"), anlageprofilId: ap.id, region, asset: ap.assetklassen[0] ?? "ETW", aktiv: true, erstellt: Date.now() };
 }
+
+/** Anlageprofil passend zur Strategie vorbelegen (Rendite, Faktor, Cashflow, Gewichte) */
+export function nachStrategie(ap: Anlageprofil, risiko: Investorenprofil["risiko"]): Anlageprofil {
+  const s = ap.strategie;
+  return { ...ap, name: ap.name.trim() || "Neues Anlageprofil", minBruttorendite: s === "Cashflow" ? 0.06 : s === "Wertsteigerung" ? 0.035 : 0.05, maxFaktor: s === "Cashflow" ? 17 : s === "Wertsteigerung" ? 30 : 22, minCashflow: s === "Wertsteigerung" ? -150 : 0, gewichte: { rendite: s === "Cashflow" ? 40 : 25, lage: s === "Wertsteigerung" ? 40 : 25, substanz: 20, finanzierung: 25 }, ko: { ...ap.ko, energieGH: risiko === "vorsichtig" } };
+}

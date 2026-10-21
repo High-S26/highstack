@@ -12,10 +12,10 @@ import { api } from "@/lib/client";
 import type { Suchauftrag } from "@/lib/typen";
 
 export default function Suchauftrag({ params }: { params: { id: string } }) {
-  const { profil, setzeProfil, setzeObjekt, meldung, testmodus, anlageprofil } = useApp();
+  const { profil, setzeProfil, setzeObjekt, meldung, testmodus, anlageprofil, analyseVon } = useApp();
   const { suchen, treffer, aendere, loesche } = useSuchen(); const router = useRouter();
   const s = suchen.find(x => x.id === params.id);
-  const [text, setText] = useState(""); const [laeuft, setLaeuft] = useState(false); const [status, setStatus] = useState("");
+  const [text, setText] = useState(""); const [laeuft, setLaeuft] = useState(false); const [status, setStatus] = useState(""); const [fund, setFund] = useState<{ n: number; beste: string | null } | null>(null);
   const [mbLaeuft, setMbLaeuft] = useState(false);
   if (!s) return <div className="view"><div className="empty"><b>Suchauftrag nicht gefunden</b><span>Er wurde gelöscht oder der Link ist veraltet.</span><Link className="btn" href="/suchen">Zu den Suchaufträgen</Link></div></div>;
   const ap = anlageprofil(s.anlageprofilId); const liste = treffer(s.id);
@@ -23,7 +23,9 @@ export default function Suchauftrag({ params }: { params: { id: string } }) {
   const sichten = async () => {
     if (!text.trim()) { setStatus("Fügen Sie zuerst Inserattexte ein."); return; }
     setLaeuft(true); setStatus("Der Daten-Analyst erkennt die Objekte …");
-    try { const r = await api.sichten(text, ap.id, s.id); r.angelegt.forEach(setzeObjekt); setze({ gesichtet: Date.now() }); setText(""); setStatus(`${r.angelegt.length} Objekte erkannt und nach Passung sortiert.`); }
+    try { const r = await api.sichten(text, ap.id, s.id); r.angelegt.forEach(setzeObjekt); setze({ gesichtet: Date.now() }); setText(""); setStatus("");
+      const best = r.angelegt.map(o => ({ o, a: analyseVon(o) })).sort((x, y) => (y.a.bewertung.score ?? -1) - (x.a.bewertung.score ?? -1))[0];
+      setFund({ n: r.angelegt.length, beste: best && best.a.bewertung.score != null ? `${best.o.objekt.titel} mit ${Math.round(best.a.bewertung.score)} Punkten` : null }); }
     catch (e) { setStatus((e as Error).message); } finally { setLaeuft(false); }
   };
   const key = `${s.region}|${s.asset}`; const briefing = profil!.research?.[key];
@@ -59,11 +61,12 @@ export default function Suchauftrag({ params }: { params: { id: string } }) {
             <div className="ph"><h2>Inserate sichten</h2><span className="tag">eines oder mehrere</span></div>
             <p className="note">Texte aus Inseraten, Suchagent-Mails oder Makler-Newslettern einfügen, gern mehrere hintereinander. Jedes Objekt wird erkannt, gerechnet und diesem Suchauftrag zugeordnet.</p>
             <textarea style={{ minHeight: 140 }} value={text} onChange={e => setText(e.target.value)} placeholder="Inserattexte hier einfügen" aria-label="Inserattexte" />
-            <div className="row"><button className="btn" type="button" disabled={laeuft || testmodus} onClick={sichten}>{laeuft ? "Sichtet …" : "Sichten und ranken"}</button><span className="status">{testmodus ? "Sichten braucht einen API-Key." : status}</span></div>
+            <div className="row"><button className="btn" type="button" disabled={laeuft || testmodus} onClick={sichten}>{laeuft ? "Sichtet …" : "Sichten und ranken"}</button><span className="status">{testmodus ? "Sichten braucht einen API-Key. Einzelne Exposés lesen Sie auch ohne Key über „+ Neues Objekt“ ein." : status}</span></div>
+            {fund && <div className="fundkarte" role="status"><b>{fund.n === 1 ? "1 Objekt erkannt" : `${fund.n} Objekte erkannt`}</b><span>{fund.beste ? `Beste Passung: ${fund.beste}` : "Nach Passung sortiert"}</span><button type="button" className="btn sm" onClick={() => { document.getElementById("treffer")?.scrollIntoView({ behavior: "smooth" }); setFund(null); }}>Treffer ansehen</button></div>}
           </section>
         </div>
         <div className="col">
-          <section className="panel"><div className="ph"><h2>Treffer</h2><span className="tag">{liste.length ? `${liste.length} Kandidaten` : "noch keine"}</span></div>
+          <section className="panel" id="treffer"><div className="ph"><h2>Treffer</h2><span className="tag">{liste.length ? `${liste.length} Kandidaten` : "noch keine"}</span></div>
             <Objektliste kandidat objekte={liste} leer={<><b>Noch keine Treffer</b><span>Fügen Sie links Inserate ein. Die besten Treffer stehen oben, mit „Prüfen“ geht ein Objekt in die Tiefe.</span></>} />
           </section>
           <Hintergrundsuche s={s} setze={setze} />

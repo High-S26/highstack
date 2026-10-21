@@ -20,6 +20,8 @@ export interface Profil {
   strategien?: Strategie[];
   /** Experten an/aus; fehlt ein Eintrag, ist der Experte an */
   experten?: Record<string, boolean>;
+  /** Karte „Erste Schritte“ auf der Übersicht ausgeblendet */
+  ersteSchritteAus?: boolean;
   /** Beantragte Kontolöschung: wird nach Ablauf der Frist ausgeführt, bis dahin abbrechbar */
   loeschung?: { beantragt: number; durch: string; ausfuehrung: number };
   /** Gebuchtes Paket; bis die Abrechnung aktiv ist, frei wählbar zum Ausprobieren */
