@@ -80,7 +80,7 @@ export default function NeuesObjekt() {
     try {
       const o = await api.neuesObjekt({ anlageprofilId: apId, objekt: { ...ob, titel: ob.titel.trim() || [ob.asset, ob.ort].filter(Boolean).join(", ") || "Neues Objekt" }, expose });
       let fertig = o;
-      if (datei) { try { const r = await api.hochladen(o.id, [datei], "sonst"); fertig = { ...o, dokumente: r.dokumente }; } catch { /* Objekt steht, Upload kann im Reiter Unterlagen wiederholt werden */ } }
+      if (datei) { try { const r = await api.hochladen(o.id, [datei]); fertig = { ...o, dokumente: r.dokumente }; } catch { /* Objekt steht, Upload kann im Reiter Unterlagen wiederholt werden */ } }
       setzeObjekt(fertig); meldung("Objekt angelegt"); router.push(`/objekt/${o.id}?tab=ergebnis`);
     } catch (e) { meldung((e as Error).message); setLegtAn(false); }
   };

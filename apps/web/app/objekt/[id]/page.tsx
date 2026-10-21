@@ -46,6 +46,11 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, o?.id, o?.besucht?.[tab]]);
   const aktuell = useRef<Objektdatensatz | null>(null); aktuell.current = o;
+  // Neu laden oder Tab schließen: offene Änderungen noch absenden
+  useEffect(() => {
+    const weg = () => { if (!Object.keys(offen.current).length) return; fetch(`/api/objekte/${params.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(offen.current), keepalive: true }); offen.current = {}; };
+    window.addEventListener("pagehide", weg); return () => window.removeEventListener("pagehide", weg);
+  }, [params.id]);
   const aktiv = useRef(false);
   useEffect(() => {
     aktiv.current = true;
@@ -97,7 +102,7 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
         <div className="mini" aria-live="polite"><span>{b.score == null ? "–" : Math.round(b.score)}</span><span className={`pill ${b.einstufung ? "p-" + b.einstufung : ""}`}>{b.einstufung ? EINSTUFUNG[b.einstufung] : "–"}</span></div>
       </nav>
       <div className={`grid${datenZu ? " zu" : ""}`}>
-        {(!datenZu || tab === "daten") && <div className="col" data-mobil-versteckt={tab !== "daten" ? "ja" : undefined}><Daten o={o} a={a} setze={setze} /></div>}
+        {(!datenZu || tab === "daten") && <div className="col" data-mobil-versteckt={tab !== "daten" ? "ja" : undefined}><Daten o={o} a={a} setze={setze} zuUnterlagen={() => zeige("unterlagen")} /></div>}
         <div className="col">
           {begleitet && (tab === "ergebnis" || tab === "daten") && <Concierge o={o} a={a} setze={setze} zuUnterlagen={() => zeige("unterlagen")} aus={() => setzeModus("selbst")} />}
           {tab === "ergebnis" || (tab === "daten" && !datenZu) ? <>{o.objekt.kaufpreis ? <Kurzurteilpanel objekt={o} onNeu={neuVomServer} /> : null}<Ergebnisbereich a={a} apName={anlageprofil(o.anlageprofilId).name} /></> : null}

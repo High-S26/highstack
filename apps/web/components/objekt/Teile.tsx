@@ -8,13 +8,14 @@ import { Strategien } from "./Strategien";
 import { useApp } from "../App";
 import { Positionen } from "./Positionen";
 import { Stellplaetze } from "./Stellplaetze";
+import { Grundrissvorschau } from "./Ansicht";
 import { Info } from "../Info";
 import { erklaerung } from "@/lib/erklaerungen";
 import { expertMeta } from "../Experten";
 
 type Setze = (patch: Partial<Objektdatensatz>) => void;
 
-export function Daten({ o, a, setze }: { o: Objektdatensatz; a: Analyse; setze: Setze }) {
+export function Daten({ o, a, setze, zuUnterlagen }: { o: Objektdatensatz; a: Analyse; setze: Setze; zuUnterlagen?: () => void }) {
   const ob = o.objekt; const set = (p: Partial<typeof ob>) => setze({ objekt: { ...ob, ...p } });
   const pruef: [unknown, string, string][] = [[ob.kaufpreis, "Kaufpreis", ""], [ob.wohnflaeche, "Wohnfläche", ""], [a.bewertung.miete, "Miete", "Ist-Miete oder Marktmiete"], [ob.hausgeldNichtUmlagefaehig, "Nicht umlagefähige Kosten", "WEG-Abrechnung"], [ob.vergleichspreisQm, "Vergleichspreis", "z. B. Capital-Immobilienkompass"], [ob.marktmieteQm, "Marktmiete", "Mietspiegel"], [ob.energieklasse, "Energieklasse", "Energieausweis"], [ob.baujahr, "Baujahr", "Exposé"]];
   const vorhanden = pruef.filter(x => x[0] != null && x[0] !== "").length; const q = vorhanden / pruef.length;
@@ -33,6 +34,8 @@ export function Daten({ o, a, setze }: { o: Objektdatensatz; a: Analyse; setze: 
         {!ob.leer && <Zahl label="Ist-Kaltmiete" einheit="€/Monat" wert={ob.miete} onChange={v => set({ miete: v })} schritt={10} />}
         <Zahl voll label={ob.asset === "ETW" ? "Hausgeld, nicht umlagefähig inkl. Rücklage" : "Nicht umlagefähige Kosten"} einheit="€/Monat" wert={ob.hausgeldNichtUmlagefaehig} onChange={v => set({ hausgeldNichtUmlagefaehig: v })} schritt={5} />
       </div>
+      <div className="grp">Grundriss</div>
+      <Grundrissvorschau o={o} zuUnterlagen={zuUnterlagen ?? (() => undefined)} />
       <div className="grp">Stellplatz</div>
       <Stellplaetze ob={ob} set={set} />
       <div className="meter"><div className="ph"><span className="note">Datenqualität</span><span className="note">{Math.round(q * 100)} %</span></div><div className="track"><div className="fill" style={{ width: `${q * 100}%`, background: q >= 0.85 ? "var(--good)" : q >= 0.5 ? "var(--warn)" : "var(--crit)" }} /></div>

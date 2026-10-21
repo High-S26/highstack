@@ -54,6 +54,23 @@ export interface Dokument {
   text?: string;
   status: "offen" | "angefordert" | "erhalten" | "geprueft" | "auffaellig";
   befund?: unknown;
+  /** Alle Dateien dieses Punkts; dateiId/dateiname zeigen auf die zuletzt hochgeladene */
+  dateien?: Unterlagendatei[];
+}
+
+/** Hochgeladene Datei. Grundrisse können auch Seiten einer anderen Datei sein (z. B. aus dem Exposé). */
+export interface Unterlagendatei {
+  id: string;
+  name: string;
+  mime: string;
+  text?: string;
+  /** Seiten, die hier relevant sind (Grundriss im Exposé) */
+  seiten?: number[];
+  /** Verweis: Datei liegt eigentlich unter einem anderen Punkt */
+  aus?: string;
+  /** automatisch zugeordnet, mit welcher Sicherheit */
+  erkannt?: { sicher: boolean; grund: string };
+  am: number;
 }
 
 export interface Expertenstand {

@@ -14,6 +14,7 @@ export interface Speicher {
   loescheObjekt(tenant: string, id: string): Promise<void>;
   speichereDatei(tenant: string, objektId: string, id: string, name: string, mime: string, inhalt: Uint8Array): Promise<void>;
   datei(tenant: string, id: string): Promise<{ name: string; mime: string; inhalt: Uint8Array } | null>;
+  loescheDatei(tenant: string, id: string): Promise<void>;
   /** Nutzer sind mandantenübergreifend nach E-Mail gespeichert */
   nutzer(email: string): Promise<Nutzer | null>;
   speichereNutzer(n: Nutzer): Promise<void>;
@@ -42,6 +43,10 @@ function dateiSpeicher(verzeichnis = join(process.cwd(), ".data")): Speicher {
       await fs.mkdir(join(verzeichnis, "files"), { recursive: true });
       await fs.writeFile(join(verzeichnis, "files", id), inhalt);
       await exklusiv(b => { b.dateien[id] = { tenant: t, name, mime }; }, true);
+    },
+    async loescheDatei(t, id) {
+      const weg = await exklusiv(b => { if (b.dateien[id]?.tenant !== t) return false; delete b.dateien[id]; return true; }, true);
+      if (weg) await fs.rm(join(verzeichnis, "files", id), { force: true });
     },
     nutzer: e => exklusiv(b => b.nutzer?.[e] ?? null, false),
     speichereNutzer: n => exklusiv(b => { (b.nutzer ??= {})[n.email] = n; }, true),
@@ -72,6 +77,7 @@ async function postgresSpeicher(url: string): Promise<Speicher> {
     async speichereObjekt(t, o) { await sql`insert into objekte (id, tenant_id, daten) values (${o.id}, ${t}, ${sql.json(o as never)}) on conflict (id) do update set daten = excluded.daten, geaendert = now() where objekte.tenant_id = ${t}`; },
     async loescheObjekt(t, id) { await sql`delete from objekte where tenant_id = ${t} and id = ${id}`; await sql`delete from dateien where tenant_id = ${t} and objekt_id = ${id}`; },
     async speichereDatei(t, objektId, id, name, mime, inhalt) { await sql`insert into dateien (id, tenant_id, objekt_id, name, mime, inhalt) values (${id}, ${t}, ${objektId}, ${name}, ${mime}, ${Buffer.from(inhalt)})`; },
+    async loescheDatei(t, id) { await sql`delete from dateien where tenant_id = ${t} and id = ${id}`; },
     async nutzer(e) { const r = await sql`select daten from nutzer where email = ${e}`; return (r[0]?.daten as Nutzer) ?? null; },
     async speichereNutzer(n) { await sql`insert into nutzer (email, tenant_id, daten) values (${n.email}, ${n.tenant}, ${sql.json(n as never)}) on conflict (email) do update set tenant_id = excluded.tenant_id, daten = excluded.daten`; },
     async nutzerVon(t) { const r = await sql`select daten from nutzer where tenant_id = ${t} order by erstellt`; return r.map(x => x.daten as Nutzer); },
