@@ -4,6 +4,7 @@ import { eur } from "@/lib/format";
 import type { Objektdatensatz } from "@/lib/typen";
 import { id } from "@/lib/vorgaben";
 import { Info } from "../Info";
+import { useApp } from "../App";
 
 const ART: [Position["art"], string][] = [["einnahme", "Einnahme"], ["ausgabe", "Ausgabe"], ["sondertilgung", "Sondertilgung"]];
 const TAKT: [Position["takt"], string][] = [["monatlich", "monatlich"], ["jaehrlich", "jährlich"], ["einmalig", "einmalig"]];
@@ -18,6 +19,7 @@ const zahl = (t: string) => { const n = Number(t.replace(/\./g, "").replace(",",
 
 /** Eigene Positionen: frei benannt, mit Betrag, Takt und Zeitraum. Fließen in Cashflow, Rendite und Forecast. */
 export function Positionen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; setze: (p: Partial<Objektdatensatz>) => void }) {
+  const { meldungMitAktion } = useApp();
   const liste = o.szenario.positionen ?? [];
   const speichere = (l: Position[]) => setze({ szenario: { ...o.szenario, positionen: l } });
   const aendere = (pid: string, patch: Partial<Position>) => speichere(liste.map(x => x.id === pid ? { ...x, ...patch } : x));
@@ -40,7 +42,7 @@ export function Positionen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; se
             <input aria-label="ab Jahr" inputMode="numeric" value={String(x.abJahr)} onChange={e => aendere(x.id, { abJahr: Math.max(x.takt === "einmalig" ? 0 : 1, Math.round(zahl(e.target.value))) })} />
             <input aria-label="bis Jahr" inputMode="numeric" disabled={x.takt === "einmalig"} value={x.bisJahr ?? ""} placeholder={x.takt === "einmalig" ? "–" : "Ende"} onChange={e => aendere(x.id, { bisJahr: e.target.value.trim() ? Math.round(zahl(e.target.value)) : null })} />
             <label className="switch"><input type="checkbox" role="switch" disabled={x.art === "sondertilgung" || x.takt === "einmalig"} checked={!!x.dynamisch} onChange={e => aendere(x.id, { dynamisch: e.target.checked })} aria-label="wächst mit Miet- bzw. Kostensteigerung" /><span className="track-s" aria-hidden="true" /></label>
-            <button type="button" className="icon danger" aria-label={`${x.name || "Position"} entfernen`} onClick={() => speichere(liste.filter(y => y.id !== x.id))}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg></button>
+            <button type="button" className="icon danger" aria-label={`${x.name || "Position"} entfernen`} onClick={() => { const vorher = liste; speichere(liste.filter(y => y.id !== x.id)); meldungMitAktion(`„${x.name || "Position"}“ entfernt`, "Rückgängig", () => speichere(vorher)); }}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg></button>
           </div>))}
       </div>}
       <div className="chips"><button type="button" className="chip add" onClick={() => neu()}>+ Position</button>{VORLAGEN.filter(v => !liste.some(x => x.name === v.name)).map(v => <button key={v.name} type="button" className="chip" onClick={() => neu(v)}>{v.name}</button>)}</div>

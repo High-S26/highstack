@@ -2,17 +2,15 @@
 import { useState } from "react";
 import { useApp } from "@/components/App";
 import { Anlageprofilformular, Investorformular, Spielraum } from "@/components/Profilteile";
-import { Paketvergleich } from "@/components/Quellen";
-import { Zugang } from "@/components/Zugang";
 import { neuesAnlageprofil } from "@/lib/vorgaben";
 import { pct } from "@/lib/format";
 
 
 export default function ProfilSeite() {
-  const { profil, setzeProfil } = useApp();
+  const { profil, setzeProfil, frage } = useApp();
   const [aktiv, setAktiv] = useState(profil!.aktivesAnlageprofil);
   const hinzu = () => { const a = neuesAnlageprofil(); setzeProfil({ ...profil!, anlageprofile: [...profil!.anlageprofile, a] }); setAktiv(a.id); };
-  const loeschen = () => { if (profil!.anlageprofile.length < 2) return; const rest = profil!.anlageprofile.filter(a => a.id !== aktiv); setzeProfil({ ...profil!, anlageprofile: rest, aktivesAnlageprofil: rest[0]!.id }); setAktiv(rest[0]!.id); };
+  const loeschen = async () => { if (profil!.anlageprofile.length < 2) return; const n = profil!.anlageprofile.find(a => a.id === aktiv)?.name; if (!await frage({ titel: "Anlageprofil löschen?", text: `„${n}“ wird gelöscht. Objekte und Suchaufträge, die es nutzen, werden dann am ersten verbleibenden Anlageprofil gemessen.`, ja: "Löschen", gefahr: true })) return; const rest = profil!.anlageprofile.filter(a => a.id !== aktiv); setzeProfil({ ...profil!, anlageprofile: rest, aktivesAnlageprofil: rest[0]!.id }); setAktiv(rest[0]!.id); };
   return (
     <div className="view">
       <h1>Profil</h1>
@@ -28,8 +26,7 @@ export default function ProfilSeite() {
         </div>
       </div>
       <Spielraum apId={aktiv} />
-      <Zugang />
-      <Paketvergleich />
+      <p className="note">Zugang, Paket, Datenexport und Kontolöschung finden Sie unter <a href="/konto">Konto</a>.</p>
     </div>
   );
 }

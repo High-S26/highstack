@@ -594,3 +594,46 @@ td .info{margin-left:6px}
 .vs dl{margin:0;display:grid;gap:6px}
 .vs dl div{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;border-bottom:1px solid var(--line);padding-bottom:6px}
 .vs dt{color:var(--muted)}.vs dd{margin:0;font-weight:600}
+
+/* Bestätigungsdialog */
+.dlg-hg{position:fixed;inset:0;z-index:50;background:rgba(15,17,20,.45);display:grid;place-items:center;padding:16px;animation:hg .15s ease-out}
+.dlg{width:min(100%,440px);background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;display:grid;gap:12px;box-shadow:0 24px 60px rgba(0,0,0,.25);animation:dlg .18s ease-out}
+.dlg h2{margin:0;font-family:var(--f-display);font-size:22px}
+.dlg p{margin:0;color:var(--muted);font-size:14px;line-height:1.5}
+.dlg-a{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:6px}
+.btn.gefahr{background:var(--crit);border-color:var(--crit);color:#fff}
+.btn.gefahr:hover{background:color-mix(in srgb,var(--crit) 85%,#000)}
+@keyframes hg{from{opacity:0}}@keyframes dlg{from{opacity:0;transform:translateY(8px) scale(.98)}}
+@media (prefers-reduced-motion:reduce){.dlg,.dlg-hg{animation:none}}
+
+/* Konto */
+.kv{margin:0;display:grid;gap:0}
+.kv div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:500;overflow-wrap:anywhere}
+.gefahrzone{border-color:color-mix(in srgb,var(--crit) 35%,var(--line))}
+.gefahrzone h2{color:var(--crit)}
+.warnband{background:var(--crit-soft);color:var(--crit)}
+.warnband a{color:inherit;font-weight:600}
+.konto-b{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;font-size:13px;padding:5px 10px;border-radius:999px;max-width:220px}
+.konto-b span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.konto-b svg{width:18px;height:18px;flex:0 0 auto}
+.konto-b:hover,.konto-b[aria-current="page"]{background:var(--sunk);color:var(--fg)}
+@media (max-width:760px){.konto-b span{display:none}}
+
+/* Rechtstexte und Fuß */
+.recht{max-width:760px}
+.recht h2{font-family:var(--f-display);font-size:21px;margin:18px 0 4px}
+.recht p,.recht li{font-size:14.5px;line-height:1.65;max-width:72ch}
+.recht ul{padding-left:20px;display:grid;gap:4px;margin:6px 0}
+footer{display:grid;gap:8px}
+.fusslinks{display:flex;flex-wrap:wrap;gap:4px 16px}
+.fusslinks a{color:var(--muted);text-decoration:none}
+.fusslinks a:hover{color:var(--fg);text-decoration:underline}
+
+/* Objektdaten einklappbar (Desktop) */
+.grid.zu{grid-template-columns:minmax(0,1fr)}
+.einklapp{margin-left:auto}
+.tabs .einklapp+.mini{margin-left:8px}
+@media (max-width:900px){.einklapp{display:none}}
+.wiz-zusammen{display:grid;gap:2px;padding:14px 16px;border:1px dashed var(--line);border-radius:14px}
+.wiz-zusammen span{color:var(--muted);font-size:13.5px}

@@ -19,6 +19,8 @@ export interface Speicher {
   speichereNutzer(n: Nutzer): Promise<void>;
   nutzerVon(tenant: string): Promise<Nutzer[]>;
   loescheNutzer(email: string): Promise<void>;
+  /** Alles eines Mandanten löschen: Profil, Objekte, Dateien, Nutzer */
+  loescheMandant(tenant: string): Promise<void>;
 }
 
 /** Dateispeicher für Entwicklung und Einzelplatz: .data/store.json und .data/files. */
@@ -45,6 +47,10 @@ function dateiSpeicher(verzeichnis = join(process.cwd(), ".data")): Speicher {
     speichereNutzer: n => exklusiv(b => { (b.nutzer ??= {})[n.email] = n; }, true),
     nutzerVon: t => exklusiv(b => Object.values(b.nutzer ?? {}).filter(n => n.tenant === t).sort((a, c) => a.erstellt - c.erstellt), false),
     loescheNutzer: e => exklusiv(b => { delete b.nutzer?.[e]; }, true),
+    async loescheMandant(t) {
+      const ids = await exklusiv(b => { const d = Object.entries(b.dateien).filter(([, m]) => m.tenant === t).map(([k]) => k); delete b.profile[t]; delete b.objekte[t]; for (const k of d) delete b.dateien[k]; for (const [e, n] of Object.entries(b.nutzer ?? {})) if (n.tenant === t) delete b.nutzer![e]; return d; }, true);
+      for (const k of ids) await fs.rm(join(verzeichnis, "files", k), { force: true });
+    },
     async datei(t, id) {
       const meta = await exklusiv(b => b.dateien[id], false);
       if (!meta || meta.tenant !== t) return null;
@@ -70,6 +76,7 @@ async function postgresSpeicher(url: string): Promise<Speicher> {
     async speichereNutzer(n) { await sql`insert into nutzer (email, tenant_id, daten) values (${n.email}, ${n.tenant}, ${sql.json(n as never)}) on conflict (email) do update set tenant_id = excluded.tenant_id, daten = excluded.daten`; },
     async nutzerVon(t) { const r = await sql`select daten from nutzer where tenant_id = ${t} order by erstellt`; return r.map(x => x.daten as Nutzer); },
     async loescheNutzer(e) { await sql`delete from nutzer where email = ${e}`; },
+    async loescheMandant(t) { await sql.begin(async q => { await q`delete from dateien where tenant_id = ${t}`; await q`delete from objekte where tenant_id = ${t}`; await q`delete from profil where tenant_id = ${t}`; await q`delete from nutzer where tenant_id = ${t}`; }); },
     async datei(t, id) { const r = await sql`select name, mime, inhalt from dateien where tenant_id = ${t} and id = ${id}`; return r[0] ? { name: r[0].name as string, mime: r[0].mime as string, inhalt: new Uint8Array(r[0].inhalt as Buffer) } : null; },
   };
 }

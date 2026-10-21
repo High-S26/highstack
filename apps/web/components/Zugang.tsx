@@ -7,7 +7,7 @@ const datum = (t?: number) => t ? new Date(t).toLocaleDateString("de-DE") : "noc
 
 /** Zugang: wer dieses Konto nutzen darf. Einladen und Entfernen nur als Inhaber. */
 export function Zugang() {
-  const { meldung } = useApp();
+  const { meldung, frage } = useApp();
   const [d, setD] = useState<{ aktiv: boolean; ich?: string; nutzer: Eintrag[] } | null>(null);
   const [email, setEmail] = useState(""); const [rolle, setRolle] = useState<"mitglied" | "inhaber">("mitglied"); const [laeuft, setLaeuft] = useState(false); const [link, setLink] = useState<string | null>(null);
   const lade = () => fetch("/api/zugang").then(r => r.json()).then(setD).catch(() => undefined);
@@ -21,7 +21,8 @@ export function Zugang() {
     setLaeuft(false); if (!r.ok) { meldung(x.fehler ?? "Einladung fehlgeschlagen"); return; }
     meldung(x.versendet ? `Einladung an ${email} verschickt` : `${email} eingeladen`); setLink(x.devLink ?? null); setEmail(""); lade();
   };
-  const entfernen = async (m: string) => { const r = await fetch(`/api/zugang?email=${encodeURIComponent(m)}`, { method: "DELETE" }); const x = await r.json(); meldung(r.ok ? `Zugang für ${m} entfernt` : x.fehler); lade(); };
+  const entfernen = async (m: string) => {
+    if (!await frage({ titel: "Zugang entfernen?", text: `${m} kann sich danach nicht mehr anmelden. Die Daten des Kontos bleiben erhalten.`, ja: "Entfernen", gefahr: true })) return; const r = await fetch(`/api/zugang?email=${encodeURIComponent(m)}`, { method: "DELETE" }); const x = await r.json(); meldung(r.ok ? `Zugang für ${m} entfernt` : x.fehler); lade(); };
   return (
     <section className="panel" id="zugang">
       <div className="ph"><h2>Zugang</h2><span className="tag">wer dieses Konto nutzt</span></div>

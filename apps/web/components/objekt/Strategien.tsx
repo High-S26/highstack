@@ -8,7 +8,7 @@ import { useApp } from "../App";
 
 /** Strategien: Vorlagen, eigene gespeicherte und ein gerechneter Vorschlag der Vermögensverwaltung. */
 export function Strategien({ o, a, setze, vorlage }: { o: Objektdatensatz; a: Analyse; setze: (p: Partial<Objektdatensatz>) => void; vorlage: (n: keyof typeof VORLAGEN) => void }) {
-  const { profil, setzeProfil, anlageprofil, meldung } = useApp();
+  const { profil, setzeProfil, anlageprofil, meldung, frage } = useApp();
   const eigene = profil!.strategien ?? [];
   const [name, setName] = useState(""); const [speichern, setSpeichern] = useState(false);
   const [vorschlag, setVorschlag] = useState<Strategievorschlag | null>(null);
@@ -29,7 +29,7 @@ export function Strategien({ o, a, setze, vorlage }: { o: Objektdatensatz; a: An
       <div className="strat-row">
         <span className="flabel">Ihre Strategien</span>
         <div className="chips">
-          {eigene.map(st => <span key={st.id} className="chip chipx" title={st.notiz}><button type="button" onClick={() => anwenden(st.szenario)}>{st.quelle === "vermoegen" ? "◆ " : ""}{st.name}</button><button type="button" className="x" aria-label={`${st.name} löschen`} onClick={() => setzeProfil({ ...profil!, strategien: eigene.filter(x => x.id !== st.id) })}>×</button></span>)}
+          {eigene.map(st => <span key={st.id} className="chip chipx" title={st.notiz}><button type="button" onClick={() => anwenden(st.szenario)}>{st.quelle === "vermoegen" ? "◆ " : ""}{st.name}</button><button type="button" className="x" aria-label={`${st.name} löschen`} onClick={async () => { if (await frage({ titel: "Strategie löschen?", text: `„${st.name}“ wird aus Ihren Strategien entfernt.`, ja: "Löschen", gefahr: true })) setzeProfil({ ...profil!, strategien: eigene.filter(x => x.id !== st.id) }); }}>×</button></span>)}
           {!speichern ? <button type="button" className="chip add" onClick={() => setSpeichern(true)}>+ Aktuelle Einstellung speichern</button>
             : <form className="inl" onSubmit={e => { e.preventDefault(); sichere(name, aktuell, "eigen"); }}><input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Name, z. B. Mehr EK, schnell tilgen" aria-label="Name der Strategie" /><button className="btn sm">Speichern</button><button type="button" className="btn sm ghost" onClick={() => setSpeichern(false)}>Abbrechen</button></form>}
         </div>

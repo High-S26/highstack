@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 
-const FEHLER: Record<string, string> = { link: "Der Link ist abgelaufen oder wurde schon benutzt. Fordern Sie einfach einen neuen an.", zugang: "Für diese Adresse gibt es keinen Zugang. Bitten Sie den Inhaber des Kontos um eine Einladung." };
+const FEHLER: Record<string, string> = { link: "Der Link ist abgelaufen oder wurde schon benutzt. Fordern Sie einfach einen neuen an.", zugang: "Für diese Adresse gibt es keinen Zugang. Bitten Sie den Inhaber des Kontos um eine Einladung.", geloescht: "Das Konto und alle Daten wurden wie beantragt gelöscht." };
 
 export default function Login() {
   const [email, setEmail] = useState(""); const [zustand, setZustand] = useState<"frei" | "sendet" | "gesendet">("frei");

@@ -8,6 +8,7 @@ import type { Objektdatensatz, Profil } from "@/lib/typen";
 import { neueSuche } from "@/lib/vorgaben";
 import { Logo } from "./Logo";
 import { Themaschalter } from "./Thema";
+import { versionText } from "@/lib/version";
 
 interface AppZustand {
   profil: Profil | null;
@@ -24,7 +25,10 @@ interface AppZustand {
   loesche: (ids: string[], text: string, danach?: () => void) => void;
   /** Meldung mit Aktion, z. B. Rückgängig */
   meldungMitAktion: (t: string, aktion: string, tun: () => void, ablauf?: () => void) => void;
+  /** Rückfrage vor folgenreichen Aktionen. Löst mit true auf, wenn bestätigt. */
+  frage: (f: Frage) => Promise<boolean>;
 }
+export interface Frage { titel: string; text?: string; ja: string; nein?: string; gefahr?: boolean; /** muss abgetippt werden, z. B. LÖSCHEN */ eingabe?: string }
 const Ctx = createContext<AppZustand | null>(null);
 export const useApp = () => { const c = useContext(Ctx); if (!c) throw new Error("useApp außerhalb von App"); return c; };
 
@@ -45,13 +49,16 @@ export function App({ children }: { children: ReactNode }) {
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(); const ablaufRef = useRef<(() => void) | null>(null);
   const objekteRef = useRef<Objektdatensatz[]>([]);
   const pfad = usePathname(); const router = useRouter();
+  const [offeneFrage, setOffeneFrage] = useState<(Frage & { antwort: (ja: boolean) => void }) | null>(null);
+  const frage = useCallback((f: Frage) => new Promise<boolean>(res => setOffeneFrage({ ...f, antwort: ja => { setOffeneFrage(null); res(ja); } })), []);
   const speicherTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const [ich, setIch] = useState<{ aktiv: boolean; email?: string; rolle?: string } | null>(null);
   const login = pfad === "/login";
-  useEffect(() => { if (!login) fetch("/api/auth/ich").then(r => r.status === 401 ? (location.href = "/login", null) : r.json()).then(d => d && setIch(d)).catch(() => undefined); }, [login]);
+  const frei = ["/impressum", "/datenschutz", "/hinweise", "/version"].includes(pfad);
+  useEffect(() => { if (!login && !frei) fetch("/api/auth/ich").then(r => r.status === 401 ? (location.href = "/login", null) : r.json()).then(d => d && setIch(d)).catch(() => undefined); }, [login]);
   const abmelden = async () => { await fetch("/api/auth/abmelden", { method: "POST" }); location.href = "/login"; };
-  useEffect(() => { if (login) return; Promise.all([api.profil(), api.objekte(), api.status()]).then(([p, o, s]) => {
+  useEffect(() => { if (login || frei) return; Promise.all([api.profil(), api.objekte(), api.status()]).then(([p, o, s]) => {
     // Bestehende Daten ohne Suchaufträge: je Anlageprofil einen anlegen und Kandidaten zuordnen.
     if (!p.suchen) {
       p.suchen = p.anlageprofile.map(ap => ({ ...neueSuche({ ...p, aktivesAnlageprofil: ap.id }), name: ap.name }));
@@ -87,10 +94,12 @@ export function App({ children }: { children: ReactNode }) {
   const anlageprofil = useCallback((id?: string) => { const l = profil!.anlageprofile; return l.find(a => a.id === (id ?? profil!.aktivesAnlageprofil)) ?? l[0]!; }, [profil]);
   const analyseVon = useCallback((o: Objektdatensatz) => analyse({ investor: profil!.investor, anlageprofil: anlageprofil(o.anlageprofilId), objekt: o.objekt, szenario: o.szenario, module: o.module }), [profil, anlageprofil]);
 
-  const wert = useMemo<AppZustand>(() => ({ profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion }), [profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion]);
+  const wert = useMemo<AppZustand>(() => ({ profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion, frage }), [profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion, frage]);
   const aktiv = (href: string) => href === "/" ? pfad === "/" : pfad.startsWith(href) || (href === "/pruefen" && pfad.startsWith("/objekt"));
 
-  if (login) return <>{children}</>;
+  const fuss = <footer><p>highstack dient ausschließlich der Information und fundierten Aufklärung. Die Berechnungen beruhen auf Ihren Annahmen und vereinfachten Modellen. Sie ersetzen keine Anlage-, Finanzierungs-, Steuer- oder Rechtsberatung im Einzelfall.</p><nav className="fusslinks" aria-label="Rechtliches"><Link href="/impressum">Impressum</Link><Link href="/datenschutz">Datenschutz</Link><Link href="/hinweise">Nutzungshinweise</Link><Link href="/version">{versionText()}</Link></nav></footer>;
+  if (login) return <>{children}<div className="wrap">{fuss}</div></>;
+  if (frei && !profil) return <div className="wrap"><div className="appbar"><Link href="/" className="brand" aria-label="highstack"><Logo /></Link></div>{children}{fuss}</div>;
   return (
     <Ctx.Provider value={wert}>
       <div className="wrap">
@@ -99,13 +108,44 @@ export function App({ children }: { children: ReactNode }) {
           {profil?.onboarded && <nav className="nav" aria-label="Hauptnavigation">
             {NAV.map(([href, label, d]) => <Link key={href} href={href} className="navb" aria-current={aktiv(href) ? "page" : undefined}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d={d} /></svg>{label}</Link>)}
           </nav>}
-          <div className="who"><Themaschalter />{ich?.aktiv ? <><span title={ich.rolle === "inhaber" ? "Inhaber" : "Mitglied"}>{ich.email}</span><button type="button" className="btn ghost sm" onClick={abmelden}>Abmelden</button></> : <span>{testmodus ? "Testmodus" : "Lokal"}</span>}</div>
+          <div className="who"><Themaschalter /><Link href="/konto" className="konto-b" aria-current={pfad === "/konto" ? "page" : undefined} title="Konto"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10" cy="7" r="3" /><path d="M4 17c.6-3 3-4.6 6-4.6s5.4 1.6 6 4.6" /></svg><span>{ich?.aktiv ? ich.email : "Konto"}</span></Link></div>
         </div>
+        {profil?.loeschung && pfad !== "/konto" && <div className="testband warnband">Die Löschung dieses Kontos ist beantragt und wird am {new Date(profil.loeschung.ausfuehrung).toLocaleDateString("de-DE")} ausgeführt. <Link href="/konto">Abbrechen oder Daten herunterladen</Link></div>}
         {testmodus && <div className="testband"><b>Testmodus.</b> Alle Berechnungen laufen, die Experten liefern Platzhalter. Für echte Einschätzungen ANTHROPIC_API_KEY in .env eintragen.</div>}
         {profil ? children : <p className="note">Lädt …</p>}
-        <footer>highstack.si dient ausschließlich der Information und fundierten Aufklärung. Die Berechnungen beruhen auf Ihren Annahmen und vereinfachten Modellen. Sie ersetzen keine Anlage-, Finanzierungs-, Steuer- oder Rechtsberatung im Einzelfall.</footer>
+        {fuss}
       </div>
+      {offeneFrage && <Dialog f={offeneFrage} />}
       {toast && <div className="toast" role="status"><span>{toast.text}</span>{toast.aktion && <button type="button" onClick={toast.tun}>{toast.aktion}</button>}</div>}
     </Ctx.Provider>
+  );
+}
+
+/** Bestätigungsdialog: Escape oder Abbrechen bricht ab, der Fokus startet auf „Abbrechen“ bei gefährlichen Aktionen. */
+function Dialog({ f }: { f: Frage & { antwort: (ja: boolean) => void } }) {
+  const [text, setText] = useState(""); const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const vorher = document.activeElement as HTMLElement | null;
+    (box.current?.querySelector(f.eingabe ? "input" : f.gefahr ? "[data-nein]" : "[data-ja]") as HTMLElement | null)?.focus();
+    const taste = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); f.antwort(false); }
+      if (e.key === "Tab" && box.current) { const el = [...box.current.querySelectorAll<HTMLElement>("button,input")].filter(x => !x.hasAttribute("disabled")); const i = el.indexOf(document.activeElement as HTMLElement); if (e.shiftKey && i <= 0) { e.preventDefault(); el[el.length - 1]?.focus(); } else if (!e.shiftKey && i === el.length - 1) { e.preventDefault(); el[0]?.focus(); } }
+    };
+    document.addEventListener("keydown", taste); document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", taste); document.body.style.overflow = ""; vorher?.focus?.(); };
+  }, [f]);
+  const ok = !f.eingabe || text.trim().toUpperCase() === f.eingabe.toUpperCase();
+  return (
+    <div className="dlg-hg" onMouseDown={e => { if (e.target === e.currentTarget) f.antwort(false); }}>
+      <div className="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" aria-describedby={f.text ? "dlg-x" : undefined} ref={box}>
+        <h2 id="dlg-t">{f.titel}</h2>
+        {f.text && <p id="dlg-x">{f.text}</p>}
+        {f.eingabe && <div className="fld"><label htmlFor="dlg-e">Zur Bestätigung „{f.eingabe}“ eingeben</label><input id="dlg-e" value={text} onChange={e => setText(e.target.value)} autoComplete="off" onKeyDown={e => { if (e.key === "Enter" && ok) f.antwort(true); }} /></div>}
+        <div className="dlg-a">
+          <button type="button" className="btn ghost" data-nein onClick={() => f.antwort(false)}>{f.nein ?? "Abbrechen"}</button>
+          <button type="button" className={`btn${f.gefahr ? " gefahr" : ""}`} data-ja disabled={!ok} onClick={() => f.antwort(true)}>{f.ja}</button>
+        </div>
+      </div>
+    </div>
   );
 }

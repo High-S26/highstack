@@ -21,7 +21,7 @@ export function Hintergrundsuche({ s, setze }: { s: Suchauftrag; setze: (p: Part
     <section className="panel">
       <div className="ph"><h2>Hintergrundsuche</h2><span className={`badge ${h.aktiv && darf ? "b-on" : "b-plan"}`}>{h.aktiv && darf ? "eingeschaltet" : "aus"}</span></div>
       <p className="note">Der Suchauftrag sucht selbstständig nach Ihren Eckpfeilern und legt neue Treffer gerankt ab. Welche Quellen einbezogen werden, hängt vom Paket ab.</p>
-      {!darf && <div className="upsell"><b>Im Paket Basis fügen Sie Inserate selbst ein.</b><span>Ab „Lokal“ sucht der Auftrag im Hintergrund.</span><Link className="btn sm" href="/profil#pakete">Pakete ansehen</Link></div>}
+      {!darf && <div className="upsell"><b>Im Paket Basis fügen Sie Inserate selbst ein.</b><span>Ab „Lokal“ sucht der Auftrag im Hintergrund.</span><Link className="btn sm" href="/konto#pakete">Pakete ansehen</Link></div>}
       <div className="fields" aria-disabled={!darf}>
         <Haken label="Im Hintergrund suchen" wert={h.aktiv && darf} onChange={v => darf && set({ aktiv: v })} />
         <Auswahl label="Wie oft" wert={h.takt} optionen={TAKT.map(([v, l]) => [v, PAKETE_RANG_OK(paket, TAKT_PAKET[v]!) ? l : `${l} 🔒`] as [typeof v, string])} onChange={v => PAKETE_RANG_OK(paket, TAKT_PAKET[v]!) && set({ takt: v })} />
@@ -56,7 +56,7 @@ export function Quellenuebersicht() {
   const { profil } = useApp(); const paket = profil!.paket ?? "basis";
   return (
     <section className="panel">
-      <div className="ph"><h2>Quellen</h2><Link className="btn ghost sm" href="/profil#pakete">Ihr Paket: {paketName(paket)}</Link></div>
+      <div className="ph"><h2>Quellen</h2><Link className="btn ghost sm" href="/konto#pakete">Ihr Paket: {paketName(paket)}</Link></div>
       <div className="qsum">{GRUPPEN.map(g => { const l = QUELLEN.filter(q => q.gruppe === g); const frei = l.filter(q => verfuegbar(q, paket)).length; return (
         <div key={g} className={frei ? "" : "off"}><b>{g}</b><span>{l.map(q => q.name).join(", ")}</span><em>{frei ? `${frei} von ${l.length} in Ihrem Paket` : `ab ${paketName(l[0]!.paket)}`}</em></div>
       ); })}</div>

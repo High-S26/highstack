@@ -19,13 +19,24 @@ const TABS = REITER;
 type Tab = Reiter;
 
 export default function ObjektSeite({ params }: { params: { id: string } }) {
-  const { objekte, profil, anlageprofil, setzeObjekt, entferneObjekt, meldung, loesche } = useApp(); const router = useRouter();
+  const { objekte, profil, anlageprofil, setzeObjekt, entferneObjekt, meldung, loesche, frage } = useApp(); const router = useRouter();
   const [o, setO] = useState<Objektdatensatz | null>(objekte.find(x => x.id === params.id) ?? null);
   const [tab, setTab] = useState<Tab>("ergebnis");
   const [gespeichert, setGespeichert] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout>>(); const offen = useRef<Partial<Objektdatensatz>>({});
 
   useEffect(() => { api.objekt(params.id).then(x => { setO(x); setTab(x.objekt.kaufpreis ? "ergebnis" : "daten"); const t = new URLSearchParams(window.location.search).get("tab"); if (t && TABS.some(([k]) => k === t)) setTab(t as Tab); }).catch(() => meldung("Objekt nicht gefunden.")); }, [params.id, meldung]);
+  const [datenZu, setDatenZu] = useState(false);
+  useEffect(() => { try { setDatenZu(localStorage.getItem("hs_daten_zu") === "1"); } catch { /* ohne Speicher */ } }, []);
+  const schalteDaten = () => setDatenZu(z => { try { localStorage.setItem("hs_daten_zu", z ? "0" : "1"); } catch { /* ohne Speicher */ } if (!z && tab === "daten") setTab("ergebnis"); return !z; });
+  // Erfolgsmomente: kurze Rückmeldung, wenn ein Schritt neu erledigt ist
+  const vorher = useRef<number | null>(null);
+  const stand = useMemo(() => o && profil ? fortschritt(o, analyse({ investor: profil.investor, anlageprofil: anlageprofil(o.anlageprofilId), objekt: o.objekt, szenario: o.szenario, module: o.module })) : null, [o, profil, anlageprofil]);
+  useEffect(() => {
+    if (!stand) return; const n = stand.erledigt;
+    if (vorher.current != null && n > vorher.current) meldung(n === stand.schritte.length ? "Objekt-Check vollständig. Alles geprüft." : `Schritt erledigt · ${n} von ${stand.schritte.length}`);
+    vorher.current = n;
+  }, [stand, meldung]);
   // Angesehene Reiter merken (Fortschritt)
   useEffect(() => {
     if (!o || o.besucht?.[tab]) return;
@@ -74,16 +85,17 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
           <div className="check-t"><span className="lrow"><b>Objekt-Check</b><Info label="Objekt-Check" text="Ein grüner Haken heißt erledigt: Ergebnis, Durchspielen, Gestaltung und Steuern, sobald Sie sie angesehen haben; Unterlagen, sobald eine hochgeladen ist; Experten, sobald das Komitee geurteilt hat. Ein halber Kreis heißt begonnen. Die Reihenfolge ist eine Empfehlung." /></span>{naechster ? <button type="button" className="linkbtn" onClick={() => zeige(naechster)}>Weiter: {SCHRITT[naechster].tun}</button> : <span className="note">Alles geprüft</span>}</div>
         </div>
         <span className="note">{gespeichert}</span>
-        <button type="button" className="btn sm danger" onClick={() => { offen.current = {}; aktuell.current = null; const ziel = o.status === "kandidat" && o.suchId ? `/suchen/${o.suchId}` : o.status === "bestand" ? "/portfolio" : "/pruefen"; loesche([o.id], `„${o.objekt.titel || "Objekt"}“ gelöscht`, () => router.push(ziel)); }}>Löschen</button>
+        <button type="button" className="btn sm danger" onClick={async () => { if (!await frage({ titel: "Objekt löschen?", text: (() => { const nd = o.dokumente.filter(d => d.dateiId).length, ne = Object.keys(o.experten).length; const mit = [nd ? `${nd} ${nd === 1 ? "Unterlage" : "Unterlagen"}` : "", ne ? `${ne} ${ne === 1 ? "Expertenergebnis" : "Expertenergebnissen"}` : ""].filter(Boolean).join(" und "); return `„${o.objekt.titel || "Objekt"}“ wird${mit ? ` mit ${mit}` : ""} gelöscht. Direkt danach können Sie es noch rückgängig machen.`; })(), ja: "Löschen", gefahr: true })) return; offen.current = {}; aktuell.current = null; const ziel = o.status === "kandidat" && o.suchId ? `/suchen/${o.suchId}` : o.status === "bestand" ? "/portfolio" : "/pruefen"; loesche([o.id], `„${o.objekt.titel || "Objekt"}“ gelöscht`, () => router.push(ziel)); }}>Löschen</button>
       </div>
       <nav className="tabs" role="tablist" aria-label="Schritte">
-        {TABS.map(([k, l]) => { const z = SCHRITT[k]; return <button key={k} type="button" role="tab" className={`tab${k === "daten" ? " only-m" : ""}`} aria-selected={tab === k} onClick={() => zeige(k)} title={`${z.was}: ${z.z}`}><span className={`st st-${z.z}`} aria-label={z.z === "erledigt" ? "erledigt" : z.z === "begonnen" ? "begonnen" : "offen"} />{l}</button>; })}
+        {TABS.map(([k, l]) => { const z = SCHRITT[k]; return <button key={k} type="button" role="tab" className={`tab${k === "daten" && !datenZu ? " only-m" : ""}`} aria-selected={tab === k} onClick={() => zeige(k)} title={`${z.was}: ${z.z}`}><span className={`st st-${z.z}`} aria-label={z.z === "erledigt" ? "erledigt" : z.z === "begonnen" ? "begonnen" : "offen"} />{l}</button>; })}
+        <button type="button" className="btn ghost sm einklapp" onClick={schalteDaten} aria-pressed={!datenZu} title="Objektdaten links ein- oder ausblenden">{datenZu ? "Daten einblenden" : "Daten ausblenden"}</button>
         <div className="mini" aria-live="polite"><span>{b.score == null ? "–" : Math.round(b.score)}</span><span className={`pill ${b.einstufung ? "p-" + b.einstufung : ""}`}>{b.einstufung ? EINSTUFUNG[b.einstufung] : "–"}</span></div>
       </nav>
-      <div className="grid">
-        <div className="col" data-mobil-versteckt={tab !== "daten" ? "ja" : undefined}><Daten o={o} a={a} setze={setze} /></div>
+      <div className={`grid${datenZu ? " zu" : ""}`}>
+        {(!datenZu || tab === "daten") && <div className="col" data-mobil-versteckt={tab !== "daten" ? "ja" : undefined}><Daten o={o} a={a} setze={setze} /></div>}
         <div className="col">
-          {tab === "ergebnis" || tab === "daten" ? <><Ergebnisbereich a={a} apName={anlageprofil(o.anlageprofilId).name} />{o.objekt.kaufpreis ? <Kurzurteilpanel objekt={o} onNeu={neuVomServer} /> : null}</> : null}
+          {tab === "ergebnis" || (tab === "daten" && !datenZu) ? <>{o.objekt.kaufpreis ? <Kurzurteilpanel objekt={o} onNeu={neuVomServer} /> : null}<Ergebnisbereich a={a} apName={anlageprofil(o.anlageprofilId).name} /></> : null}
           {tab === "spielen" && <Durchspielen o={o} a={a} setze={setze} />}
           {tab === "gestaltung" && <Gestaltung o={o} a={a} setze={setze} />}
           {tab === "steuern" && <Steuern a={a} />}

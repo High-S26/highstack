@@ -5,6 +5,7 @@ import { EINSTUFUNG, eur, kennzahl, num, pct, STRUKTUR, teur, vorzeichen } from 
 import type { Objektdatensatz } from "@/lib/typen";
 import { Auswahl, Haken, Kacheln, Text, Zahl } from "../Felder";
 import { Strategien } from "./Strategien";
+import { useApp } from "../App";
 import { Positionen } from "./Positionen";
 import { Info } from "../Info";
 import { erklaerung } from "@/lib/erklaerungen";
@@ -156,7 +157,7 @@ export function Durchspielen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; 
   return (
     <>
       <section className="panel">
-        <div className="ph"><h2>Durchspielen</h2><button className="btn ghost sm" type="button" onClick={() => setze({ szenario: {} })}>Zurücksetzen</button></div>
+        <div className="ph"><h2>Durchspielen</h2><Zuruecksetzen o={o} setze={setze} /></div>
         <Strategien o={o} a={a} setze={setze} vorlage={vorlage} />
         <div className="simgrid">
           <div className="sliders">{REGLER.map(r => <Reglerzeile key={r.key} r={r} a={a} wert={s[r.key] as number} setze={v => setzeWert(r.key, v)} maxEk={Math.max(p.eigenkapital * 1.5, m?.gesamtinvestition ?? 0)} />)}</div>
@@ -248,3 +249,9 @@ export function Gestaltung({ o, a, setze }: { o: Objektdatensatz; a: Analyse; se
 }
 
 export const STANDARD_SZENARIO = standardSzenario;
+
+function Zuruecksetzen({ o, setze }: { o: Objektdatensatz; setze: Setze }) {
+  const { frage } = useApp();
+  if (!Object.keys(o.szenario).length) return null;
+  return <button className="btn ghost sm" type="button" onClick={async () => { const n = o.szenario.positionen?.length ?? 0; if (await frage({ titel: "Annahmen zurücksetzen?", text: `Alle Regler gehen auf die Werte aus Ihrem Profil zurück${n ? `, und ${n} eigene Positionen werden entfernt` : ""}.`, ja: "Zurücksetzen" })) setze({ szenario: {} }); }}>Zurücksetzen</button>;
+}

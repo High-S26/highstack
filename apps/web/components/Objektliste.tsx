@@ -11,7 +11,7 @@ type Sortierung = "score" | "neu" | "preis" | "rendite";
 const SORT: [Sortierung, string][] = [["score", "Beste Passung"], ["neu", "Zuletzt geändert"], ["preis", "Preis aufsteigend"], ["rendite", "Rendite absteigend"]];
 
 function Zeile({ o, kandidat, gewaehlt, waehle }: { o: Objektdatensatz; kandidat?: boolean; gewaehlt: boolean; waehle: (an: boolean) => void }) {
-  const { analyseVon, anlageprofil, setzeObjekt, loesche } = useApp();
+  const { analyseVon, anlageprofil, setzeObjekt, loesche, frage } = useApp();
   const router = useRouter();
   const a = analyseVon(o); const k = a.bewertung.kennzahlen; const cls = a.bewertung.einstufung;
   const pruefen = async () => { const n = await api.aendereObjekt(o.id, { status: "pruefung" }); setzeObjekt(n); router.push(`/objekt/${o.id}`); };
@@ -33,7 +33,7 @@ function Zeile({ o, kandidat, gewaehlt, waehle }: { o: Objektdatensatz; kandidat
       <div className="a">
         {cls ? <span className={`pill p-${cls}`}>{a.bewertung.score != null && <b>{Math.round(a.bewertung.score)}</b>}{EINSTUFUNG[cls]}</span> : <span className="pill">Daten fehlen</span>}
         {kandidat && <button type="button" className="btn sm" onClick={pruefen}>Prüfen</button>}
-        <button type="button" className="icon danger" onClick={() => loesche([o.id], kandidat ? `„${titel}“ verworfen` : `„${titel}“ gelöscht`)} aria-label={kandidat ? `${titel} verwerfen` : `${titel} löschen`} title={kandidat ? "Verwerfen" : "Löschen"}>
+        <button type="button" className="icon danger" onClick={async () => { if (kandidat || await frage({ titel: "Objekt löschen?", text: `„${titel}“ wird mit Unterlagen und Expertenergebnissen gelöscht. Direkt danach können Sie es noch rückgängig machen.`, ja: "Löschen", gefahr: true })) loesche([o.id], kandidat ? `„${titel}“ verworfen` : `„${titel}“ gelöscht`); }} aria-label={kandidat ? `${titel} verwerfen` : `${titel} löschen`} title={kandidat ? "Verwerfen" : "Löschen"}>
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 6h12M8 6V4.5h4V6M5.5 6l.8 10h7.4l.8-10M8.5 9v4.5M11.5 9v4.5" /></svg>
         </button>
       </div>
@@ -43,7 +43,7 @@ function Zeile({ o, kandidat, gewaehlt, waehle }: { o: Objektdatensatz; kandidat
 
 /** Objektliste mit Filter, Sortierung, Mehrfachauswahl und Löschen mit Rückgängig. */
 export function Objektliste({ objekte, leer, kandidat, werkzeuge = true }: { objekte: Objektdatensatz[]; leer: React.ReactNode; kandidat?: boolean; werkzeuge?: boolean }) {
-  const { analyseVon, loesche, setzeObjekt, meldung } = useApp();
+  const { analyseVon, loesche, setzeObjekt, meldung, frage } = useApp();
   const [filter, setFilter] = useState(""); const [sort, setSort] = useState<Sortierung>("score"); const [wahl, setWahl] = useState<Set<string>>(new Set());
   const liste = useMemo(() => {
     const f = filter.trim().toLowerCase();
@@ -65,7 +65,7 @@ export function Objektliste({ objekte, leer, kandidat, werkzeuge = true }: { obj
       {gewaehlt.length > 0 && <div className="bulk" role="region" aria-label="Auswahl">
         <span>{gewaehlt.length} ausgewählt</span>
         {kandidat && <button type="button" className="btn sm" onClick={alleIn}>In Prüfung übernehmen</button>}
-        <button type="button" className="btn sm danger" onClick={() => { loesche(gewaehlt.map(o => o.id), `${gewaehlt.length} ${kandidat ? "verworfen" : "gelöscht"}`); setWahl(new Set()); }}>{kandidat ? "Verwerfen" : "Löschen"}</button>
+        <button type="button" className="btn sm danger" onClick={async () => { if (!await frage({ titel: kandidat ? `${gewaehlt.length} Treffer verwerfen?` : `${gewaehlt.length} Objekte löschen?`, text: kandidat ? "Die Treffer verschwinden aus dem Suchauftrag." : "Die Objekte werden mit Unterlagen und Expertenergebnissen gelöscht.", ja: kandidat ? "Verwerfen" : "Löschen", gefahr: true })) return; loesche(gewaehlt.map(o => o.id), `${gewaehlt.length} ${kandidat ? "verworfen" : "gelöscht"}`); setWahl(new Set()); }}>{kandidat ? "Verwerfen" : "Löschen"}</button>
         <button type="button" className="btn sm ghost" onClick={() => setWahl(new Set())}>Auswahl aufheben</button>
       </div>}
       <div className="olist">{liste.length ? liste.map(o => <Zeile key={o.id} o={o} kandidat={kandidat} gewaehlt={wahl.has(o.id)} waehle={an => waehle(o.id, an)} />) : <div className="empty">Kein Treffer für „{filter}“.</div>}</div>

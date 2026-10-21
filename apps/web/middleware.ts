@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { MANDANT_HEADER, NUTZER_HEADER, pruefe, ROLLE_HEADER, SITZUNG_COOKIE, type Sitzung } from "./lib/auth";
 
-const OFFEN = ["/login", "/api/auth/anfordern", "/api/auth/bestaetigen", "/api/auth/abmelden"];
+const OFFEN = ["/login", "/api/auth/anfordern", "/api/auth/bestaetigen", "/api/auth/abmelden", "/impressum", "/datenschutz", "/hinweise", "/version"];
 
 /** Jede Anfrage: Sitzung prüfen, Mandant als Kopfzeile setzen. Eingehende Kopfzeilen dieses Namens werden immer entfernt. */
 export async function middleware(req: NextRequest) {

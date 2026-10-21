@@ -1,0 +1,13 @@
+/** Versionsstand der App. Die Nummer steht in package.json, Commit und Datum setzt der Build. */
+export const VERSION = process.env.NEXT_PUBLIC_VERSION ?? "0.0.0";
+export const COMMIT = process.env.NEXT_PUBLIC_COMMIT ?? "";
+export const STAND = process.env.NEXT_PUBLIC_STAND ?? "";
+export const versionText = () => `Version ${VERSION}${STAND ? ` · Stand ${new Date(STAND).toLocaleDateString("de-DE")}` : ""}${COMMIT ? ` · ${COMMIT}` : ""}`;
+
+/** Was sich geändert hat, neueste zuerst */
+export const NEUERUNGEN: { version: string; titel: string; punkte: string[] }[] = [
+  { version: "0.4", titel: "Bedienung und Konto", punkte: ["Neues Objekt per Assistent: Exposé, Link oder Text werden ausgelesen", "Objekt-Check zeigt, was erledigt ist und was als Nächstes kommt", "Rückfragen vor dem Löschen", "Konto mit Datenexport und Löschung", "Datenschutz, Impressum und Nutzungshinweise"] },
+  { version: "0.3", titel: "Durchspielen und Darstellung", punkte: ["Freie Werte, große Spannen, eigene Strategien und Strategievorschlag", "Eigene Positionen wie Stellplatz, Küche oder Sondertilgung", "Info-Symbole mit Erklärungen", "Hell, dunkel oder wie das Gerät", "Neues Farbkonzept und Wortmarke"] },
+  { version: "0.2", titel: "Suche, Pakete und Online-Betrieb", punkte: ["Suchaufträge mit Hintergrundsuche und Quellen", "Pakete Basis, Lokal, Portale, Family Office", "Anmeldung per E-Mail-Link und Einladungen", "Experten an- und ausschaltbar, Team-Übersicht"] },
+  { version: "0.1", titel: "Grundgerüst", punkte: ["Rechenwerk, Szenarien, Steuern, Gestaltungsmodule", "Experten-Team mit Komitee und Compliance", "Stufenmodell: Rechnen, Kurzurteil, Einzelexperte, Teamlauf"] },
+];
