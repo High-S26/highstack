@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/App";
 import { Expertenzeile, FACHEXPERTEN, Kurzurteilpanel, Teamtafel } from "@/components/Experten";
-import { Daten, Durchspielen, Ergebnisbereich, Gestaltung, Steuern } from "@/components/objekt/Teile";
+import { Daten, DealSpielraum, Durchspielen, Ergebnisbereich, Gestaltung, Steuern } from "@/components/objekt/Teile";
 import { Unterlagen } from "@/components/objekt/Unterlagen";
 import { Concierge } from "@/components/objekt/Concierge";
 import { api } from "@/lib/client";
@@ -105,7 +105,7 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
         {(!datenZu || tab === "daten") && <div className="col" data-mobil-versteckt={tab !== "daten" ? "ja" : undefined}><Daten o={o} a={a} setze={setze} zuUnterlagen={() => zeige("unterlagen")} /></div>}
         <div className="col">
           {begleitet && (tab === "ergebnis" || tab === "daten") && <Concierge o={o} a={a} setze={setze} zuUnterlagen={() => zeige("unterlagen")} aus={() => setzeModus("selbst")} />}
-          {tab === "ergebnis" || (tab === "daten" && !datenZu) ? <>{o.objekt.kaufpreis ? <Kurzurteilpanel objekt={o} onNeu={neuVomServer} /> : null}<Ergebnisbereich a={a} apName={anlageprofil(o.anlageprofilId).name} /></> : null}
+          {tab === "ergebnis" || (tab === "daten" && !datenZu) ? <>{o.objekt.kaufpreis ? <Kurzurteilpanel objekt={o} onNeu={neuVomServer} /> : null}<Ergebnisbereich a={a} apName={anlageprofil(o.anlageprofilId).name} spielraum={<DealSpielraum o={o} a={a} zuDurchspielen={() => zeige("spielen")} />} /></> : null}
           {tab === "spielen" && <Durchspielen o={o} a={a} setze={setze} />}
           {tab === "gestaltung" && <Gestaltung o={o} a={a} setze={setze} />}
           {tab === "steuern" && <Steuern a={a} />}

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/App";
-import { Anlageprofilformular, Investorformular, Spielraum } from "@/components/Profilteile";
+import { Anlageprofilformular, Investorformular, Finanzierungsrahmen } from "@/components/Profilteile";
 import { neuesAnlageprofil } from "@/lib/vorgaben";
 import { pct } from "@/lib/format";
 
@@ -26,7 +26,7 @@ export default function ProfilSeite() {
           <Anlageprofilformular apId={aktiv} />
         </div>
       </div>
-      <Spielraum apId={aktiv} />
+      <Finanzierungsrahmen apId={aktiv} />
       <p className="note">Zugang, Paket, Datenexport und Kontolöschung finden Sie unter <a href="/konto">Konto</a>.</p>
     </div>
   );

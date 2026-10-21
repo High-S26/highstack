@@ -6,13 +6,13 @@ import { Auswahl, BUNDESLAENDER, Haken, Marken, Text, Zahl } from "./Felder";
 import { Info } from "./Info";
 import { erklaerung } from "@/lib/erklaerungen";
 
-export function Spielraum({ apId }: { apId: string }) {
+export function Finanzierungsrahmen({ apId }: { apId: string }) {
   const { profil, setzeProfil, anlageprofil } = useApp();
   const ap = anlageprofil(apId); const p = params(profil!.investor, ap); const sr = spielraum(p);
   return (
     <section className="room">
       <div className="ph">
-        <h2>Ihr Spielraum</h2>
+        <h2>Ihr Finanzierungsrahmen</h2>
         <div className="chips">{profil!.anlageprofile.map(a => <button key={a.id} type="button" className="chip" aria-pressed={a.id === ap.id} onClick={() => setzeProfil({ ...profil!, aktivesAnlageprofil: a.id })}>{a.name}</button>)}</div>
       </div>
       <div className="sub">Investorenprofil ({eur(p.eigenkapital)} Eigenkapital, {eur(p.kreditrahmen)} Kredit, {STRUKTUR[p.struktur]}) kombiniert mit Anlageprofil „{ap.name}“ ({ap.strategie}{ap.regionen.length ? `, ${ap.regionen.join(", ")}` : ""})</div>
@@ -22,7 +22,7 @@ export function Spielraum({ apId }: { apId: string }) {
       <div className="say">{sr.traegtSich
         ? `Ihr Ziel von ${pct(ap.minBruttorendite)} Bruttorendite trägt sich bei dieser Finanzierung: Zum Höchstpreis bleiben rund ${eur(sr.cashflowBeiZielrendite)} pro Monat.`
         : `Ihr Ziel von ${pct(ap.minBruttorendite)} Bruttorendite reicht bei dieser Finanzierung nicht für Cashflow ± 0: Zum Höchstpreis zahlen Sie rund ${eur(-sr.cashflowBeiZielrendite)} pro Monat zu. Gesucht sind Objekte ab ${pct(sr.noetigeRendite)} Rendite (Faktor bis ${num(sr.noetigerFaktor, 1)}), mehr Eigenkapital oder eine Wertsteigerungs-Strategie mit bewusster Zuzahlung.`}</div>
-      <div className="sub">Annahme: 15 % der Miete für nicht umlagefähige Kosten, {pct(p.mietausfall, 0)} Mietausfall.</div>
+      <div className="sub">Gilt für alle Deals. Den Spielraum für ein bestimmtes Objekt sehen Sie im Objekt unter Ergebnis. Annahme: 15 % der Miete für nicht umlagefähige Kosten, {pct(p.mietausfall, 0)} Mietausfall.</div>
     </section>
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { MODULE, standardSzenario, standardwerte, VORLAGEN, type Analyse, type ParamDef, type Simulation, type Szenario } from "@highstack/engine";
+import { mitStellplaetzen, MODULE, standardSzenario, standardwerte, VORLAGEN, type Analyse, type ParamDef, type Simulation, type Szenario } from "@highstack/engine";
 import { useState } from "react";
 import { EINSTUFUNG, eur, kennzahl, num, pct, STRUKTUR, teur, vorzeichen } from "@/lib/format";
 import type { Objektdatensatz } from "@/lib/typen";
@@ -57,7 +57,31 @@ export function Daten({ o, a, setze, zuUnterlagen }: { o: Objektdatensatz; a: An
   );
 }
 
-export function Ergebnisbereich({ a, apName }: { a: Analyse; apName: string }) {
+/** Spielraum für genau diesen Deal: Angebotspreis gegen Kapitalrahmen und Zielpreise */
+export function DealSpielraum({ o, a, zuDurchspielen }: { o: Objektdatensatz; a: Analyse; zuDurchspielen?: () => void }) {
+  const angebot = mitStellplaetzen(o.objekt).kaufpreis; const k = a.bewertung.kennzahlen; const z = a.zielpreise; const ap = a.params.anlageprofil;
+  if (!angebot) return null;
+  const marken: [string, number | null | undefined, string][] = [["Ihr Kapital trägt bis", k.kpMax, "kapital"], ["Cashflow ± 0 bis", z.cashflowNull, "cashflow"], [`${pct(ap.minBruttorendite)} Rendite bis`, z.mindestrendite, "rendite"]];
+  const da = marken.filter((m): m is [string, number, string] => m[1] != null && isFinite(m[1]) && m[1] > 0);
+  const werte = [angebot, ...da.map(m => m[1])]; const lo = Math.min(...werte) * 0.85, hi = Math.max(...werte) * 1.08;
+  const pos = (v: number) => `${((v - lo) / (hi - lo)) * 100}%`;
+  const grenze = Math.min(...da.map(m => m[1]));
+  const verhandeln = da.length ? angebot - grenze : null;
+  return (
+    <section className="panel spielraum-deal">
+      <div className="ph"><h2>Spielraum für diesen Deal</h2><span className="tag">aus Ihrem Kapital und Anlageprofil</span></div>
+      <div className="sr-skala" role="img" aria-label={`Angebot ${eur(angebot)}; ${da.map(([l, v]) => `${l} ${eur(v)}`).join("; ")}`}>
+        <div className="sr-angebot" style={{ width: pos(angebot) }} />
+        {da.map(([l, v, c]) => <div key={c} className={`sr-marke m-${c}${v >= angebot ? " ok" : ""}`} style={{ left: pos(v) }} title={`${l} ${eur(v)}`} />)}
+      </div>
+      <ul className="sr-liste"><li><span className="sr-punkt m-angebot" aria-hidden="true" /><span>Angebotspreis{o.objekt.stellplaetze?.some(x => x.erwerben && x.preis === "separat") ? " inkl. Stellplatz" : ""}</span><b>{eur(angebot)}</b><span /></li>{da.map(([l, v, c]) => <li key={c}><span className={`sr-punkt m-${c}`} aria-hidden="true" /><span>{l}</span><b>{eur(v)}</b><span className={v >= angebot ? "up" : "dn"}>{v >= angebot ? `${eur(v - angebot)} Luft` : `${eur(angebot - v)} darüber`}</span></li>)}</ul>
+      <p className="say-k">{verhandeln == null ? "Für Zielpreise fehlt noch die Miete." : verhandeln <= 0 ? `Das Angebot liegt in allen Grenzen, ${eur(-verhandeln)} unter der engsten.` : `Damit alles aufgeht, müsste der Preis um ${eur(verhandeln)} (${pct(verhandeln / angebot, 0)}) sinken, oder Eigenkapital, Zins oder Miete ändern sich.`}
+        {zuDurchspielen && <> <button type="button" className="linkbtn" onClick={zuDurchspielen}>Durchspielen</button></>}</p>
+    </section>
+  );
+}
+
+export function Ergebnisbereich({ a, apName, spielraum }: { a: Analyse; apName: string; spielraum?: React.ReactNode }) {
   const b = a.bewertung; const k = b.kennzahlen; const p = a.params; const ap = p.anlageprofil;
   const reihenfolge = { crit: 0, warn: 1, good: 2, info: 3 } as const;
   const h = [...b.hinweise].sort((x, y) => reihenfolge[x.art] - reihenfolge[y.art]);
@@ -83,6 +107,7 @@ export function Ergebnisbereich({ a, apName }: { a: Analyse; apName: string }) {
         <ul className="flags">{h.slice(0, 3).map(x => <li key={x.text} className={x.art === "warn" ? "" : x.art}>{x.text}</li>)}</ul>
         {h.length > 3 && <details><summary>{h.length - 3} weitere Hinweise</summary><ul className="flags">{h.slice(3).map(x => <li key={x.text} className={x.art === "warn" ? "" : x.art}>{x.text}</li>)}</ul></details>}
       </section>
+      {spielraum}
       <section className="panel"><h2>Budget &amp; Finanzierung</h2><Kacheln eintraege={[["Kaufpreis bis", eur(k.kpMax)], ["Nebenkosten", `${eur(k.nebenkosten)} · ${pct(k.nebenkostenSatz)}`], ["Gesamtinvestition", eur(k.gesamtinvestition)], ["Darlehen", eur(k.darlehen)], ["Rate / Monat", eur(k.rateMonat)], ["Finanzierungslücke", (k.finanzierungsluecke ?? 0) > 0 ? eur(k.finanzierungsluecke) : "keine"]]} /></section>
       <section className="panel"><details><summary>Alle Kennzahlen</summary>
         <div className="tbl"><table><thead><tr><th>Kennzahl</th><th className="num">Wert</th><th>Schwelle</th></tr></thead><tbody>{zeilen.map(([l, v, s, c]) => <tr key={l}><td><span className={`dot d-${c}`} />{l}{erklaerung(l) && <Info text={erklaerung(l)!} label={l} />}</td><td className="num">{v}</td><td className="note">{s}</td></tr>)}</tbody></table></div>

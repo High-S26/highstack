@@ -4,18 +4,18 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useApp } from "@/components/App";
 import { Auswahl, BUNDESLAENDER, Marken, Text, Zahl } from "@/components/Felder";
-import { Spielraum } from "@/components/Profilteile";
+import { Finanzierungsrahmen } from "@/components/Profilteile";
 import { api } from "@/lib/client";
 import { eur, pct } from "@/lib/format";
 import { nachStrategie } from "@/lib/vorgaben";
 import { WizFuss, WizKopf } from "@/components/Assistent";
 
-const SCHRITTE = ["Kapital", "Erwerb", "Finanzierung", "Suche", "Spielraum"] as const;
+const SCHRITTE = ["Kapital", "Erwerb", "Finanzierung", "Suche", "Rahmen"] as const;
 const STRUKTUR: [Struktur, string, string][] = [["privat", "Privat", "Im eigenen Namen"], ["gbr", "GbR", "Mit Partner oder Familie"], ["gmbh", "GmbH", "Vermögensverwaltend, bestehend oder geplant"], ["offen", "Noch offen", "Wir rechnen beide Wege zum Vergleich"]];
 const RISIKO: [Investorenprofil["risiko"], string, string][] = [["vorsichtig", "Vorsichtig", "Lieber mehr Eigenkapital und schneller tilgen, wenig Überraschungen"], ["ausgewogen", "Ausgewogen", "Solide Rendite, vertretbare Schwankungen"], ["offensiv", "Offensiv", "Hebel nutzen, Zuzahlung für Wertsteigerung ok"]];
 const STRATEGIE: [Anlageprofil["strategie"], string][] = [["Cashflow", "Laufender Überschuss zuerst"], ["Mix", "Cashflow und Wertzuwachs"], ["Wertsteigerung", "Gute Lagen, langer Atem"], ["Value-Add", "Sanieren, umnutzen, Mieten heben"]];
 
-/** Einrichtung in fünf kurzen Schritten mit Live-Vorschau des Spielraums. */
+/** Einrichtung in fünf kurzen Schritten mit Live-Vorschau des Finanzierungsrahmens. */
 export default function Start() {
   const { profil, setzeProfil, setzeObjekt, frage } = useApp(); const router = useRouter();
   const [schritt, setSchritt] = useState(0);
@@ -46,7 +46,7 @@ export default function Start() {
       <h1>Willkommen bei highstack</h1>
       <p className="lead">Ihr privates Family Office für Immobilien. In zwei Minuten wissen Sie, welcher Kaufpreis zu Ihnen passt, und können das erste Objekt prüfen.</p>
       <ul className="vorteile">
-        <li><b>Spielraum kennen</b><span>Höchster Kaufpreis, Rate und nötige Rendite aus Ihrem Kapital</span></li>
+        <li><b>Rahmen kennen</b><span>Höchster Kaufpreis, Rate und nötige Rendite aus Ihrem Kapital</span></li>
         <li><b>Objekte prüfen</b><span>Exposé hochladen, Ergebnis sehen, Annahmen durchspielen</span></li>
         <li><b>Experten fragen</b><span>Makler, Bank, Verwalter, Steuer und Recht als Team, auf Abruf</span></li>
       </ul>
@@ -99,10 +99,10 @@ export default function Start() {
               <Text voll label="Name des Anlageprofils" wert={ap.name} onChange={v => setAp({ ...ap, name: v })} platzhalter="Mein erstes Investment" />
             </div>
           </>}
-          <WizFuss zurueck={() => setSchritt(s => s - 1)} weiter={weiter} weiterText={schritt === 4 ? "Spielraum anzeigen" : "Weiter"} />
+          <WizFuss zurueck={() => setSchritt(s => s - 1)} weiter={weiter} weiterText={schritt === 4 ? "Rahmen anzeigen" : "Weiter"} />
         </div>
         <aside className="wiz-vorschau" aria-live="polite">
-          <span className="flabel">Ihr Spielraum, live</span>
+          <span className="flabel">Ihr Rahmen, live</span>
           <div className="vs"><dl>
             <div><dt>Kaufpreis bis</dt><dd>{eur(sr.kpMax)}</dd></div>
             <div><dt>Rate pro Monat</dt><dd>{eur(sr.rate)}</dd></div>
@@ -111,8 +111,9 @@ export default function Start() {
           <p className="note">Rechnet mit jeder Eingabe neu. Nebenkosten für Grunderwerbsteuer, Notar und Makler sind abgezogen.</p>
         </aside>
       </div> : <div className="wiz-body">
-        <h1>Das ist Ihr Spielraum</h1>
-        <Spielraum apId={profil!.aktivesAnlageprofil} />
+        <h1>Das ist Ihr Finanzierungsrahmen</h1>
+        <p className="lead">Er gilt für alle Deals. In jedem Objekt sehen Sie dann den Spielraum für genau diesen Preis.</p>
+        <Finanzierungsrahmen apId={profil!.aktivesAnlageprofil} />
         <h2 className="wiz-h2">Wie möchten Sie arbeiten?</h2>
         <div className="wiz-wahl" role="radiogroup" aria-label="Bedienmodus">
           {([["unterstuetzt", "Begleitet", "Ein Concierge fragt fehlende Angaben einzeln ab und sagt, wo sie stehen"], ["selbst", "Selbst", "Alle Felder auf einen Blick, ich fülle aus, was ich brauche"]] as const).map(([v, l, t]) => <button key={v} type="button" role="radio" aria-checked={(profil!.modus ?? "unterstuetzt") === v} className="wiz-karte" onClick={() => setzeProfil({ ...profil!, modus: v })}><b>{l}</b><span>{t}</span></button>)}

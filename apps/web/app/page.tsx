@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/App";
 import { Kacheln } from "@/components/Felder";
-import { Spielraum } from "@/components/Profilteile";
 import { api } from "@/lib/client";
 import { teur } from "@/lib/format";
 import { fortschritt } from "@/lib/fortschritt";
@@ -19,7 +18,7 @@ export default function Uebersicht() {
     .forEach(([o, f]) => aufgaben.push({ text: `${o.objekt.titel}: ${f.schritt[f.naechster!].tun} (${f.erledigt}/${f.schritte.length})`, href: `/objekt/${o.id}?tab=${f.naechster}`, label: "Weiter" }));
   // Erste Schritte: kleine Checkliste, bis alles einmal gemacht ist
   const erste: [string, string, string, boolean][] = [
-    ["Spielraum einrichten", "Kapital, Erwerb und Suche festgelegt", "/profil", true],
+    ["Profil einrichten", "Kapital, Erwerb und Suche festgelegt", "/profil", true],
     ["Erstes Objekt prüfen", "Exposé, Link oder Text einfügen", "/neu", objekte.some(o => o.status !== "kandidat" && !o.objekt.titel?.startsWith("Beispiel:"))],
     ["Suchauftrag einrichten", "Was und wo, Treffer werden gerankt", "/suchen/neu", (profil.suchen ?? []).some(s => s.gesichtet || s.hintergrund?.aktiv) || kandidaten.length > 0 || (profil.suchen?.length ?? 0) > profil.anlageprofile.length],
     ["Annahmen durchspielen", "Preis, Zins, Miete: was trägt sich?", pruefung[0] ? `/objekt/${pruefung[0].id}?tab=spielen` : "/neu", objekte.some(o => !!o.besucht?.spielen)],
@@ -34,7 +33,6 @@ export default function Uebersicht() {
         <div className="ph"><div className="erste-k"><div className="ring sm" style={{ ["--p" as string]: `${(ersteFertig / erste.length) * 100}` }}><b>{ersteFertig}/{erste.length}</b></div><h2>Erste Schritte</h2></div><button type="button" className="linkbtn" onClick={() => setzeProfil({ ...profil, ersteSchritteAus: true })}>Ausblenden</button></div>
         <ol className="erste-l">{erste.map(([t, x, href, ok]) => <li key={t} className={ok ? "ok" : ""}><span className={`st st-${ok ? "erledigt" : "offen"}`} aria-hidden="true" /><div><b>{t}</b><span>{x}</span></div>{!ok && <Link className="btn ghost sm" href={href}>Los</Link>}</li>)}</ol>
       </section>}
-      <Spielraum apId={profil.aktivesAnlageprofil} />
       <Kacheln eintraege={[["Treffer", kandidaten.length], ["In Prüfung", pruefung.length], ["davon Opportunity", pruefung.filter(o => analyseVon(o).bewertung.einstufung === "opp").length], ["Bestand", bestand.length], ["EK im Bestand", bestand.length ? teur(bestand.reduce((s, o) => s + (analyseVon(o).simulation?.nettovermoegenStart ?? 0), 0)) : "–"]]} />
       <div className="two">
         <section className="panel"><h2>Als Nächstes</h2>
