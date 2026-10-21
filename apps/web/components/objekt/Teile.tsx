@@ -7,6 +7,7 @@ import { Auswahl, Haken, Kacheln, Text, Zahl } from "../Felder";
 import { Strategien } from "./Strategien";
 import { useApp } from "../App";
 import { Positionen } from "./Positionen";
+import { Stellplaetze } from "./Stellplaetze";
 import { Info } from "../Info";
 import { erklaerung } from "@/lib/erklaerungen";
 import { expertMeta } from "../Experten";
@@ -32,6 +33,8 @@ export function Daten({ o, a, setze }: { o: Objektdatensatz; a: Analyse; setze: 
         {!ob.leer && <Zahl label="Ist-Kaltmiete" einheit="€/Monat" wert={ob.miete} onChange={v => set({ miete: v })} schritt={10} />}
         <Zahl voll label={ob.asset === "ETW" ? "Hausgeld, nicht umlagefähig inkl. Rücklage" : "Nicht umlagefähige Kosten"} einheit="€/Monat" wert={ob.hausgeldNichtUmlagefaehig} onChange={v => set({ hausgeldNichtUmlagefaehig: v })} schritt={5} />
       </div>
+      <div className="grp">Stellplatz</div>
+      <Stellplaetze ob={ob} set={set} />
       <div className="meter"><div className="ph"><span className="note">Datenqualität</span><span className="note">{Math.round(q * 100)} %</span></div><div className="track"><div className="fill" style={{ width: `${q * 100}%`, background: q >= 0.85 ? "var(--good)" : q >= 0.5 ? "var(--warn)" : "var(--crit)" }} /></div>
         <ul className="missing">{pruef.filter(x => x[0] == null || x[0] === "").slice(0, 4).map(([, l, h]) => <li key={l}><b>{l}</b>{h && ` · ${h}`}</li>)}</ul></div>
       <details><summary>Genauer werden: Markt, Substanz, Steuern</summary>

@@ -662,3 +662,28 @@ footer{display:grid;gap:8px}
 .wiz-fuss>.row:last-child{margin-left:auto}
 .wiz-sprung{font:inherit;color:inherit;background:none;border:0;padding:0;display:inline-flex;align-items:center;gap:6px;cursor:pointer;border-radius:999px}
 .wiz-sprung:hover{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+
+/* Concierge: unterstützter Modus */
+.concierge{border-left:4px solid var(--marke);display:grid;gap:10px}
+.cg-kopf{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.cg-kopf>div:not(.cg-ring){display:grid;gap:2px;flex:1;min-width:160px}
+.cg-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--anthrazit);color:#fff;font-weight:700;box-shadow:inset 0 -3px 0 var(--marke);flex:none}
+.concierge.fertig .cg-avatar{background:var(--good);box-shadow:none}
+.cg-ring{flex:none;width:28px;height:28px;border-radius:50%;background:conic-gradient(var(--marke) calc(var(--p)*1%),var(--sunk) 0);mask:radial-gradient(circle,transparent 9px,#000 10px);-webkit-mask:radial-gradient(circle,transparent 9px,#000 10px)}
+.cg-frage{font-family:var(--f-display);font-size:22px;line-height:1.25;margin:4px 0 0}
+.cg-warum{margin:0}
+.cg-antwort{display:grid;gap:12px}
+.cg-zahl{display:flex;align-items:center;gap:8px;max-width:320px}
+.cg-zahl input{font-size:18px;padding:10px 12px}
+.cg-zahl span{color:var(--muted);white-space:nowrap}
+.cg-wahl{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.cg-echo{margin:0;padding:8px 12px;border-radius:10px;background:var(--good-soft);color:var(--good);font-size:13.5px}
+.cg-wo{background:var(--sunk);border-radius:10px;padding:10px 12px;display:grid;gap:8px;justify-items:start}
+.cg-wo p{margin:0}
+@media (prefers-reduced-motion:no-preference){.cg-frage{animation:cg-ein .25s ease}@keyframes cg-ein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
+
+/* Stellplätze */
+.sp-frage{display:grid;gap:6px;padding:12px;border:1px dashed var(--line);border-radius:12px}
+.sp-karte{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px}
+.sp-karte.aus{opacity:.65}
+.sp-karte .ph .row{gap:10px;align-items:center}

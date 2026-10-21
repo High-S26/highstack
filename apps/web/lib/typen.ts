@@ -22,6 +22,8 @@ export interface Profil {
   experten?: Record<string, boolean>;
   /** Karte „Erste Schritte“ auf der Übersicht ausgeblendet */
   ersteSchritteAus?: boolean;
+  /** Bedienmodus: „unterstuetzt“ (Standard) blendet den Concierge ein, der fehlende Angaben erfragt */
+  modus?: "selbst" | "unterstuetzt";
   /** Beantragte Kontolöschung: wird nach Ablauf der Frist ausgeführt, bis dahin abbrechbar */
   loeschung?: { beantragt: number; durch: string; ausfuehrung: number };
   /** Gebuchtes Paket; bis die Abrechnung aktiv ist, frei wählbar zum Ausprobieren */

@@ -1,6 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import type { Assetklasse, Objekt } from "@highstack/engine";
+import type { Assetklasse, Objekt, Stellplatz } from "@highstack/engine";
 
 /** Ergebnis des Auslesens: gefundene Felder und woher sie stammen */
 export interface Erfassung { felder: Partial<Objekt>; gefunden: (keyof Objekt)[]; quelle: "ki" | "muster" | "keine"; text: string; hinweis?: string }
@@ -54,6 +54,7 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
   if (/bezugsfrei|leerstehend|sofort frei/i.test(t)) f.leer = true; else if (/vermietet/i.test(t)) f.leer = false;
   if (/Erbbaurecht/i.test(t)) f.erbbaurecht = true;
   if (/Sonderumlage/i.test(t)) f.sonderumlage = true;
+  const sp = stellplatzAusText(t); if (sp.length) f.stellplaetze = sp;
   const zimmer = finde(t, [/(\d(?:[.,]5)?)\s*-?\s*Zimmer/i]);
   const tit = (titel ?? t.split("\n").find(z => z.trim().length > 12 && z.trim().length < 120))?.replace(/\s*[|–-]\s*(ImmoScout24|Immowelt|Kleinanzeigen|immonet).*$/i, "").replace(/^(Exposé|Expose|Objekt|Angebot)\s*[:\-–]\s*/i, "").trim();
   f.titel = tit || [zimmer ? `${zimmer}-Zi.-${asset}` : asset, f.ort].filter(Boolean).join(", ");
@@ -61,8 +62,23 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
   return { felder: f, gefunden, quelle: gefunden.length ? "muster" : "keine", text };
 }
 
+const SP_ART: [RegExp, Stellplatz["art"]][] = [[/Duplex/i, "duplex"], [/Tiefgarage|TG-(?:Stell)?platz/i, "tiefgarage"], [/Carport/i, "carport"], [/\bGarage\b/i, "garage"], [/(?:Au(?:ß|ss)en|Frei)?[Ss]tellplatz|Parkplatz/i, "aussen"]];
+/** Stellplatz aus Inseratstext: Art, eigener Preis („zzgl.“), Rechtsform, Miete */
+export function stellplatzAusText(t: string): Stellplatz[] {
+  const i = t.search(/Tiefgarage|Stellplatz|Stellpl(?:ä|ae)tze|Garage|Carport|Parkplatz|Duplex/i); if (i < 0) return [];
+  if (/kein(?:e|en)?\s+(?:Tiefgaragen)?(?:Stellplatz|Garage|Parkplatz)/i.test(t.slice(Math.max(0, i - 12), i + 30))) return [];
+  const um = t.slice(Math.max(0, i - 80), i + 220);
+  const art = SP_ART.find(([r]) => r.test(um))?.[1] ?? "aussen";
+  const nach = t.slice(i, i + 160); const betrag = nach.match(/([\d.]{4,}(?:,\d+)?)\s*(?:€|EUR|Euro)/i); const preisZahl = betrag ? zahl(betrag[1]) : null;
+  const separat = /zzgl\.?|zuzüglich|optional|separat|kann (?:dazu|zusätzlich) erworben/i.test(um) || (preisZahl != null && preisZahl >= 3000 && !/inkl\.?|inklusive/i.test(um));
+  const mieteM = nach.match(/(?:vermietet|Miete|monatlich)[^\d€]{0,25}([\d.,]{2,5})\s*(?:€|EUR)/i); const miete = mieteM ? zahl(mieteM[1]) : null;
+  return [{ id: `sp-${Math.random().toString(36).slice(2, 8)}`, art, preis: separat ? "separat" : "inklusive", kaufpreis: separat && preisZahl && preisZahl >= 3000 && preisZahl < 150000 ? Math.round(preisZahl) : null,
+    recht: /Teileigentum|eigene[ms]? Grundbuch/i.test(t) ? "teileigentum" : /Sondernutzung/i.test(t) ? "sondernutzung" : "unbekannt",
+    nutzung: miete && miete < 400 ? "fremd" : "mieter", miete: miete && miete < 400 ? miete : null, hausgeld: null, erwerben: true }];
+}
+
 /** Ausgabe des Daten-Analysten in Objektfelder übersetzen */
-export interface Extrakt { titel: string; ort: string; asset: Assetklasse; kaufpreis: number | null; wohnflaeche: number | null; vermietet?: boolean | null; kaltmieteMonat?: number | null; hausgeldNichtUmlagefaehig?: number | null; hausgeldGesamt?: number | null; ruecklageAnteil?: number | null; baujahr?: number | null; energieklasse?: string | null; erbbaurecht?: boolean | null; sonderumlage?: boolean | null }
+export interface Extrakt { titel: string; ort: string; asset: Assetklasse; kaufpreis: number | null; wohnflaeche: number | null; vermietet?: boolean | null; kaltmieteMonat?: number | null; hausgeldNichtUmlagefaehig?: number | null; hausgeldGesamt?: number | null; ruecklageAnteil?: number | null; baujahr?: number | null; energieklasse?: string | null; erbbaurecht?: boolean | null; sonderumlage?: boolean | null; stellplaetze?: { art: Stellplatz["art"]; preis: "inklusive" | "separat" | "unbekannt"; kaufpreis?: number | null; recht?: Stellplatz["recht"]; miete?: number | null }[] }
 export function ausExtrakt(x: Extrakt): Partial<Objekt> {
   const f: Partial<Objekt> = { titel: x.titel || undefined, ort: x.ort || undefined, asset: x.asset || "ETW" };
   if (x.kaufpreis) f.kaufpreis = x.kaufpreis; if (x.wohnflaeche) f.wohnflaeche = x.wohnflaeche;
@@ -70,5 +86,10 @@ export function ausExtrakt(x: Extrakt): Partial<Objekt> {
   const hg = x.hausgeldNichtUmlagefaehig ?? (x.hausgeldGesamt != null ? Math.round(x.hausgeldGesamt * 0.4) : null); if (hg) f.hausgeldNichtUmlagefaehig = hg;
   if (x.ruecklageAnteil) f.ruecklageAnteil = x.ruecklageAnteil; if (x.baujahr) f.baujahr = x.baujahr; if (x.energieklasse) f.energieklasse = x.energieklasse;
   if (x.erbbaurecht) f.erbbaurecht = true; if (x.sonderumlage) f.sonderumlage = true;
+  if (x.stellplaetze?.length) f.stellplaetze = stellplaetzeAusExtrakt(x.stellplaetze);
   return Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined));
+}
+
+export function stellplaetzeAusExtrakt(l: NonNullable<Extrakt["stellplaetze"]>): Stellplatz[] {
+  return l.map((y, n) => ({ id: `sp-${n}-${Math.random().toString(36).slice(2, 6)}`, art: y.art, preis: y.preis === "separat" || (y.kaufpreis ?? 0) > 0 ? "separat" : "inklusive", kaufpreis: y.kaufpreis ?? null, recht: y.recht ?? "unbekannt", nutzung: y.miete ? "fremd" : "mieter", miete: y.miete ?? null, hausgeld: null, erwerben: true }));
 }

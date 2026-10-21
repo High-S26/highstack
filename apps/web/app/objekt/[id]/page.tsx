@@ -7,6 +7,7 @@ import { useApp } from "@/components/App";
 import { Expertenzeile, FACHEXPERTEN, Kurzurteilpanel, Teamtafel } from "@/components/Experten";
 import { Daten, Durchspielen, Ergebnisbereich, Gestaltung, Steuern } from "@/components/objekt/Teile";
 import { Unterlagen } from "@/components/objekt/Unterlagen";
+import { Concierge } from "@/components/objekt/Concierge";
 import { api } from "@/lib/client";
 import { EINSTUFUNG } from "@/lib/format";
 import { Info } from "@/components/Info";
@@ -19,7 +20,7 @@ const TABS = REITER;
 type Tab = Reiter;
 
 export default function ObjektSeite({ params }: { params: { id: string } }) {
-  const { objekte, profil, anlageprofil, setzeObjekt, entferneObjekt, meldung, loesche, frage } = useApp(); const router = useRouter();
+  const { objekte, profil, anlageprofil, setzeObjekt, entferneObjekt, meldung, loesche, frage, setzeProfil } = useApp(); const router = useRouter();
   const [o, setO] = useState<Objektdatensatz | null>(objekte.find(x => x.id === params.id) ?? null);
   const [tab, setTab] = useState<Tab>("ergebnis");
   const [gespeichert, setGespeichert] = useState("");
@@ -72,6 +73,8 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
   const neuVomServer = (x: Objektdatensatz) => { setO(x); setzeObjekt(x); };
   const b = a.bewertung;
   const { schritt: SCHRITT, schritte, erledigt, naechster } = fortschritt(o, a);
+  const begleitet = (profil.modus ?? "unterstuetzt") === "unterstuetzt";
+  const setzeModus = (m: "selbst" | "unterstuetzt") => { setzeProfil({ ...profil, modus: m }); meldung(m === "selbst" ? "Concierge ausgeblendet. Über „Concierge“ oben holen Sie ihn zurück." : "Concierge ist da und fragt, was noch fehlt."); };
   const zeige = (t: Tab) => { setTab(t); if (typeof window !== "undefined" && window.innerWidth <= 900 && t === "daten") window.scrollTo({ top: 0 }); };
   return (
     <div className="view">
@@ -84,6 +87,7 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
           <div className="ring sm" style={{ ["--p" as string]: `${(erledigt / schritte.length) * 100}` }}><b>{erledigt}/{schritte.length}</b></div>
           <div className="check-t"><span className="lrow"><b>Objekt-Check</b><Info label="Objekt-Check" text="Ein grüner Haken heißt erledigt: Ergebnis, Durchspielen, Gestaltung und Steuern, sobald Sie sie angesehen haben; Unterlagen, sobald eine hochgeladen ist; Experten, sobald das Komitee geurteilt hat. Ein halber Kreis heißt begonnen. Die Reihenfolge ist eine Empfehlung." /></span>{naechster ? <button type="button" className="linkbtn" onClick={() => zeige(naechster)}>Weiter: {SCHRITT[naechster].tun}</button> : <span className="note">Alles geprüft</span>}</div>
         </div>
+        <button type="button" className={`btn sm ${begleitet ? "" : "ghost"}`} aria-pressed={begleitet} onClick={() => setzeModus(begleitet ? "selbst" : "unterstuetzt")} title="Unterstützter Modus: Ein Concierge fragt fehlende Angaben einzeln ab">Concierge</button>
         <span className="note">{gespeichert}</span>
         <button type="button" className="btn sm danger" onClick={async () => { if (!await frage({ titel: "Objekt löschen?", text: (() => { const nd = o.dokumente.filter(d => d.dateiId).length, ne = Object.keys(o.experten).length; const mit = [nd ? `${nd} ${nd === 1 ? "Unterlage" : "Unterlagen"}` : "", ne ? `${ne} ${ne === 1 ? "Expertenergebnis" : "Expertenergebnissen"}` : ""].filter(Boolean).join(" und "); return `„${o.objekt.titel || "Objekt"}“ wird${mit ? ` mit ${mit}` : ""} gelöscht. Direkt danach können Sie es noch rückgängig machen.`; })(), ja: "Löschen", gefahr: true })) return; offen.current = {}; aktuell.current = null; const ziel = o.status === "kandidat" && o.suchId ? `/suchen/${o.suchId}` : o.status === "bestand" ? "/portfolio" : "/pruefen"; loesche([o.id], `„${o.objekt.titel || "Objekt"}“ gelöscht`, () => router.push(ziel)); }}>Löschen</button>
       </div>
@@ -95,6 +99,7 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
       <div className={`grid${datenZu ? " zu" : ""}`}>
         {(!datenZu || tab === "daten") && <div className="col" data-mobil-versteckt={tab !== "daten" ? "ja" : undefined}><Daten o={o} a={a} setze={setze} /></div>}
         <div className="col">
+          {begleitet && (tab === "ergebnis" || tab === "daten") && <Concierge o={o} a={a} setze={setze} zuUnterlagen={() => zeige("unterlagen")} aus={() => setzeModus("selbst")} />}
           {tab === "ergebnis" || (tab === "daten" && !datenZu) ? <>{o.objekt.kaufpreis ? <Kurzurteilpanel objekt={o} onNeu={neuVomServer} /> : null}<Ergebnisbereich a={a} apName={anlageprofil(o.anlageprofilId).name} /></> : null}
           {tab === "spielen" && <Durchspielen o={o} a={a} setze={setze} />}
           {tab === "gestaltung" && <Gestaltung o={o} a={a} setze={setze} />}

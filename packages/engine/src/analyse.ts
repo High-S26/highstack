@@ -1,5 +1,5 @@
 import type { Anlageprofil, Investorenprofil, Objekt, Szenario } from "./types";
-import { bewerte, params, simuliere, spielraum, standardSzenario, steuern, VORLAGEN, zielpreis, type Simulation } from "./core";
+import { bewerte, params, simuliere, spielraum, standardSzenario, steuern, VORLAGEN, zielpreis, type Simulation, mitStellplaetzen } from "./core";
 import { MODULE, rechneModul } from "./module/index";
 
 export interface Analyseeingabe {
@@ -23,7 +23,7 @@ export const simKurz = (m: Simulation | null) => m ? {
 /** Vollständige, deterministische Analyse eines Objekts. Grundlage für App und Agenten. */
 export function analyse(e: Analyseeingabe) {
   const p = params(e.investor, e.anlageprofil);
-  const o = e.objekt;
+  const o = mitStellplaetzen(e.objekt);
   const bewertung = bewerte(p, o);
   const s: Szenario = { ...standardSzenario(p), ...(e.szenario ?? {}) };
   const sim = simuliere(p, o, bewertung.miete, s);

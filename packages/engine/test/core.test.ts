@@ -87,3 +87,25 @@ describe("Eigene Positionen", () => {
     expect(m.irr!).toBeLessThan(basis.irr!);
   });
 });
+
+describe("Stellplätze", () => {
+  const tg = { id: "s1", art: "tiefgarage" as const, preis: "separat" as const, kaufpreis: 20000, recht: "teileigentum" as const, nutzung: "fremd" as const, miete: 80, hausgeld: 15, erwerben: true };
+  it("rechnet separat gekauften Stellplatz in Preis, Miete und Kosten ein", () => {
+    const ohne = analyse({ investor: INV, anlageprofil: AP, objekt: OBJ });
+    const mit = analyse({ investor: INV, anlageprofil: AP, objekt: { ...OBJ, stellplaetze: [tg] } });
+    expect(mit.bewertung.miete! - ohne.bewertung.miete!).toBe(80);
+    expect(mit.bewertung.hinweise.some(h => h.text.includes("Teileigentum"))).toBe(true);
+    expect(mit.bewertung.hinweise.some(h => h.text.includes("4,8 %"))).toBe(true);
+    expect(mit.bewertung.kennzahlen.cashflowMonat!).toBeLessThan(ohne.bewertung.kennzahlen.cashflowMonat! + 80);
+  });
+  it("lässt abgewählten Stellplatz außen vor und weist darauf hin", () => {
+    const ohne = analyse({ investor: INV, anlageprofil: AP, objekt: OBJ });
+    const ab = analyse({ investor: INV, anlageprofil: AP, objekt: { ...OBJ, stellplaetze: [{ ...tg, erwerben: false }] } });
+    expect(ab.bewertung.kennzahlen.cashflowMonat).toBe(ohne.bewertung.kennzahlen.cashflowMonat);
+    expect(ab.bewertung.hinweise.some(h => h.text.includes("nicht eingerechnet"))).toBe(true);
+  });
+  it("Stellplatz im Kaufpreis verändert den Preis nicht", () => {
+    const mit = analyse({ investor: INV, anlageprofil: AP, objekt: { ...OBJ, stellplaetze: [{ ...tg, preis: "inklusive", kaufpreis: null }] } });
+    expect(mit.bewertung.kennzahlen.faktor!).toBeLessThan(28.36);
+  });
+});

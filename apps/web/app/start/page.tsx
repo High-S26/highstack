@@ -113,6 +113,11 @@ export default function Start() {
       </div> : <div className="wiz-body">
         <h1>Das ist Ihr Spielraum</h1>
         <Spielraum apId={profil!.aktivesAnlageprofil} />
+        <h2 className="wiz-h2">Wie möchten Sie arbeiten?</h2>
+        <div className="wiz-wahl" role="radiogroup" aria-label="Bedienmodus">
+          {([["unterstuetzt", "Begleitet", "Ein Concierge fragt fehlende Angaben einzeln ab und sagt, wo sie stehen"], ["selbst", "Selbst", "Alle Felder auf einen Blick, ich fülle aus, was ich brauche"]] as const).map(([v, l, t]) => <button key={v} type="button" role="radio" aria-checked={(profil!.modus ?? "unterstuetzt") === v} className="wiz-karte" onClick={() => setzeProfil({ ...profil!, modus: v })}><b>{l}</b><span>{t}</span></button>)}
+        </div>
+        <p className="note">Lässt sich in jedem Objekt über „Concierge“ umschalten.</p>
         <h2 className="wiz-h2">Womit möchten Sie anfangen?</h2>
         <div className="wiz-wahl">
           <button type="button" className="wiz-karte" onClick={() => router.push("/neu")}><b>Ein Objekt prüfen</b><span>Exposé, Link oder Text einfügen, Ergebnis in einer Minute</span></button>

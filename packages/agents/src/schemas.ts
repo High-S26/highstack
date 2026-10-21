@@ -52,6 +52,11 @@ export const EXTRAKTION_SCHEMA = {
       kaltmieteMonat: { type: ["number", "null"] }, hausgeldNichtUmlagefaehig: { type: ["number", "null"] }, hausgeldGesamt: { type: ["number", "null"] },
       ruecklageAnteil: { type: ["number", "null"] }, baujahr: { type: ["number", "null"] }, energieklasse: { type: ["string", "null"] },
       erbbaurecht: { type: ["boolean", "null"] }, sonderumlage: { type: ["boolean", "null"] }, provisionProzent: { type: ["number", "null"] }, auszug: str,
+      stellplaetze: { type: "array", items: { type: "object", properties: {
+        art: { type: "string", enum: ["tiefgarage", "aussen", "garage", "carport", "duplex"] },
+        preis: { type: "string", enum: ["inklusive", "separat", "unbekannt"] }, kaufpreis: { type: ["number", "null"] },
+        recht: { type: "string", enum: ["teileigentum", "sondernutzung", "unbekannt"] }, miete: { type: ["number", "null"] },
+      }, required: ["art", "preis"] } },
     }, required: ["titel", "ort", "asset", "kaufpreis", "wohnflaeche"] } },
   },
   required: ["objekte"],

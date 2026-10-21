@@ -60,6 +60,10 @@ export interface Objekt {
   gebaeudeanteil: number;
   erbbaurecht: boolean;
   sonderumlage: boolean;
+  /** Stellplätze, die zum Angebot gehören oder dazugekauft werden können */
+  stellplaetze?: Stellplatz[];
+  /** Beantwortete Rückfragen: „nein“ oder „unbekannt“, damit nicht erneut gefragt wird */
+  gefragt?: Record<string, "ja" | "nein" | "unbekannt">;
 }
 
 /** Einstellung im Durchspielen. Prozentwerte als Dezimalzahl. */
@@ -100,4 +104,25 @@ export interface Position {
 export interface Params extends Investorenprofil {
   anlageprofil: Anlageprofil;
   grunderwerbsteuer: number;
+}
+
+/**
+ * Stellplatz. Oft separat gekauft (eigener Preis, eigene Grunderwerbsteuer im Gesamtpreis),
+ * als Teileigentum mit eigenem Grundbuchblatt (einzeln verkauf- und vermietbar) oder als
+ * Sondernutzungsrecht (nur innerhalb der Eigentümergemeinschaft übertragbar).
+ */
+export interface Stellplatz {
+  id: string;
+  art: "tiefgarage" | "aussen" | "garage" | "carport" | "duplex";
+  preis: "inklusive" | "separat";
+  /** Preis, wenn separat */
+  kaufpreis: number | null;
+  recht: "teileigentum" | "sondernutzung" | "unbekannt";
+  nutzung: "mieter" | "selbst" | "fremd" | "leer";
+  /** Miete im Monat, wenn nicht schon in der Wohnungsmiete enthalten */
+  miete: number | null;
+  /** nicht umlagefähiges Hausgeld für den Stellplatz im Monat */
+  hausgeld: number | null;
+  /** wird mitgekauft (bei separatem Preis abwählbar) */
+  erwerben: boolean;
 }

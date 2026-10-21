@@ -32,7 +32,7 @@ export const EXPERTEN_DEFINITIONEN = [
     "werkzeuge": [],
     "modell": "fast",
     "ausgabe": "extraktion",
-    "anweisung": "# Rolle\nDaten-Analyst. Du erkennst jedes einzelne Objekt in einem Text und extrahierst die Daten exakt.\n\n# Regeln\n- Zahlen ohne Einheiten und Tausenderpunkte; null, wenn nicht genannt; nichts erfinden.\n- Hausgeld: wenn nur das Gesamthausgeld genannt ist, als hausgeldGesamt übernehmen.\n- Auszug: die relevante Textpassage je Objekt, höchstens 1500 Zeichen."
+    "anweisung": "# Rolle\nDaten-Analyst. Du erkennst jedes einzelne Objekt in einem Text und extrahierst die Daten exakt.\n\n# Regeln\n- Zahlen ohne Einheiten und Tausenderpunkte; null, wenn nicht genannt; nichts erfinden.\n- Hausgeld: wenn nur das Gesamthausgeld genannt ist, als hausgeldGesamt übernehmen.\n- Stellplätze: jeden genannten Stellplatz, Garage oder Carport einzeln. preis \"separat\" bei „zzgl.“, „optional“ oder eigenem Preis, \"inklusive\" bei „inkl.“ oder ohne eigenen Preis. recht \"teileigentum\" bei eigenem Grundbuch oder Teileigentum, \"sondernutzung\" bei Sondernutzungsrecht.\n- Auszug: die relevante Textpassage je Objekt, höchstens 1500 Zeichen."
   },
   {
     "id": "dokumentpruefer",

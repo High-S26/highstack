@@ -1,4 +1,4 @@
-import type { Anlageprofil, Einstufung, Investorenprofil, Objekt, Params, Position, Szenario } from "./types";
+import type { Anlageprofil, Einstufung, Investorenprofil, Objekt, Params, Position, Stellplatz, Szenario } from "./types";
 
 export const GRUNDERWERBSTEUER: Record<string, number> = {
   NW: 0.065, BW: 0.05, BY: 0.035, BE: 0.06, BB: 0.065, HB: 0.05, HH: 0.055, HE: 0.06,
@@ -18,6 +18,23 @@ const lin = (x: number | null | undefined, x0: number, y0: number, x1: number, y
 export function params(inv: Investorenprofil, ap: Anlageprofil): Params {
   return { ...inv, anlageprofil: ap, grunderwerbsteuer: GRUNDERWERBSTEUER[inv.bundesland] ?? 0.065 };
 }
+const STELLPLATZ_ART: Record<Stellplatz["art"], string> = { tiefgarage: "Tiefgaragenstellplatz", aussen: "Außenstellplatz", garage: "Garage", carport: "Carport", duplex: "Duplex-Stellplatz" };
+/** Mitgekaufte Stellplätze: Preis, Miete und Kosten, die zum Objekt hinzukommen */
+export function stellplatzSumme(o: Objekt) {
+  const l = (o.stellplaetze ?? []).filter(x => x.erwerben);
+  return {
+    anzahl: l.length,
+    kaufpreis: l.reduce((a, x) => a + (x.preis === "separat" ? x.kaufpreis ?? 0 : 0), 0),
+    miete: l.reduce((a, x) => a + (x.nutzung === "mieter" || x.nutzung === "fremd" ? x.miete ?? 0 : 0), 0),
+    hausgeld: l.reduce((a, x) => a + (x.hausgeld ?? 0), 0),
+  };
+}
+/** Objekt mit mitgekauften Stellplätzen: Gesamtpreis und Kosten. Miete kommt in bewerte hinzu. */
+export function mitStellplaetzen(o: Objekt): Objekt {
+  const s = stellplatzSumme(o); if (!s.anzahl) return o;
+  return { ...o, kaufpreis: o.kaufpreis != null ? o.kaufpreis + s.kaufpreis : o.kaufpreis, hausgeldNichtUmlagefaehig: (o.hausgeldNichtUmlagefaehig ?? 0) + s.hausgeld || o.hausgeldNichtUmlagefaehig };
+}
+
 /** Betrag mit Tausenderpunkt für Hinweistexte */
 export const eurDe = (v: number) => Math.round(v).toLocaleString("de-DE");
 export const nebenkostenSatz = (p: Params) => p.grunderwerbsteuer + p.notar + p.makler;
@@ -70,6 +87,15 @@ export function bewerte(p: Params, o: Objekt) {
   if (!miete && o.marktmieteQm && o.wohnflaeche) {
     miete = o.marktmieteQm * o.wohnflaeche;
     hinweise.push({ art: "info", text: `Keine Ist-Miete: Marktmiete laut Mietspiegel angesetzt (${eurDe(miete)} € pro Monat).` });
+  }
+  const sp = stellplatzSumme(o);
+  if (miete != null && sp.miete) miete += sp.miete;
+  for (const x of (o.stellplaetze ?? [])) {
+    const name = STELLPLATZ_ART[x.art];
+    if (x.preis === "separat" && x.kaufpreis && !x.erwerben) hinweise.push({ art: "info", text: `${name} für ${eurDe(x.kaufpreis)} € wäre separat zu haben und ist nicht eingerechnet.` });
+    if (x.preis === "separat" && x.kaufpreis && x.miete) hinweise.push({ art: "info", text: `${name} für sich: ${(x.miete * 12 / x.kaufpreis * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 })} % Bruttorendite (${eurDe(x.miete)} € Miete).` });
+    if (x.recht === "teileigentum" && x.erwerben) hinweise.push({ art: "good", text: `${name} ist Teileigentum mit eigenem Grundbuchblatt: später einzeln verkauf- oder an Dritte vermietbar.` });
+    if (x.recht === "sondernutzung" && x.erwerben) hinweise.push({ art: "info", text: `${name} ist ein Sondernutzungsrecht: nur innerhalb der Eigentümergemeinschaft übertragbar.` });
   }
   k.miete = miete;
   if (o.kaufpreis && miete && invest != null && rate != null) {

@@ -2,10 +2,11 @@ import { ausUmgebung, fuehreAus } from "@highstack/agents";
 import { BEISPIEL_OBJEKT, type Assetklasse } from "@highstack/engine";
 import { mandant, speicher } from "@/lib/speicher";
 import { neuesObjekt } from "@/lib/vorgaben";
+import { stellplaetzeAusExtrakt, type Extrakt as Auslese } from "@/lib/erfassung";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-interface Extrakt { titel: string; ort: string; asset: Assetklasse; kaufpreis: number | null; wohnflaeche: number | null; vermietet?: boolean | null; kaltmieteMonat?: number | null; hausgeldNichtUmlagefaehig?: number | null; hausgeldGesamt?: number | null; ruecklageAnteil?: number | null; baujahr?: number | null; energieklasse?: string | null; erbbaurecht?: boolean | null; sonderumlage?: boolean | null; auszug?: string }
+interface Extrakt { titel: string; ort: string; asset: Assetklasse; kaufpreis: number | null; wohnflaeche: number | null; vermietet?: boolean | null; kaltmieteMonat?: number | null; hausgeldNichtUmlagefaehig?: number | null; hausgeldGesamt?: number | null; ruecklageAnteil?: number | null; baujahr?: number | null; energieklasse?: string | null; erbbaurecht?: boolean | null; sonderumlage?: boolean | null; stellplaetze?: Auslese["stellplaetze"]; auszug?: string }
 
 /** Inserate sichten: der Daten-Analyst erkennt Objekte, die als Kandidaten am Anlageprofil angelegt werden. */
 export async function POST(req: Request) {
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   const angelegt = [];
   for (const x of r.ergebnis.objekte.slice(0, 50)) {
     const o = neuesObjekt(apId, false, "kandidat"); if (suchId) o.suchId = suchId;
-    o.objekt = { ...o.objekt, titel: x.titel || "Inserat", ort: x.ort || "", asset: x.asset || "ETW", kaufpreis: x.kaufpreis ?? null, wohnflaeche: x.wohnflaeche ?? null, leer: x.vermietet === false, miete: x.kaltmieteMonat ?? null, hausgeldNichtUmlagefaehig: x.hausgeldNichtUmlagefaehig ?? (x.hausgeldGesamt != null ? Math.round(x.hausgeldGesamt * 0.4) : null), ruecklageAnteil: x.ruecklageAnteil ?? null, baujahr: x.baujahr ?? null, energieklasse: x.energieklasse ?? null, erbbaurecht: !!x.erbbaurecht, sonderumlage: !!x.sonderumlage };
+    o.objekt = { ...o.objekt, titel: x.titel || "Inserat", ort: x.ort || "", asset: x.asset || "ETW", kaufpreis: x.kaufpreis ?? null, wohnflaeche: x.wohnflaeche ?? null, leer: x.vermietet === false, miete: x.kaltmieteMonat ?? null, hausgeldNichtUmlagefaehig: x.hausgeldNichtUmlagefaehig ?? (x.hausgeldGesamt != null ? Math.round(x.hausgeldGesamt * 0.4) : null), ruecklageAnteil: x.ruecklageAnteil ?? null, baujahr: x.baujahr ?? null, energieklasse: x.energieklasse ?? null, erbbaurecht: !!x.erbbaurecht, sonderumlage: !!x.sonderumlage, ...(x.stellplaetze?.length ? { stellplaetze: stellplaetzeAusExtrakt(x.stellplaetze) } : {}) };
     o.expose = (x.auszug ?? "").slice(0, 4000);
     await s.speichereObjekt(t, o); angelegt.push(o);
   }
