@@ -14,14 +14,15 @@ export function leseZahl(t: string): number | null {
   const norm = x.includes(",") ? x.replace(/\./g, "").replace(",", ".") : /^\d{1,3}(\.\d{3})+$/.test(x) ? x.replace(/\./g, "") : x;
   const v = Number(norm); return Number.isFinite(v) ? v : null;
 }
-const zeige = (v: number) => v.toLocaleString("de-DE", { maximumFractionDigits: 3 });
+const zeige = (v: number, gruppe = true) => v.toLocaleString("de-DE", { maximumFractionDigits: 3, useGrouping: gruppe });
 
 /** Zahlenfeld mit Tausenderpunkten, Einheit im Feld und Hilfetext darunter. `prozent`: gespeichert als Dezimalzahl. */
 export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, leerErlaubt, min, max, info }: { info?: string; label: ReactNode; wert: number | null | undefined; onChange: (v: number | null) => void; prozent?: boolean; schritt?: number; einheit?: string; voll?: boolean; hinweis?: string; leerErlaubt?: boolean; min?: number; max?: number }) {
   const id = useId();
   const intern = wert == null ? null : prozent ? Math.round(wert * 100000) / 1000 : wert;
   const [fokus, setFokus] = useState(false); const [roh, setRoh] = useState("");
-  const anzeige = fokus ? roh : intern == null ? "" : zeige(intern);
+  const gruppe = !(typeof label === "string" && /Baujahr|Jahr$/.test(label));
+  const anzeige = fokus ? roh : intern == null ? "" : zeige(intern, gruppe);
   const v = leseZahl(roh); const fehler = fokus && roh.trim() !== "" && v == null ? "Bitte eine Zahl eingeben" : intern != null && ((min != null && intern < min) || (max != null && intern > max)) ? `Erlaubt: ${min ?? "…"} bis ${max ?? "…"}` : null;
   const suffix = prozent ? "%" : einheit;
   return (
@@ -29,7 +30,7 @@ export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, l
       <Beschriftung htmlFor={id} label={label} info={info} />
       <div className="adorn">
         <input id={id} type="text" inputMode="decimal" autoComplete="off" value={anzeige} aria-describedby={hinweis || fehler ? `${id}-h` : undefined} aria-invalid={!!fehler}
-          onFocus={e => { setRoh(intern == null ? "" : zeige(intern)); setFokus(true); requestAnimationFrame(() => e.target.select()); }}
+          onFocus={e => { setRoh(intern == null ? "" : zeige(intern, gruppe)); setFokus(true); requestAnimationFrame(() => e.target.select()); }}
           onBlur={() => setFokus(false)}
           onChange={e => { const t = e.target.value; setRoh(t); if (t.trim() === "") { onChange(leerErlaubt === false ? 0 : null); return; } const n = leseZahl(t); if (n != null) onChange(prozent ? n / 100 : n); }} />
         {suffix && <span className="sfx" aria-hidden="true">{suffix}</span>}

@@ -13,7 +13,7 @@ export default function Pruefen() {
   const gruppen = [...new Set(kandidaten.map(o => o.suchId))];
   return (
     <div className="view">
-      <div className="ph"><h1>Prüfen</h1><div className="row"><button className="btn" type="button" onClick={() => neu(false)}>+ Neues Objekt</button><button className="btn ghost" type="button" onClick={() => neu(true)}>Beispielobjekt</button></div></div>
+      <div className="ph"><h1>Prüfen</h1><div className="row"><button className="btn" type="button" onClick={() => router.push("/neu")}>+ Neues Objekt</button></div></div>
       <div className="two">
         <section className="panel"><div className="ph"><h2>In Prüfung</h2><span className="tag">{(n => `${n} ${n === 1 ? "Objekt" : "Objekte"}`)(objekte.filter(o => o.status === "pruefung").length)}</span></div>
           <Objektliste objekte={objekte.filter(o => o.status === "pruefung")} leer={<><b>Noch nichts in Prüfung</b><span>Legen Sie ein Objekt an oder übernehmen Sie einen Treffer aus einem Suchauftrag.</span></>} />

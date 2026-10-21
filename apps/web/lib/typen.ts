@@ -72,6 +72,8 @@ export interface Objektdatensatz {
   dokumente: Dokument[];
   experten: Record<string, Expertenstand>;
   compliance?: unknown;
+  /** Wann welcher Reiter zuerst angesehen wurde (Fortschritt) */
+  besucht?: Record<string, number>;
   erstellt: number;
   geaendert: number;
 }

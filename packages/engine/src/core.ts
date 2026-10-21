@@ -18,6 +18,8 @@ const lin = (x: number | null | undefined, x0: number, y0: number, x1: number, y
 export function params(inv: Investorenprofil, ap: Anlageprofil): Params {
   return { ...inv, anlageprofil: ap, grunderwerbsteuer: GRUNDERWERBSTEUER[inv.bundesland] ?? 0.065 };
 }
+/** Betrag mit Tausenderpunkt für Hinweistexte */
+export const eurDe = (v: number) => Math.round(v).toLocaleString("de-DE");
 export const nebenkostenSatz = (p: Params) => p.grunderwerbsteuer + p.notar + p.makler;
 
 /** Interner Zinsfuß einer Zahlungsreihe (Periode = Index). null, wenn nicht bestimmbar. */
@@ -67,7 +69,7 @@ export function bewerte(p: Params, o: Objekt) {
   let miete = o.leer ? null : o.miete;
   if (!miete && o.marktmieteQm && o.wohnflaeche) {
     miete = o.marktmieteQm * o.wohnflaeche;
-    hinweise.push({ art: "info", text: `Keine Ist-Miete: Marktmiete laut Mietspiegel angesetzt (${Math.round(miete)} € pro Monat).` });
+    hinweise.push({ art: "info", text: `Keine Ist-Miete: Marktmiete laut Mietspiegel angesetzt (${eurDe(miete)} € pro Monat).` });
   }
   k.miete = miete;
   if (o.kaufpreis && miete && invest != null && rate != null) {
@@ -98,9 +100,9 @@ export function bewerte(p: Params, o: Objekt) {
   if (ap.ko.sonderumlage && o.sonderumlage) ko.push("Sonderumlage offen");
   if (ap.ko.energieGH && (o.energieklasse === "G" || o.energieklasse === "H")) ko.push(`Energieklasse ${o.energieklasse}`);
   ko.forEach(x => hinweise.unshift({ art: "crit", text: `K.O.-Kriterium: ${x}` }));
-  if (o.kaufpreis && o.kaufpreis > kpMax) hinweise.push({ art: "crit", text: `Kaufpreis liegt über dem Rahmen von ${Math.round(kpMax)} €.` });
-  if (luecke > 0) hinweise.push({ art: "crit", text: `Finanzierungslücke von ${Math.round(luecke)} € gegenüber dem Kreditrahmen.` });
-  if (fin(k.cashflowMonat)) hinweise.push(k.cashflowMonat < ap.minCashflow ? { art: "crit", text: `Monatliche Zuzahlung von ${Math.round(Math.max(0, -k.cashflowMonat))} € (Ziel: Cashflow ab ${ap.minCashflow} €).` } : { art: "good", text: `Cashflow ${Math.round(k.cashflowMonat)} € pro Monat nach Rate und Kosten.` });
+  if (o.kaufpreis && o.kaufpreis > kpMax) hinweise.push({ art: "crit", text: `Kaufpreis liegt über dem Rahmen von ${eurDe(kpMax)} €.` });
+  if (luecke > 0) hinweise.push({ art: "crit", text: `Finanzierungslücke von ${eurDe(luecke)} € gegenüber dem Kreditrahmen.` });
+  if (fin(k.cashflowMonat)) hinweise.push(k.cashflowMonat < ap.minCashflow ? { art: "crit", text: `Monatliche Zuzahlung von ${eurDe(Math.max(0, -k.cashflowMonat))} € (Ziel: Cashflow ab ${ap.minCashflow} €).` } : { art: "good", text: `Cashflow ${eurDe(k.cashflowMonat)} € pro Monat nach Rate und Kosten.` });
   if (ap.assetklassen.length && !ap.assetklassen.includes(o.asset)) hinweise.push({ art: "warn", text: `Assetklasse ${o.asset} ist nicht Teil des Anlageprofils „${ap.name}“.` });
   const regionOk = !ap.regionen.length || !o.ort || ap.regionen.some(r => o.ort.toLowerCase().includes(r.toLowerCase().split(/\s+/)[0]!));
   if (!regionOk) hinweise.push({ art: "info", text: `${o.ort} liegt außerhalb der Regionen im Anlageprofil.` });
