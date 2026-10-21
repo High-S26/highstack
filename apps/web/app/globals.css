@@ -687,3 +687,7 @@ footer{display:grid;gap:8px}
 .sp-karte{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px}
 .sp-karte.aus{opacity:.65}
 .sp-karte .ph .row{gap:10px;align-items:center}
+.cg-avatar.sm{width:24px;height:24px;font-size:12px}
+.cg-vorschau{display:grid;gap:4px;padding:10px 12px;border-radius:12px;border-left:3px solid var(--marke);background:var(--sunk)}
+.cg-vorschau .lrow{gap:8px}
+.sp-wiz{display:grid;gap:8px}

@@ -54,11 +54,11 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
   if (/bezugsfrei|leerstehend|sofort frei/i.test(t)) f.leer = true; else if (/vermietet/i.test(t)) f.leer = false;
   if (/Erbbaurecht/i.test(t)) f.erbbaurecht = true;
   if (/Sonderumlage/i.test(t)) f.sonderumlage = true;
-  const sp = stellplatzAusText(t); if (sp.length) f.stellplaetze = sp;
+  const sp = stellplatzAusText(t); if (sp.length) { f.stellplaetze = sp; f.gefragt = { stellplatz: "ja", "sp-art": "ja" }; }
   const zimmer = finde(t, [/(\d(?:[.,]5)?)\s*-?\s*Zimmer/i]);
   const tit = (titel ?? t.split("\n").find(z => z.trim().length > 12 && z.trim().length < 120))?.replace(/\s*[|–-]\s*(ImmoScout24|Immowelt|Kleinanzeigen|immonet).*$/i, "").replace(/^(Exposé|Expose|Objekt|Angebot)\s*[:\-–]\s*/i, "").trim();
   f.titel = tit || [zimmer ? `${zimmer}-Zi.-${asset}` : asset, f.ort].filter(Boolean).join(", ");
-  const gefunden = (Object.keys(f) as (keyof Objekt)[]).filter(k => !["asset", "titel"].includes(k));
+  const gefunden = (Object.keys(f) as (keyof Objekt)[]).filter(k => !["asset", "titel", "gefragt"].includes(k));
   return { felder: f, gefunden, quelle: gefunden.length ? "muster" : "keine", text };
 }
 
@@ -86,7 +86,7 @@ export function ausExtrakt(x: Extrakt): Partial<Objekt> {
   const hg = x.hausgeldNichtUmlagefaehig ?? (x.hausgeldGesamt != null ? Math.round(x.hausgeldGesamt * 0.4) : null); if (hg) f.hausgeldNichtUmlagefaehig = hg;
   if (x.ruecklageAnteil) f.ruecklageAnteil = x.ruecklageAnteil; if (x.baujahr) f.baujahr = x.baujahr; if (x.energieklasse) f.energieklasse = x.energieklasse;
   if (x.erbbaurecht) f.erbbaurecht = true; if (x.sonderumlage) f.sonderumlage = true;
-  if (x.stellplaetze?.length) f.stellplaetze = stellplaetzeAusExtrakt(x.stellplaetze);
+  if (x.stellplaetze?.length) { f.stellplaetze = stellplaetzeAusExtrakt(x.stellplaetze); f.gefragt = { stellplatz: "ja", "sp-art": "ja" }; }
   return Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined));
 }
 

@@ -9,12 +9,15 @@ import { api } from "@/lib/client";
 import { EINSTUFUNG, eur, num, pct } from "@/lib/format";
 import { LEERES_OBJEKT } from "@/lib/vorgaben";
 import { useAbbrechen, WizFuss, WizKopf } from "@/components/Assistent";
+import { Stellplaetze } from "@/components/objekt/Stellplaetze";
+import { fragen, SP_ART } from "@/lib/concierge";
 
-type Quelle = "pdf" | "link" | "text" | "hand";
+type Quelle = "pdf" | "link" | "text" | "hand" | "concierge";
 const QUELLEN: { id: Quelle; titel: string; text: string; icon: string }[] = [
   { id: "pdf", titel: "Exposé hochladen", text: "PDF vom Makler oder Portal. Wird ausgelesen und als Unterlage abgelegt.", icon: "M6 2.5h6l4 4v11H6zM12 2.5v4h4M8.5 11h5M8.5 14h5" },
   { id: "link", titel: "Link zum Inserat", text: "Adresse der Anzeige einfügen. Manche Portale sperren das Lesen, dann hilft Text oder PDF.", icon: "M8.5 11.5a3 3 0 0 0 4.2 0l2.8-2.8a3 3 0 0 0-4.2-4.2l-1 1M11.5 8.5a3 3 0 0 0-4.2 0l-2.8 2.8a3 3 0 0 0 4.2 4.2l1-1" },
   { id: "text", titel: "Text einfügen", text: "Anzeige, Suchagent-Mail oder Newsletter kopieren und einfügen.", icon: "M4 5h12M4 9h12M4 13h8" },
+  { id: "concierge", titel: "Fragen lassen", text: "Kein Exposé zur Hand? Der Concierge fragt Schritt für Schritt und sagt, wo die Angaben stehen.", icon: "M10 3.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13M8 8a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.7M10 13.5v.1" },
   { id: "hand", titel: "Von Hand", text: "Die wichtigsten Angaben selbst eintragen. Dauert eine Minute.", icon: "M13.5 3.5l3 3-9 9H4.5v-3zM11.5 5.5l3 3" },
 ];
 const FELDER: { k: keyof Objekt; label: string; fmt: (v: unknown) => string }[] = [
@@ -30,7 +33,7 @@ const FELDER: { k: keyof Objekt; label: string; fmt: (v: unknown) => string }[] 
 const PFLICHT: (keyof Objekt)[] = ["kaufpreis", "wohnflaeche", "ort", "miete", "hausgeldNichtUmlagefaehig"];
 
 export default function NeuesObjekt() {
-  const { profil, anlageprofil, setzeObjekt, meldung } = useApp(); const router = useRouter();
+  const { profil, anlageprofil, setzeObjekt, meldung, setzeProfil } = useApp(); const router = useRouter();
   const [schritt, setSchritt] = useState<1 | 2 | 3>(1);
   const [quelle, setQuelle] = useState<Quelle | null>(null);
   const [datei, setDatei] = useState<File | null>(null); const [url, setUrl] = useState(""); const [text, setText] = useState(""); const [ueber, setUeber] = useState(false);
@@ -39,9 +42,11 @@ export default function NeuesObjekt() {
   const [sichtbar, setSichtbar] = useState(0); const [apId, setApId] = useState(profil!.aktivesAnlageprofil); const [legtAn, setLegtAn] = useState(false);
   const eingabe = useRef<HTMLInputElement>(null);
 
-  const bereit = quelle === "hand" || (quelle === "pdf" && !!datei) || (quelle === "link" && /^https?:\/\/\S+\.\S+/.test(url.trim())) || (quelle === "text" && text.trim().length > 30);
+  const begleitet = (profil!.modus ?? "unterstuetzt") === "unterstuetzt";
+  const bereit = quelle === "hand" || quelle === "concierge" || (quelle === "pdf" && !!datei) || (quelle === "link" && /^https?:\/\/\S+\.\S+/.test(url.trim())) || (quelle === "text" && text.trim().length > 30);
   const auslesen = async () => {
     if (quelle === "hand") { setSchritt(3); return; }
+    if (quelle === "concierge") { if (!begleitet) setzeProfil({ ...profil!, modus: "unterstuetzt" }); await anlegen(); return; }
     setSchritt(2); setSichtbar(0); setHinweis(null);
     try {
       const r = await api.erfassen({ datei: quelle === "pdf" ? datei! : undefined, url: quelle === "link" ? url.trim() : undefined, text: quelle === "text" ? text : undefined });
@@ -49,7 +54,9 @@ export default function NeuesObjekt() {
     } catch (e) { setHinweis((e as Error).message); setGefunden([]); }
   };
   // Gefundene Angaben nacheinander zeigen, dann weiter
-  const zeilen = FELDER.filter(f => gefunden.includes(f.k) || PFLICHT.includes(f.k));
+  const spZeile = { k: "stellplaetze" as keyof Objekt, label: "Stellplatz", fmt: () => (ob.stellplaetze ?? []).map(x => `${SP_ART.find(([v]) => v === x.art)?.[1]}${x.preis === "separat" ? x.kaufpreis ? `, zzgl. ${eur(x.kaufpreis)}` : ", separat" : ", im Preis"}${x.recht === "teileigentum" ? ", eigenes Grundbuch" : ""}`).join(" · ") };
+  const zeilen = [...FELDER, ...(gefunden.includes("stellplaetze") ? [spZeile] : [])].filter(f => gefunden.includes(f.k) || PFLICHT.includes(f.k));
+  const offen = fragen(ob);
   useEffect(() => {
     if (schritt !== 2 || !expose && !hinweis) return;
     const ruhig = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -98,7 +105,7 @@ export default function NeuesObjekt() {
         {quelle === "link" && <div className="fld"><label htmlFor="link">Link zur Anzeige</label><input id="link" type="url" inputMode="url" autoFocus value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" /></div>}
         {quelle === "text" && <div className="fld"><label htmlFor="txt">Text der Anzeige</label><textarea id="txt" autoFocus style={{ minHeight: 180 }} value={text} onChange={e => setText(e.target.value)} placeholder="Titel, Preis, Fläche, Miete, Hausgeld … einfach alles einfügen" /></div>}
         {profil!.anlageprofile.length > 1 && <Auswahl label="Prüfen gegen Anlageprofil" wert={apId} optionen={profil!.anlageprofile.map(x => [x.id, x.name] as [string, string])} onChange={setApId} />}
-        <WizFuss weiter={auslesen} weiterAus={!bereit} weiterText={quelle === "hand" ? "Weiter" : "Auslesen"} hinweis={!quelle ? "Wählen Sie oben, womit Sie starten." : undefined} />
+        <WizFuss weiter={auslesen} weiterAus={!bereit || legtAn} weiterText={quelle === "hand" ? "Weiter" : quelle === "concierge" ? (legtAn ? "Legt an …" : "Los geht’s") : "Auslesen"} hinweis={!quelle ? "Wählen Sie oben, womit Sie starten." : undefined} />
         <p className="note">Erst einmal schauen, wie es aussieht? <button type="button" className="linkbtn" onClick={beispiel}>Beispielobjekt öffnen</button></p>
       </section>}
 
@@ -125,6 +132,7 @@ export default function NeuesObjekt() {
             {!ob.leer && <div className={`erf ${markiert("miete")}`}><Zahl label="Ist-Kaltmiete" einheit="€/Monat" wert={ob.miete} onChange={v => set({ miete: v })} /></div>}
             <div className={`erf ${markiert("hausgeldNichtUmlagefaehig")}`}><Zahl label={ob.asset === "ETW" ? "Hausgeld, nicht umlagefähig inkl. Rücklage" : "Nicht umlagefähige Kosten"} einheit="€/Monat" wert={ob.hausgeldNichtUmlagefaehig} onChange={v => set({ hausgeldNichtUmlagefaehig: v })} hinweis={gefunden.includes("hausgeldNichtUmlagefaehig") && herkunft === "muster" ? "geschätzt: 40 % des Hausgelds" : undefined} /></div>
             <div className={`erf ${markiert("baujahr")}`}><Zahl label="Baujahr" wert={ob.baujahr} onChange={v => set({ baujahr: v })} /></div>
+            <div className="full sp-wiz"><span className="lrow"><span className="flabel">Stellplatz</span>{gefunden.includes("stellplaetze") && <span className="tag up">✓ im Text gefunden</span>}</span><Stellplaetze ob={ob} set={set} /></div>
           </div>
           <WizFuss zurueck={() => setSchritt(quelle === "hand" ? 1 : 2)} />
         </div>
@@ -136,8 +144,10 @@ export default function NeuesObjekt() {
               <p className="note">Erste Einschätzung gegen „{ap.name}“. Im Objekt sehen Sie die Gründe.</p></>
               : <p className="note">Sobald Kaufpreis, Fläche und Miete stehen, erscheint hier die erste Einschätzung.</p>}
           </div>
-          <button type="button" className="btn" disabled={legtAn || !ob.kaufpreis} onClick={anlegen}>{legtAn ? "Legt an …" : "Objekt anlegen"}</button>
-          {!ob.kaufpreis && <span className="note">Mindestens der Kaufpreis wird gebraucht.</span>}
+          {begleitet && offen.length > 0 && <div className="cg-vorschau"><span className="lrow"><span className="cg-avatar sm" aria-hidden="true">?</span><b>Concierge klärt danach {offen.length} {offen.length === 1 ? "Frage" : "Fragen"}</b></span>
+            <span className="note">{[...new Set(offen.map(f => f.thema))].slice(0, 4).join(", ")}{new Set(offen.map(f => f.thema)).size > 4 ? " und mehr" : ""}. Einzeln, wichtigste zuerst, mit Hinweis wo es steht.</span></div>}
+          <button type="button" className="btn" disabled={legtAn || (!ob.kaufpreis && !begleitet)} onClick={anlegen}>{legtAn ? "Legt an …" : begleitet && offen.length ? "Anlegen und Fragen klären" : "Objekt anlegen"}</button>
+          {!ob.kaufpreis && !begleitet && <span className="note">Mindestens der Kaufpreis wird gebraucht.</span>}
         </aside>
       </section>}
     </div>
