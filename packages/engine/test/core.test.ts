@@ -109,3 +109,15 @@ describe("Stellplätze", () => {
     expect(mit.bewertung.kennzahlen.faktor!).toBeLessThan(28.36);
   });
 });
+
+describe("Externe Faktoren", () => {
+  it("höherer Anschlusszins senkt, höhere Wertentwicklung hebt die Rendite", async () => {
+    const { externeFaktoren, messe } = await import("../src");
+    const a = analyse({ investor: INV, anlageprofil: AP, objekt: OBJ });
+    const e = externeFaktoren(a.params, OBJ, a.bewertung.miete, a.szenario)!;
+    expect(e.matrix.length).toBe(5);
+    expect(messe(e.matrix[4]![1]!, "irr")!).toBeLessThan(messe(e.matrix[0]![1]!, "irr")!);
+    expect(messe(e.matrix[1]![4]!, "nv")!).toBeGreaterThan(messe(e.matrix[1]![0]!, "nv")!);
+    expect(messe(e.stress.find(s => s.id === "krise")!.sim, "nv")!).toBeLessThan(messe(e.basis, "nv")!);
+  });
+});

@@ -5,3 +5,4 @@ export * from "./module/index";
 export * from "./analyse";
 export * from "./beispiel";
 export * from "./strategie";
+export * from "./extern";

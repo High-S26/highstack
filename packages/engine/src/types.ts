@@ -64,6 +64,8 @@ export interface Objekt {
   stellplaetze?: Stellplatz[];
   /** Beantwortete Rückfragen: „nein“ oder „unbekannt“, damit nicht erneut gefragt wird */
   gefragt?: Record<string, "ja" | "nein" | "unbekannt">;
+  /** Woher ein Wert stammt, wenn er ermittelt und nicht eingegeben wurde */
+  herkunft?: Record<string, { quelle: string; von: number; bis: number; am: number }>;
 }
 
 /** Einstellung im Durchspielen. Prozentwerte als Dezimalzahl. */

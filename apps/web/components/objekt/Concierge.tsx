@@ -5,6 +5,7 @@ import { conciergeStand, fragen } from "@/lib/concierge";
 import { eur, pct } from "@/lib/format";
 import type { Objektdatensatz } from "@/lib/typen";
 import { leseZahl } from "../Felder";
+import { api } from "@/lib/client";
 
 /**
  * Concierge: fragt fehlende Angaben einzeln ab, wichtigste zuerst.
@@ -14,7 +15,7 @@ import { leseZahl } from "../Felder";
 export function Concierge({ o, a, setze, zuUnterlagen, aus }: { o: Objektdatensatz; a: Analyse; setze: (p: Partial<Objektdatensatz>) => void; zuUnterlagen: () => void; aus: () => void }) {
   const liste = fragen(o.objekt); const f = liste[0]; const stand = conciergeStand(o.objekt);
   const [eingabe, setEingabe] = useState(""); const [wahl, setWahl] = useState<string | null>(null);
-  const [echo, setEcho] = useState<string | null>(null); const [wo, setWo] = useState(false);
+  const [echo, setEcho] = useState<string | null>(null); const [wo, setWo] = useState(false); const [ermittelt, setErmittelt] = useState(false);
   const vorher = useRef<{ r: number | null; c: number | null } | null>(null); const feld = useRef<HTMLInputElement>(null);
   const k = a.bewertung.kennzahlen;
   // Wirkung der letzten Antwort zeigen
@@ -54,6 +55,7 @@ export function Concierge({ o, a, setze, zuUnterlagen, aus }: { o: Objektdatensa
           : <div className="cg-wahl" role="radiogroup" aria-labelledby="cg-frage">{f.optionen!.map(([v, l, s]) => <button key={v} type="button" role="radio" aria-checked={wahl === v} className="wiz-karte" onClick={() => setWahl(v)} onDoubleClick={() => absenden(v)}><b>{l}</b>{s && <span>{s}</span>}</button>)}</div>}
         <div className="row">
           <button type="submit" className="btn" disabled={f.typ === "zahl" ? !zahlOk : !wahl}>Übernehmen</button>
+          {f.ermitteln && <button type="button" className="btn ghost" disabled={ermittelt} onClick={async () => { setErmittelt(true); try { const r = await api.ermitteln(o.id); anwenden({ marktmieteQm: r.marktmieteQm.wert, vergleichspreisQm: o.objekt.vergleichspreisQm ?? r.vergleichspreisQm.wert, herkunft: { ...(o.objekt.herkunft ?? {}), marktmieteQm: { quelle: r.stand, von: r.marktmieteQm.von, bis: r.marktmieteQm.bis, am: Date.now() } } }, `Ermittelt: ${r.marktmieteQm.wert.toLocaleString("de-DE")} €/m² (${r.marktmieteQm.von.toLocaleString("de-DE")} bis ${r.marktmieteQm.bis.toLocaleString("de-DE")}), ${r.stand}.`); } catch (e) { setEcho((e as Error).message); } finally { setErmittelt(false); } }}>{ermittelt ? "Ermittelt …" : "Ermitteln lassen"}</button>}
           <button type="button" className="btn ghost" onClick={unbekannt}>Weiß ich nicht</button>
           <button type="button" className="linkbtn" onClick={() => setWo(x => !x)} aria-expanded={wo}>Wo finde ich das?</button>
         </div>

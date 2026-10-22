@@ -74,7 +74,20 @@ export const KURZURTEIL_SCHEMA = {
   required: ["kernaussage", "einstufung", "fragen", "verhandlungsansatz", "naechster_schritt"],
 } as const;
 
-export const SCHEMA_JE_AUSGABE: Record<string, object> = { kurzurteil: KURZURTEIL_SCHEMA, bericht: BERICHT_SCHEMA, komitee: KOMITEE_SCHEMA, compliance: COMPLIANCE_SCHEMA, extraktion: EXTRAKTION_SCHEMA };
+const spanne = { type: "object", properties: { wert: { type: "number" }, von: { type: "number" }, bis: { type: "number" } }, required: ["wert", "von", "bis"] } as const;
+export const MARKTWERTE_SCHEMA = {
+  type: "object",
+  properties: {
+    marktmieteQm: spanne, vergleichspreisQm: spanne, bodenrichtwert: { ...spanne, type: ["object", "null"] },
+    grundlage: { type: "string" }, stand: { type: "string" }, sicherheit: { type: "string", enum: ["niedrig", "mittel", "hoch"] },
+    hinweise: { type: "array", items: { type: "string" } },
+  },
+  required: ["marktmieteQm", "vergleichspreisQm", "grundlage", "stand", "sicherheit"],
+} as const;
+export interface Marktwerte { marktmieteQm: Spanne; vergleichspreisQm: Spanne; bodenrichtwert?: Spanne | null; grundlage: string; stand: string; sicherheit: "niedrig" | "mittel" | "hoch"; hinweise?: string[] }
+export interface Spanne { wert: number; von: number; bis: number }
+
+export const SCHEMA_JE_AUSGABE: Record<string, object> = { kurzurteil: KURZURTEIL_SCHEMA, bericht: BERICHT_SCHEMA, komitee: KOMITEE_SCHEMA, compliance: COMPLIANCE_SCHEMA, extraktion: EXTRAKTION_SCHEMA, marktwerte: MARKTWERTE_SCHEMA };
 
 export interface Bericht {
   kernaussage: string; bewertung: "positiv" | "neutral" | "kritisch";

@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api } from "@/lib/client";
 import type { Objektdatensatz, Profil } from "@/lib/typen";
 import { neueSuche } from "@/lib/vorgaben";
+import { Menue } from "./Menue";
 import { Logo } from "./Logo";
 import { Themaschalter } from "./Thema";
 import { versionText } from "@/lib/version";
@@ -32,14 +33,7 @@ export interface Frage { titel: string; text?: string; ja: string; nein?: string
 const Ctx = createContext<AppZustand | null>(null);
 export const useApp = () => { const c = useContext(Ctx); if (!c) throw new Error("useApp außerhalb von App"); return c; };
 
-const NAV = [
-  ["/", "Übersicht", "M3 9.5 10 3.5l7 6V17h-4.5v-4.5h-5V17H3z"],
-  ["/suchen", "Suchen", "M8.5 3.5a5 5 0 1 0 0 10a5 5 0 1 0 0-10M12.5 12.5 17 17"],
-  ["/pruefen", "Prüfen", "M5.5 3.5h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2M7 10l2.2 2.2L13.5 8"],
-  ["/portfolio", "Portfolio", "M4.5 7h11a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5v-7A1.5 1.5 0 0 1 4.5 7M7.5 7V4.5h5V7"],
-  ["/experten", "Experten", "M7 4.4a2.6 2.6 0 1 0 0 5.2a2.6 2.6 0 1 0 0-5.2M13.5 5.3a2.2 2.2 0 1 0 0 4.4a2.2 2.2 0 1 0 0-4.4M2.5 16.5c.4-2.8 2.2-4.2 4.5-4.2s4.1 1.4 4.5 4.2M12 12.4c2.6-.3 4.9.9 5.5 4.1"],
-  ["/profil", "Profil", "M10 4a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 17c.5-3 3-4.8 6-4.8s5.5 1.8 6 4.8"],
-] as const;
+
 
 export function App({ children }: { children: ReactNode }) {
   const [profil, setProfil] = useState<Profil | null>(null);
@@ -95,7 +89,6 @@ export function App({ children }: { children: ReactNode }) {
   const analyseVon = useCallback((o: Objektdatensatz) => analyse({ investor: profil!.investor, anlageprofil: anlageprofil(o.anlageprofilId), objekt: o.objekt, szenario: o.szenario, module: o.module }), [profil, anlageprofil]);
 
   const wert = useMemo<AppZustand>(() => ({ profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion, frage }), [profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion, frage]);
-  const aktiv = (href: string) => href === "/" ? pfad === "/" : pfad.startsWith(href) || (href === "/pruefen" && pfad.startsWith("/objekt"));
 
   const fuss = <footer><p>highstack dient ausschließlich der Information und fundierten Aufklärung. Die Berechnungen beruhen auf Ihren Annahmen und vereinfachten Modellen. Sie ersetzen keine Anlage-, Finanzierungs-, Steuer- oder Rechtsberatung im Einzelfall.</p><nav className="fusslinks" aria-label="Rechtliches"><Link href="/impressum">Impressum</Link><Link href="/datenschutz">Datenschutz</Link><Link href="/hinweise">Nutzungshinweise</Link><Link href="/version">{versionText()}</Link></nav></footer>;
   if (login) return <>{children}<div className="wrap">{fuss}</div></>;
@@ -105,10 +98,11 @@ export function App({ children }: { children: ReactNode }) {
       <div className="wrap">
         <div className="appbar">
           <Link href="/" className="brand" aria-label="highstack, zur Übersicht"><Logo /></Link>
-          {profil?.onboarded && <nav className="nav" aria-label="Hauptnavigation">
-            {NAV.map(([href, label, d]) => <Link key={href} href={href} className="navb" aria-current={aktiv(href) ? "page" : undefined}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d={d} /></svg>{label}</Link>)}
-          </nav>}
-          <div className="who"><Themaschalter /><Link href="/konto" className="konto-b" aria-current={pfad === "/konto" ? "page" : undefined} title="Konto"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10" cy="7" r="3" /><path d="M4 17c.6-3 3-4.6 6-4.6s5.4 1.6 6 4.6" /></svg><span>{ich?.aktiv ? ich.email : "Konto"}</span></Link></div>
+          {profil?.onboarded && <div className="aktionen">
+            <Link href="/suchen/neu" className="btn ghost sm" aria-current={pfad === "/suchen/neu" ? "page" : undefined}>+ Auftrag anlegen</Link>
+            <Link href="/neu" className="btn sm" aria-current={pfad === "/neu" ? "page" : undefined}>Prüfung starten</Link>
+          </div>}
+          <div className="who"><Themaschalter />{profil?.onboarded ? <Menue /> : <Link href="/konto" className="konto-b" title="Konto"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10" cy="7" r="3" /><path d="M4 17c.6-3 3-4.6 6-4.6s5.4 1.6 6 4.6" /></svg><span>{ich?.aktiv ? ich.email : "Konto"}</span></Link>}</div>
         </div>
         {profil?.loeschung && pfad !== "/konto" && <div className="testband warnband">Die Löschung dieses Kontos ist beantragt und wird am {new Date(profil.loeschung.ausfuehrung).toLocaleDateString("de-DE")} ausgeführt. <Link href="/konto">Abbrechen oder Daten herunterladen</Link></div>}
         {testmodus && <div className="testband"><b>Testmodus.</b> Alle Berechnungen laufen, die Experten liefern Platzhalter. Für echte Einschätzungen ANTHROPIC_API_KEY in .env eintragen.</div>}

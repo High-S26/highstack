@@ -1,12 +1,14 @@
 "use client";
 import { mitStellplaetzen, MODULE, standardSzenario, standardwerte, VORLAGEN, type Analyse, type ParamDef, type Simulation, type Szenario } from "@highstack/engine";
 import { useState } from "react";
+import { api } from "@/lib/client";
 import { EINSTUFUNG, eur, kennzahl, num, pct, STRUKTUR, teur, vorzeichen } from "@/lib/format";
 import type { Objektdatensatz } from "@/lib/typen";
 import { Auswahl, Haken, Kacheln, Text, Zahl } from "../Felder";
 import { Strategien } from "./Strategien";
 import { useApp } from "../App";
 import { Positionen } from "./Positionen";
+import { ExterneFaktoren } from "./Extern";
 import { Stellplaetze } from "./Stellplaetze";
 import { Grundrissvorschau } from "./Ansicht";
 import { Info } from "../Info";
@@ -40,14 +42,12 @@ export function Daten({ o, a, setze, zuUnterlagen }: { o: Objektdatensatz; a: An
       <Stellplaetze ob={ob} set={set} />
       <div className="meter"><div className="ph"><span className="note">Datenqualität</span><span className="note">{Math.round(q * 100)} %</span></div><div className="track"><div className="fill" style={{ width: `${q * 100}%`, background: q >= 0.85 ? "var(--good)" : q >= 0.5 ? "var(--warn)" : "var(--crit)" }} /></div>
         <ul className="missing">{pruef.filter(x => x[0] == null || x[0] === "").slice(0, 4).map(([, l, h]) => <li key={l}><b>{l}</b>{h && ` · ${h}`}</li>)}</ul></div>
-      <details><summary>Genauer werden: Markt, Substanz, Steuern</summary>
+      <Markt o={o} set={set} />
+      <details><summary>Genauer werden: Substanz und Steuern</summary>
         <div className="fields">
-          <Zahl label="Marktmiete laut Mietspiegel" einheit="€/m²" wert={ob.marktmieteQm} onChange={v => set({ marktmieteQm: v })} schritt={0.1} />
-          <Zahl label="Vergleichspreis Kauf" einheit="€/m²" wert={ob.vergleichspreisQm} onChange={v => set({ vergleichspreisQm: v })} schritt={50} />
           <Zahl label="Baujahr" wert={ob.baujahr} onChange={v => set({ baujahr: v })} schritt={1} />
           <Auswahl label="Energieklasse" wert={ob.energieklasse ?? ""} optionen={[["", "unbekannt"], ...["A+", "A", "B", "C", "D", "E", "F", "G", "H"].map(x => [x, x] as [string, string])]} onChange={v => set({ energieklasse: v || null })} />
           {ob.asset === "ETW" && <Zahl label="Rücklage, Ihr Anteil" einheit="€" wert={ob.ruecklageAnteil} onChange={v => set({ ruecklageAnteil: v })} schritt={500} />}
-          <Zahl label="Bodenrichtwert (BORIS)" einheit="€/m²" wert={ob.bodenrichtwert} onChange={v => set({ bodenrichtwert: v })} schritt={10} />
           <Zahl voll label="Gebäudeanteil am Kaufpreis" prozent hinweis="für die Abschreibung" wert={ob.gebaeudeanteil} onChange={v => set({ gebaeudeanteil: v ?? 0.75 })} />
           <Haken label="Erbbaurecht" wert={ob.erbbaurecht} onChange={v => set({ erbbaurecht: v })} />
           <Haken label="Sonderumlage offen oder beschlossen" wert={ob.sonderumlage} onChange={v => set({ sonderumlage: v })} />
@@ -81,7 +81,40 @@ export function Playbook({ o, a, zuDurchspielen }: { o: Objektdatensatz; a: Anal
   );
 }
 
-export function Ergebnisbereich({ a, apName, spielraum }: { a: Analyse; apName: string; spielraum?: React.ReactNode }) {
+const MARKTFELDER: { k: "marktmieteQm" | "vergleichspreisQm" | "bodenrichtwert"; label: string; einheit: string; quelle: string }[] = [
+  { k: "marktmieteQm", label: "Vergleichsmiete", einheit: "€/m²", quelle: "Mietspiegel" },
+  { k: "vergleichspreisQm", label: "Vergleichspreis Kauf", einheit: "€/m²", quelle: "Gutachterausschuss" },
+  { k: "bodenrichtwert", label: "Bodenrichtwert", einheit: "€/m²", quelle: "BORIS" },
+];
+/** Markt & Vergleich: selbst eintragen oder ermitteln lassen; ermittelte Werte zeigen Spanne und Quelle. */
+function Markt({ o, set }: { o: Objektdatensatz; set: (p: Partial<Objektdatensatz["objekt"]>) => void }) {
+  const { meldungMitAktion } = useApp(); const ob = o.objekt;
+  const [laeuft, setLaeuft] = useState(false); const [info, setInfo] = useState<string | null>(null);
+  const ermitteln = async () => {
+    setLaeuft(true); setInfo(null);
+    try {
+      const r = await api.ermitteln(o.id); const vorher = { marktmieteQm: ob.marktmieteQm, vergleichspreisQm: ob.vergleichspreisQm, bodenrichtwert: ob.bodenrichtwert, herkunft: ob.herkunft };
+      const quelle = r.quelle === "ki" ? `Markt-Analyst, ${r.stand}` : r.stand; const am = Date.now();
+      const herkunft = { ...(ob.herkunft ?? {}), marktmieteQm: { quelle, von: r.marktmieteQm.von, bis: r.marktmieteQm.bis, am }, vergleichspreisQm: { quelle, von: r.vergleichspreisQm.von, bis: r.vergleichspreisQm.bis, am }, ...(r.bodenrichtwert ? { bodenrichtwert: { quelle, von: r.bodenrichtwert.von, bis: r.bodenrichtwert.bis, am } } : {}) };
+      set({ marktmieteQm: r.marktmieteQm.wert, vergleichspreisQm: r.vergleichspreisQm.wert, ...(r.bodenrichtwert ? { bodenrichtwert: r.bodenrichtwert.wert } : {}), herkunft });
+      setInfo(`${r.grundlage} Sicherheit: ${r.sicherheit}.${r.hinweise?.length ? ` Prüfen: ${r.hinweise.join(", ")}.` : ""}`);
+      meldungMitAktion("Vergleichswerte ermittelt", "Rückgängig", () => set(vorher));
+    } catch (e) { setInfo((e as Error).message); } finally { setLaeuft(false); }
+  };
+  return (
+    <div className="markt">
+      <div className="markt-kopf"><div><b>Markt &amp; Vergleich</b><span className="note">Selbst eintragen oder ermitteln lassen</span></div>
+        <button type="button" className="btn sm" onClick={ermitteln} disabled={laeuft || !(ob.ort?.trim() || ob.titel?.trim())} title={ob.ort?.trim() ? "" : "Erst Ort eintragen"}>{laeuft ? "Ermittelt …" : <><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M10 2.5l1.8 4.2 4.2 1.8-4.2 1.8L10 14.5l-1.8-4.2L4 8.5l4.2-1.8z" /></svg> Ermitteln</>}</button></div>
+      <div className="fields">{MARKTFELDER.map(f => { const h = ob.herkunft?.[f.k]; return (
+        <div key={f.k} className={`markt-feld${h ? " ermittelt" : ""}`}>
+          <Zahl label={f.label} einheit={f.einheit} wert={ob[f.k]} onChange={v => { const { [f.k]: _weg, ...rest } = ob.herkunft ?? {}; set({ [f.k]: v, herkunft: rest }); }} hinweis={h ? `ermittelt: ${f.k === "marktmieteQm" ? `${num(h.von, 2)} bis ${num(h.bis, 2)} €` : `${eur(h.von)} bis ${eur(h.bis)}`} · ${h.quelle}` : `Quelle: ${f.quelle}`} />
+        </div>); })}</div>
+      {info && <p className="note markt-info">{info}</p>}
+    </div>
+  );
+}
+
+export function Ergebnisbereich({ a, apName, spielraum, passung }: { a: Analyse; apName: string; spielraum?: React.ReactNode; passung?: React.ReactNode }) {
   const b = a.bewertung; const k = b.kennzahlen; const p = a.params; const ap = p.anlageprofil;
   const reihenfolge = { crit: 0, warn: 1, good: 2, info: 3 } as const;
   const h = [...b.hinweise].sort((x, y) => reihenfolge[x.art] - reihenfolge[y.art]);
@@ -107,6 +140,7 @@ export function Ergebnisbereich({ a, apName, spielraum }: { a: Analyse; apName: 
         <ul className="flags">{h.slice(0, 3).map(x => <li key={x.text} className={x.art === "warn" ? "" : x.art}>{x.text}</li>)}</ul>
         {h.length > 3 && <details><summary>{h.length - 3} weitere Hinweise</summary><ul className="flags">{h.slice(3).map(x => <li key={x.text} className={x.art === "warn" ? "" : x.art}>{x.text}</li>)}</ul></details>}
       </section>
+      {passung}
       {spielraum}
       <section className="panel"><h2>Budget &amp; Finanzierung</h2><Kacheln eintraege={[["Kaufpreis bis", eur(k.kpMax)], ["Nebenkosten", `${eur(k.nebenkosten)} · ${pct(k.nebenkostenSatz)}`], ["Gesamtinvestition", eur(k.gesamtinvestition)], ["Darlehen", eur(k.darlehen)], ["Rate / Monat", eur(k.rateMonat)], ["Finanzierungslücke", (k.finanzierungsluecke ?? 0) > 0 ? eur(k.finanzierungsluecke) : "keine"]]} /></section>
       <section className="panel"><details><summary>Alle Kennzahlen</summary>
@@ -206,6 +240,7 @@ export function Durchspielen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; 
         <p className="note">Ihre Einstellung: {fmt(basis)}. Jeweils ein Faktor wird verändert; rot schlechter, grün besser.</p>
         <div className="tornado">{tor.map(t => <div key={t.label} className="tr"><div>{t.label}</div><div><div className="tt"><div className="mid" />{[t.sa, t.sb].map((v, i) => v == null || basis == null || Math.abs(v - basis) < 1e-9 ? null : <div key={i} className={`seg ${v < basis ? "lo" : "hi"}`} style={{ left: `${50 + Math.min(0, (v - basis) / maxD * 48)}%`, width: `${Math.abs((v - basis) / maxD * 48)}%` }} />)}</div><div className="tv"><span>{fmt(Math.min(...[t.sa, t.sb, basis].filter((x): x is number => x != null)))}</span><span>{fmt(Math.max(...[t.sa, t.sb, basis].filter((x): x is number => x != null)))}</span></div></div></div>)}</div>
       </section>}
+      {m && <ExterneFaktoren o={o} a={a} />}
       {m && <section className="panel">
         <h2>Schwellen &amp; Zielpreise</h2>
         <div className="tbl"><table><thead><tr><th>Damit der Cashflow ± 0 ist …</th><th className="num">nötig</th><th>bei Ihrer Einstellung</th></tr></thead><tbody>

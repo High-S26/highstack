@@ -6,6 +6,8 @@ import { api } from "@/lib/client";
 import { EINSTUFUNG, eur, num, pct } from "@/lib/format";
 import type { Objektdatensatz } from "@/lib/typen";
 import { useApp } from "./App";
+import { Netz } from "./grafik/Netz";
+import { matchAchsen } from "@/lib/match";
 
 type Sortierung = "score" | "neu" | "preis" | "rendite";
 const SORT: [Sortierung, string][] = [["score", "Beste Passung"], ["neu", "Zuletzt geändert"], ["preis", "Preis aufsteigend"], ["rendite", "Rendite absteigend"]];
@@ -17,8 +19,9 @@ function Zeile({ o, kandidat, gewaehlt, waehle }: { o: Objektdatensatz; kandidat
   const pruefen = async () => { const n = await api.aendereObjekt(o.id, { status: "pruefung" }); setzeObjekt(n); router.push(`/objekt/${o.id}`); };
   const titel = o.objekt.titel || "Ohne Titel";
   return (
-    <div className={`orow${gewaehlt ? " sel" : ""}`}>
+    <div className={`orow mit-netz${gewaehlt ? " sel" : ""}`}>
       <input type="checkbox" className="pick" checked={gewaehlt} onChange={e => waehle(e.target.checked)} aria-label={`${titel} auswählen`} />
+      <Netz reihen={[{ name: titel, achsen: matchAchsen(o.objekt, a) }]} groesse={48} klein />
       <div className="body">
         <Link className="t" href={`/objekt/${o.id}`}>{titel}</Link>
         <div className="m">{[o.objekt.ort, o.objekt.kaufpreis ? eur(o.objekt.kaufpreis) : null, o.objekt.wohnflaeche ? `${o.objekt.wohnflaeche} m²` : null, anlageprofil(o.anlageprofilId).name].filter(Boolean).join(", ")}</div>
@@ -62,6 +65,10 @@ export function Objektliste({ objekte, leer, kandidat, werkzeuge = true }: { obj
         <input type="search" className="filter" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Nach Titel oder Ort filtern" aria-label="Filtern" />
         <select value={sort} onChange={e => setSort(e.target.value as Sortierung)} aria-label="Sortieren">{SORT.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
       </div>}
+      {gewaehlt.length >= 2 && gewaehlt.length <= 4 && <section className="panel vergleich" aria-label="Vergleich">
+        <Netz reihen={gewaehlt.map(o => ({ name: o.objekt.titel || "Objekt", achsen: matchAchsen(o.objekt, analyseVon(o)) }))} groesse={300} />
+        <div className="vergleich-leg">{gewaehlt.map((o, i) => <span key={o.id} style={{ ["--f" as string]: ["var(--purple)", "var(--gold)", "var(--good)", "var(--crit)"][i] }}><i />{o.objekt.titel || "Objekt"} · {Math.round(analyseVon(o).bewertung.score ?? 0)}</span>)}</div>
+      </section>}
       {gewaehlt.length > 0 && <div className="bulk" role="region" aria-label="Auswahl">
         <span>{gewaehlt.length} ausgewählt</span>
         {kandidat && <button type="button" className="btn sm" onClick={alleIn}>In Prüfung übernehmen</button>}

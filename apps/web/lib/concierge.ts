@@ -20,6 +20,8 @@ export interface Frage {
   antwort: (v: number | string) => Partial<Objekt>;
   /** Annahme bei „Weiß ich nicht“: Felder plus kurzer Text, oder null = nur merken */
   unbekannt?: () => { patch: Partial<Objekt>; text: string } | null;
+  /** Wert lässt sich ermitteln (Vergleichswerte) */
+  ermitteln?: boolean;
 }
 
 const neuerStellplatz = (preis: Stellplatz["preis"]): Stellplatz => ({ id: `sp-${Math.random().toString(36).slice(2, 8)}`, art: "tiefgarage", preis, kaufpreis: null, recht: "unbekannt", nutzung: "mieter", miete: null, hausgeld: null, erwerben: true });
@@ -37,7 +39,7 @@ export function fragen(o: Objekt): Frage[] {
   if (o.wohnflaeche == null && offen("wohnflaeche")) f.push({ id: "wohnflaeche", thema: "Fläche", frage: o.asset === "Gewerbe" ? "Wie groß ist die Nutzfläche?" : "Wie groß ist die Wohnfläche?", warum: "Daraus werden Preis pro m², Marktmiete und Kosten abgeleitet.", wo: "Exposé, Grundriss oder Wohnflächenberechnung.", typ: "zahl", einheit: "m²", antwort: v => ({ wohnflaeche: Number(v) }) });
   if (offen("vermietung") && o.miete == null && !o.leer) f.push({ id: "vermietung", thema: "Vermietung", frage: "Ist das Objekt vermietet?", warum: "Vermietet zählt die Ist-Miete, bezugsfrei rechnen wir mit der Marktmiete.", wo: "Exposé: „vermietet“, „bezugsfrei“ oder „frei ab“.", typ: "wahl", optionen: [["v", "Ja, vermietet"], ["l", "Nein, bezugsfrei"]], antwort: v => ({ leer: v === "l", ...g(o, "vermietung") }) });
   if (!o.leer && o.miete == null && q.vermietung && offen("miete")) f.push({ id: "miete", thema: "Miete", frage: "Wie hoch ist die Kaltmiete im Monat?", warum: "Die Miete ist der größte Hebel für Rendite und Cashflow.", wo: "Mietvertrag, Mieterliste oder Exposé („Ist-Miete“, „Nettokaltmiete“).", typ: "zahl", einheit: "€/Monat", antwort: v => ({ miete: Number(v) }), unbekannt: () => null });
-  if ((o.leer || (q.miete === "unbekannt")) && o.marktmieteQm == null && offen("marktmiete")) f.push({ id: "marktmiete", thema: "Marktmiete", frage: "Welche Miete pro m² ist dort üblich?", warum: "Ohne Ist-Miete rechnen wir mit der ortsüblichen Miete.", wo: "Mietspiegel der Stadt oder vergleichbare Inserate.", typ: "zahl", einheit: "€/m²", antwort: v => ({ marktmieteQm: Number(v) }) });
+  if ((o.leer || (q.miete === "unbekannt")) && o.marktmieteQm == null && offen("marktmiete")) f.push({ id: "marktmiete", thema: "Marktmiete", frage: "Welche Miete pro m² ist dort üblich?", warum: "Ohne Ist-Miete rechnen wir mit der ortsüblichen Miete.", wo: "Mietspiegel der Stadt oder vergleichbare Inserate.", typ: "zahl", einheit: "€/m²", ermitteln: true, antwort: v => ({ marktmieteQm: Number(v) }) });
   if (o.hausgeldNichtUmlagefaehig == null && offen("hausgeld")) f.push({ id: "hausgeld", thema: "Kosten", frage: etw ? "Wie hoch ist das Hausgeld im Monat?" : "Welche Kosten tragen Sie selbst im Monat?", warum: etw ? "Etwa 40 % des Hausgelds (Verwaltung, Rücklage, Instandhaltung) bleiben bei Ihnen und schmälern den Cashflow." : "Verwaltung, Instandhaltung und nicht umlegbare Kosten schmälern den Cashflow.", wo: etw ? "Exposé, Wirtschaftsplan oder Hausgeldabrechnung." : "Nebenkostenabrechnung oder Angaben des Verkäufers.", typ: "zahl", einheit: "€/Monat",
     antwort: v => ({ hausgeldNichtUmlagefaehig: etw ? Math.round(Number(v) * 0.4) : Number(v), ...g(o, "hausgeld") }),
     unbekannt: () => o.wohnflaeche ? { patch: { hausgeldNichtUmlagefaehig: Math.round(o.wohnflaeche * 1.3) }, text: `Annahme: ${Math.round(o.wohnflaeche * 1.3)} € nicht umlagefähig (1,30 € pro m²)` } : null });
