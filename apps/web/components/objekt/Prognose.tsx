@@ -2,7 +2,7 @@
 import { bandbreite, elastizitaeten, mitStellplaetzen, simuliere, zerlegung, type Analyse, type Szenario } from "@highstack/engine";
 import { useEffect, useMemo, useState } from "react";
 import { eur, pct, teur } from "@/lib/format";
-import { hatMarktdaten, marktszenarien } from "@/lib/marktszenarien";
+import { hatMarktdaten, marktszenarien, type Ausblick } from "@/lib/marktszenarien";
 import type { Marktfakt } from "@/lib/marktwissen";
 import type { Objektdatensatz } from "@/lib/typen";
 import { Info } from "../Info";
@@ -12,11 +12,11 @@ import { Info } from "../Info";
  * woraus das Ergebnis besteht und was jeder Parameter bewirkt.
  */
 export function Prognose({ o, a, setze }: { o: Objektdatensatz; a: Analyse; setze: (p: Partial<Objektdatensatz>) => void }) {
-  const [fakten, setFakten] = useState<Marktfakt[] | null>(null);
-  useEffect(() => { fetch(`/api/objekte/${o.id}/marktlage`).then(r => r.ok ? r.json() : { fakten: [] }).then(d => setFakten(d.fakten ?? [])).catch(() => setFakten([])); }, [o.id, o.objekt.ort, o.objekt.asset]);
+  const [fakten, setFakten] = useState<Marktfakt[] | null>(null); const [ausblick, setAusblick] = useState<Ausblick | null>(null);
+  useEffect(() => { fetch(`/api/objekte/${o.id}/marktlage`).then(r => r.ok ? r.json() : { fakten: [] }).then(d => { setFakten(d.fakten ?? []); setAusblick(d.ausblick ?? null); }).catch(() => setFakten([])); }, [o.id, o.objekt.ort, o.objekt.asset]);
   const ob = useMemo(() => mitStellplaetzen(o.objekt), [o.objekt]);
   const s = a.szenario; const p = a.params; const miete = a.bewertung.miete; const m = a.simulation;
-  const szen = useMemo(() => fakten ? marktszenarien(fakten, s, s.sollzins, a.bewertung.kennzahlen.bruttorendite ?? null) : [], [fakten, s, a.bewertung.kennzahlen.bruttorendite]);
+  const szen = useMemo(() => fakten ? marktszenarien(fakten, s, s.sollzins, a.bewertung.kennzahlen.bruttorendite ?? null, ausblick) : [], [fakten, s, a.bewertung.kennzahlen.bruttorendite, ausblick]);
   const band = useMemo(() => bandbreite(p, ob, miete, s), [p, ob, miete, s]);
   const el = useMemo(() => elastizitaeten(p, ob, miete, s), [p, ob, miete, s]);
   if (!m || !band) return null;
@@ -24,7 +24,7 @@ export function Prognose({ o, a, setze }: { o: Objektdatensatz; a: Analyse; setz
   const uebernehmen = (x: Partial<Szenario>) => setze({ szenario: { ...o.szenario, ...x } });
   return (
     <section className="panel prognose">
-      <div className="ph"><h2>Prognose</h2><span className="tag">{fakten && hatMarktdaten(fakten) ? "Annahmen aus aktuellen Marktdaten" : "Standardannahmen"}</span></div>
+      <div className="ph"><h2>Prognose</h2><span className="tag">{fakten && (hatMarktdaten(fakten) || ausblick) ? "Annahmen aus aktuellen Marktdaten" : "Standardannahmen"}</span></div>
 
       <div className="pg-block">
         <div className="lrow"><h3>Marktszenarien</h3><Info label="Marktszenarien" text="Drei Sätze von Annahmen, abgeleitet aus aktuellen Marktdaten zu Mieten, Inflation, Zinsen und Renditen. Jede Annahme nennt ihre Grundlage. Übernehmen setzt die Werte im Durchspielen, Sie können danach frei weiter ändern." /></div>

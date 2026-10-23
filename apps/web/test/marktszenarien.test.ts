@@ -19,4 +19,12 @@ describe("Marktszenarien", () => {
     const [, m] = marktszenarien([], s, 0.038, 0.035);
     expect(m!.s.mietsteigerung).toBe(s.mietsteigerung);
   });
+  it("Ausblick aus Konjunkturdaten: Bundrendite als Swap-Näherung und leichte Renditeverschiebung", () => {
+    const [, ohne] = marktszenarien([], s, 0.038, 0.035);
+    const [, m] = marktszenarien([], s, 0.038, 0.035, { pHoch: 0.3, gruende: ["Bundrendite in 12 Monaten +0,80 %-Pkt."], bund10j: { wert: 2.7, stand: "2026-09-01" } });
+    expect(m!.s.anschlusszinsAufschlag! + 0.038).toBeCloseTo(0.041, 6);
+    expect(m!.renditeShift).toBe(0.0025);
+    expect(m!.s.wertentwicklung!).toBeLessThan(ohne!.s.wertentwicklung!);
+    expect(m!.grundlagen.find(g => g.parameter === "Marktausblick")!.text).toContain("Bundrendite");
+  });
 });

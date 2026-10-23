@@ -959,3 +959,12 @@ details>summary:hover{background:color-mix(in srgb,var(--sunk) 70%,var(--line))}
 .tr-lz{color:var(--muted);font-variant-numeric:tabular-nums}.tr-la{font-weight:600}
 .l-order .tr-la{color:var(--purple)}.l-signal .tr-la{color:var(--gold-ink)}.l-fehler .tr-la,.l-sperre .tr-la{color:var(--crit)}.l-schluss .tr-la,.l-ausstieg .tr-la{color:var(--warn)}
 @media (max-width:600px){.tr-log li{grid-template-columns:70px 1fr}.tr-log li span:last-child{grid-column:1/-1}}
+
+/* Konjunktur & Prognosen (Admin) */
+.kj-wirk{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:6px;font-size:13.5px}
+.kj-wirk li{line-height:1.45}
+label.chk{display:flex;gap:8px;align-items:center;font-size:13.5px;margin:6px 0 10px;font-weight:400}
+label.chk input{width:auto;flex:none;margin:0}
+/* Trading: Umfeld und Trefferbilanz */
+.tr-umfeld{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;font-size:13px;padding:10px 14px;border-radius:12px;background:var(--sunk);border-left:3px solid var(--good)}
+.tr-umfeld.neutral{border-left-color:var(--gold, var(--warn))}.tr-umfeld.risk-off{border-left-color:var(--crit)}

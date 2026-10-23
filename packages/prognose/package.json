@@ -1,0 +1,9 @@
+{
+  "name": "@highstack/prognose",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Konjunktur- und Marktmechanismen, Prognosen mit Wahrscheinlichkeit, Überprüfung gegen die Realität"
+}

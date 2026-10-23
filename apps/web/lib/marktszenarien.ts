@@ -16,7 +16,10 @@ const pz = (v: number, d = 1) => `${(v * 100).toLocaleString("de-DE", { maximumF
 function finde(f: Marktfakt[], test: (x: Marktfakt) => boolean) { return f.filter(test).sort((a, b) => b.rang - a.rang)[0] ?? null; }
 const q = (x: Marktfakt) => `${x.quelle} ${x.stand}${x.seite ? `, S. ${x.seite}` : ""}`;
 
-export function marktszenarien(fakten: Marktfakt[], s: Szenario, sollzins: number, bruttorendite: number | null): Marktszenario[] {
+/** Ausblick aus den Wirkungsketten (Konjunkturdaten im Admin-Bereich) */
+export interface Ausblick { pHoch: number | null; gruende: string[]; bund10j: { wert: number; stand: string } | null }
+
+export function marktszenarien(fakten: Marktfakt[], s: Szenario, sollzins: number, bruttorendite: number | null, ausblick?: Ausblick | null): Marktszenario[] {
   // Mietwachstum am Markt: Stadt vor Top 7 vor Deutschland
   const mw = finde(fakten, x => x.thema === "miete" && /wachstum/i.test(x.kennzahl) && x.wert != null)
     ?? finde(fakten, x => x.thema === "miete" && !!x.veraenderung && /neuvertrag/i.test(x.kennzahl));
@@ -24,7 +27,10 @@ export function marktszenarien(fakten: Marktfakt[], s: Szenario, sollzins: numbe
   const inf = finde(fakten, x => x.thema === "makro" && /inflation/i.test(x.kennzahl) && !/kern/i.test(x.kennzahl) && x.wert != null);
   const inflation = inf ? inf.wert! / 100 : null;
   const sw = finde(fakten, x => x.thema === "zins" && /swap/i.test(x.kennzahl)) ?? finde(fakten, x => x.thema === "zins" && /bundesanleihe/i.test(x.kennzahl));
-  const swap = sw ? (sw.wert ?? zahlAus(sw.wertText) ?? 0) / 100 : null;
+  const swapBund = !sw && ausblick?.bund10j ? (ausblick.bund10j.wert + 0.4) / 100 : null;
+  const swap = sw ? (sw.wert ?? zahlAus(sw.wertText) ?? 0) / 100 : swapBund;
+  // Ausblick verschiebt die Marktrendite im Szenario „Marktlage“ leicht: neutral bei der langfristigen Häufigkeit steigender Preise (62 %)
+  const pA = ausblick?.pHoch ?? null; const ausblickShift = pA == null ? 0 : Math.round(Math.max(-0.0025, Math.min(0.0025, (0.62 - pA) * 0.02)) * 10000) / 10000;
   const sr = finde(fakten, x => x.thema === "rendite" && x.segment === "wohnen" && x.wert != null);
 
   const mwBasis = markt != null ? Math.max(0, 0.5 * markt + 0.5 * INFLATIONSZIEL) : s.mietsteigerung;
@@ -37,8 +43,9 @@ export function marktszenarien(fakten: Marktfakt[], s: Szenario, sollzins: numbe
     const grundlagen: Grundlage[] = [
       { parameter: "Mietsteigerung", wert: `${pz(mietst)} p. a.`, text: markt != null ? `Neuvermietung am Markt ${pz(markt)}; Bestandsmieten folgen langsamer (Mietspiegel, Kappungsgrenze), daher zur Hälfte Richtung 2 % gedämpft${id === "konservativ" ? ", minus 1 Punkt" : id === "optimistisch" ? "; hier volles Marktwachstum" : ""}.` : "Keine Marktdaten zum Ort: Ihre bisherige Annahme.", quelle: mw ? q(mw) : undefined },
       { parameter: "Kostensteigerung", wert: `${pz(kosten)} p. a.`, text: inflation != null ? `Inflation zuletzt ${pz(inflation)}, auf Sicht Richtung 2 % gedämpft${id === "konservativ" ? ", hier die aktuelle Inflation plus 0,5 Punkte" : id === "optimistisch" ? ", hier 2 %" : ""}.` : "Keine Inflationsdaten: Ihre bisherige Annahme.", quelle: inf ? q(inf) : undefined },
-      { parameter: "Anschlusszins", wert: pz(anschluss, 2), text: swap != null ? `Zehnjähriger Swap um ${pz(swap, 2)} plus rund 1 Punkt Bankmarge${id === "konservativ" ? ", plus 1 Punkt Zinsrisiko" : id === "optimistisch" ? ", minus 0,5 Punkte" : ""}.` : "Keine Zinsdaten: Ihre bisherige Annahme.", quelle: sw ? q(sw) : undefined },
+      { parameter: "Anschlusszins", wert: pz(anschluss, 2), text: swap != null ? `${swapBund != null ? `Bundrendite ${pz(ausblick!.bund10j!.wert / 100, 2)} plus 0,4 Punkte als Swap-Näherung (${pz(swap, 2)})` : `Zehnjähriger Swap um ${pz(swap, 2)}`} plus rund 1 Punkt Bankmarge${id === "konservativ" ? ", plus 1 Punkt Zinsrisiko" : id === "optimistisch" ? ", minus 0,5 Punkte" : ""}.` : "Keine Zinsdaten: Ihre bisherige Annahme.", quelle: sw ? q(sw) : swapBund != null ? `Bundesanleihe 10 J., Stand ${ausblick!.bund10j!.stand}` : undefined },
       { parameter: "Wertentwicklung", wert: `${pz(w.wertentwicklung)} p. a.`, text: `Wert folgt der Miete (${pz(w.ausMiete)}) und der Marktrendite: ${shift === 0 ? "Rendite bleibt wie heute" : shift > 0 ? `Rendite steigt um ${(shift * 100).toLocaleString("de-DE")} Punkte, das drückt den Wert` : `Rendite sinkt um ${(-shift * 100).toLocaleString("de-DE")} Punkte, das hebt den Wert`} (${pz(w.ausRendite)} p. a.).`, quelle: sr ? q(sr) : undefined },
+      ...(id === "markt" && pA != null ? [{ parameter: "Marktausblick", wert: `${pz(pA, 0)} für steigende Preise`, text: `Wahrscheinlichkeit steigender Wohnimmobilienpreise in 12 Monaten aus Zins-, Inflations- und Konjunkturdaten${ausblick!.gruende.length ? ` (${ausblick!.gruende.join("; ")})` : ""}. ${ausblickShift === 0 ? "Keine Anpassung der Marktrendite." : `Marktrendite daher um ${(Math.abs(ausblickShift) * 100).toLocaleString("de-DE")} Punkte ${ausblickShift > 0 ? "höher (dämpft den Wert)" : "niedriger (stützt den Wert)"}.`} Die Trefferquote solcher Prognosen wird laufend überprüft.` }] : []),
       ...(leer ? [{ parameter: "Leerstand", wert: `+${pz(leer, 0)}`, text: "Puffer für längere Wechsel und schwächere Nachfrage." }] : []),
     ];
     return { id, name, kurz, renditeShift: shift, zerlegung: { ausMiete: w.ausMiete, ausRendite: w.ausRendite }, grundlagen,
@@ -46,7 +53,7 @@ export function marktszenarien(fakten: Marktfakt[], s: Szenario, sollzins: numbe
   };
   return [
     bau("konservativ", "Konservativ", "Zinsen höher, Renditen steigen, Mieten schwach", Math.max(0, mwBasis - 0.01), inflation != null ? inflation + 0.005 : kBasis + 0.01, azBasis + 0.01, 0.005, 0.03),
-    bau("markt", "Marktlage", "Fortschreibung der aktuellen Marktdaten", mwBasis, kBasis, azBasis, 0, 0),
+    bau("markt", "Marktlage", "Fortschreibung der aktuellen Marktdaten", mwBasis, kBasis, azBasis, ausblickShift, 0),
     bau("optimistisch", "Optimistisch", "Erholung: Zinsen etwas tiefer, Renditen sinken", markt ?? mwBasis + 0.01, INFLATIONSZIEL, azBasis - 0.005, -0.0025, 0),
   ];
 }

@@ -1,7 +1,7 @@
 {
   "name": "highstack",
   "private": true,
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "highstack.si – privates Family Office für Immobilien: Rechenwerk, Experten-Agenten, App",
   "workspaces": [
     "packages/*",
@@ -11,7 +11,7 @@
     "dev": "npm run dev -w @highstack/web",
     "build": "npm run build -w @highstack/web",
     "test": "vitest run",
-    "typecheck": "tsc -p packages/engine && tsc -p packages/agents && tsc -p packages/trading && npm run typecheck -w @highstack/web",
+    "typecheck": "tsc -p packages/engine && tsc -p packages/agents && tsc -p packages/trading && tsc -p packages/prognose && npm run typecheck -w @highstack/web",
     "team": "tsx packages/agents/src/cli.ts",
     "neu": "git pull && npm install --no-audit --no-fund && rm -rf apps/web/.next && git log --oneline -1 && npm run dev"
   },

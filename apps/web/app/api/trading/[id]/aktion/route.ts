@@ -1,4 +1,4 @@
-import { bucheManuell, notaus, protokoll } from "@highstack/trading";
+import { abschluss, bucheManuell, notaus, protokoll } from "@highstack/trading";
 import { mandant, speicher } from "@/lib/speicher";
 import { agent, ansicht, brokerFuer, exklusiv, speichere, taktFuer } from "@/lib/trading";
 import { verschluessele } from "@/lib/geheim";
@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       if (b.aktion === "start") { z.aktiv = true; if (z.tag?.status === "notaus") z.tag.status = "laeuft"; protokoll(z, "info", `Agent gestartet (${a.einstellungen.modus === "auto" ? "Automatik" : "Vorschläge"})`, jetzt()); }
       else if (b.aktion === "stopp") { z.aktiv = false; protokoll(z, "info", "Agent angehalten, Positionen bleiben offen", jetzt()); }
       else if (b.aktion === "notaus") { await notaus(z, await brokerFuer(a)); }
-      else if (b.aktion === "zuruecksetzen") { if (a.einstellungen.broker !== "simulation") throw new Error("Zurücksetzen nur in der Simulation"); a.zustand = { ...z, aktiv: false, tag: null, verlauf: [], gefuehrt: [], vorschlaege: [], sim: undefined, simUhr: undefined, log: [{ zeit: jetzt(), art: "info", text: "Simulation zurückgesetzt" }] }; }
+      else if (b.aktion === "zuruecksetzen") { if (a.einstellungen.broker !== "simulation") throw new Error("Zurücksetzen nur in der Simulation"); a.zustand = { ...z, aktiv: false, tag: null, verlauf: [], gefuehrt: [], vorschlaege: [], abschluesse: [], umfeld: undefined, sim: undefined, simUhr: undefined, log: [{ zeit: jetzt(), art: "info", text: "Simulation zurückgesetzt" }] }; }
       else if (b.aktion === "zugang") { a.zugang = { keyId: b.keyId.trim(), secret: await verschluessele(b.secret.trim()) }; protokoll(z, "info", "Broker-Zugang hinterlegt", jetzt()); }
       else if (b.aktion === "vorschlag") {
         const v = z.vorschlaege.find(x => x.id === b.id); if (!v || v.status !== "offen") throw new Error("Vorschlag nicht mehr offen");
@@ -34,8 +34,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           if (br.nurZettel) { if (!b.preis) throw new Error("Bitte den Ausführungskurs aus der App eintragen."); bucheManuell(z, v.antrag.symbol, v.antrag.seite, qty, b.preis); preis = b.preis; }
           else { const r = await br.sende({ ...v.antrag, qty }); if (r.status === "abgelehnt") throw new Error(`Order abgelehnt: ${r.meldung ?? ""}`); preis = r.preis; }
           v.status = "ausgefuehrt"; v.meldung = preis ? `zu ${preis}` : undefined;
-          if (v.art === "einstieg" && v.signal) { z.gefuehrt.push({ symbol: v.signal.symbol, richtung: v.signal.richtung, qty, einstieg: preis ?? v.signal.kurs, stopp: v.signal.stopp, ziel: v.signal.ziel, seit: jetzt(), grund: v.signal.grund }); if (z.tag) z.tag.trades++; }
-          if (v.art === "ausstieg") z.gefuehrt = z.gefuehrt.filter(g => g.symbol !== v.antrag.symbol);
+          if (v.art === "einstieg" && v.signal) { z.gefuehrt.push({ symbol: v.signal.symbol, richtung: v.signal.richtung, qty, einstieg: preis ?? v.signal.kurs, stopp: v.signal.stopp, ziel: v.signal.ziel, seit: jetzt(), grund: v.signal.grund, staerke: v.signal.staerke, strategie: a.einstellungen.strategie }); if (z.tag) z.tag.trades++; }
+          if (v.art === "ausstieg") { const g = z.gefuehrt.find(x => x.symbol === v.antrag.symbol); if (g && preis != null) abschluss(z, g, preis, v.antrag.grund, jetzt()); z.gefuehrt = z.gefuehrt.filter(x => x.symbol !== v.antrag.symbol); }
           protokoll(z, "order", `Bestätigt: ${v.antrag.seite === "kauf" ? "Kauf" : "Verkauf"} ${qty} ${v.antrag.symbol}${preis ? ` zu ${preis}` : ""}`, jetzt());
         }
       }

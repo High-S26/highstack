@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ausbruch, kuenstlicherTag, leererZustand, neueEinstellungen, notaus, simBroker, simWeiter, stueckzahl, takt, STANDARD_WERTE, type Bar } from "../src";
+import { abschluss, ausbruch, kuenstlicherTag, trefferbilanz, leererZustand, neueEinstellungen, notaus, simBroker, simWeiter, stueckzahl, takt, STANDARD_WERTE, type Bar } from "../src";
 
 const bar = (c: number, v = 1000, h = c, l = c): Bar => ({ t: "", o: c, h, l, c, v });
 describe("Strategien", () => {
@@ -44,5 +44,34 @@ describe("Agent in der Simulation", () => {
     const b = simBroker(z, e.startkapital);
     for (let i = 0; i < 200; i++) { await takt(e, z, b); simWeiter(z); }
     expect(z.vorschlaege.length).toBeGreaterThan(0); expect(Object.keys(z.sim!.positionen)).toEqual([]);
+  });
+  it("legt jeden geschlossenen Trade als überprüfte Prognose ab", async () => {
+    const e = { ...neueEinstellungen(10000), modus: "auto" as const, richtung: "long-short" as const, strategie: "anomalie" as const, maxTradesTag: 8, tagesziel: 1e9, tagesverlust: 1e9 };
+    const z = leererZustand(); z.aktiv = true; z.simUhr = { datum: "2026-10-26", minute: 0 };
+    const b = simBroker(z, e.startkapital);
+    for (let i = 0; i < 392; i++) { await takt(e, z, b); simWeiter(z); }
+    const l = z.abschluesse ?? [];
+    expect(l.length).toBe((z.verlauf[0] ?? z.tag!).trades);
+    const t = trefferbilanz(l);
+    expect(t.gesamt.n).toBe(l.length);
+    expect(t.gesamt.ergebnis).toBeCloseTo(l.reduce((a, x) => a + x.gv, 0), 1);
+  });
+  it("Marktumfeld verkleinert Positionen oder sperrt Einstiege", async () => {
+    const lauf = async (faktor?: number) => {
+      const e = { ...neueEinstellungen(10000), modus: "auto" as const, richtung: "long-short" as const, strategie: "anomalie" as const, maxTradesTag: 3, maxPosition: 1, tagesziel: 1e9, tagesverlust: 1e9 };
+      const z = leererZustand(); z.simUhr = { datum: "2026-10-26", minute: 0 }; const b = simBroker(z, e.startkapital); const qty: number[] = [];
+      for (let i = 0; i < 392; i++) { await takt(e, z, b, new Date(), faktor == null ? undefined : { faktor, text: `Faktor ${faktor}` }); simWeiter(z); }
+      for (const a of z.abschluesse ?? []) qty.push(a.qty * a.einstieg);
+      return { z, volumen: qty.reduce((a, b) => a + b, 0) / Math.max(1, qty.length) };
+    };
+    const normal = await lauf(); const halb = await lauf(0.5); const null0 = await lauf(0);
+    expect(halb.volumen).toBeLessThan(normal.volumen * 0.7);
+    expect(null0.z.abschluesse ?? []).toEqual([]);
+    expect(halb.z.log.some(l => l.text.includes("Marktumfeld"))).toBe(true);
+  });
+  it("R-Vielfaches und Ergebnis eines Abschlusses", () => {
+    const z = leererZustand();
+    const a = abschluss(z, { symbol: "X", richtung: "short", qty: 10, einstieg: 100, stopp: 102, ziel: 96, seit: "", grund: "" }, 96, "Ziel erreicht", "");
+    expect(a).toMatchObject({ gv: 40, r: 2 });
   });
 });

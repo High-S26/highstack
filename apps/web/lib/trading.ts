@@ -1,5 +1,6 @@
 import { alpacaBroker, leererZustand, manuellerBroker, simBroker, simWeiter, takt, type AgentEinstellungen, type Agentzustand, type Broker } from "@highstack/trading";
 import { entschluessele } from "./geheim";
+import { umfeld } from "./konjunktur";
 import type { Speicher } from "./speicher";
 
 /**
@@ -43,8 +44,9 @@ export async function taktFuer(s: Speicher, id: string, schritte = 1) {
   return exklusiv(id, async () => {
     const a = await s.globalEins<Agentdatensatz>("trading", id); if (!a) return null;
     const b = await brokerFuer(a); let letzter = null;
+    const u = a.einstellungen.marktlage === false ? undefined : await umfeld(s).catch(() => undefined);
     for (let i = 0; i < schritte; i++) {
-      try { letzter = await takt(a.einstellungen, a.zustand, b); }
+      try { letzter = await takt(a.einstellungen, a.zustand, b, new Date(), u); }
       catch (err) { a.zustand.log.unshift({ zeit: new Date().toISOString(), art: "fehler", text: (err as Error).message }); break; }
       if (a.einstellungen.broker === "simulation") { simWeiter(a.zustand); if (a.zustand.simUhr!.minute === 0) break; }
     }

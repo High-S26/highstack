@@ -45,12 +45,20 @@ export interface AgentEinstellungen {
   schlussVorEnde: number;
   /** vorschlag: jede Order bestätigen; auto: innerhalb der Grenzen selbst handeln */
   modus: "vorschlag" | "auto";
+  /** Marktumfeld (Risikolage, wichtige Termine) skaliert das Risiko je Trade; Standard an */
+  marktlage?: boolean;
 }
 
 export interface Signal { symbol: string; richtung: "long" | "short"; kurs: number; stopp: number; ziel: number; staerke: number; grund: string }
 
 /** Vom Agenten geführte Position mit Stopp und Ziel (Software-Stopps, je Takt geprüft) */
-export interface Gefuehrt { symbol: string; richtung: "long" | "short"; qty: number; einstieg: number; stopp: number; ziel: number; seit: string; grund: string }
+export interface Gefuehrt { symbol: string; richtung: "long" | "short"; qty: number; einstieg: number; stopp: number; ziel: number; seit: string; grund: string; staerke?: number; strategie?: StrategieTyp }
+
+/** Abgeschlossener Trade: das Signal war eine Prognose, hier steht, was daraus wurde */
+export interface Abschluss { symbol: string; richtung: "long" | "short"; qty: number; einstieg: number; ausstieg: number; stopp: number; ziel: number; seit: string; bis: string; grund: string; ausstiegGrund: string; gv: number; r: number; staerke?: number; strategie?: StrategieTyp }
+
+/** Marktumfeld für einen Takt: Faktor auf das Risiko je Trade (0 = keine neuen Einstiege) */
+export interface Umfeld { faktor: number; text: string }
 
 export interface Vorschlag { id: string; zeit: string; antrag: OrderAntrag; signal?: Signal; art: "einstieg" | "ausstieg"; status: "offen" | "ausgefuehrt" | "abgelehnt" | "verfallen"; meldung?: string }
 
@@ -72,4 +80,8 @@ export interface Agentzustand {
   simUhr?: { datum: string; minute: number };
   /** Manueller Broker: vom Nutzer bestätigte Bestände */
   manuell?: { cash: number; positionen: Record<string, { qty: number; einstand: number }> };
+  /** Abgeschlossene Trades, neueste zuerst */
+  abschluesse?: Abschluss[];
+  /** Zuletzt protokolliertes Umfeld, damit es nur bei Änderung im Protokoll erscheint */
+  umfeld?: string;
 }

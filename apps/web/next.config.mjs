@@ -12,7 +12,7 @@ const nextConfig = {
   // Eigenständiger Server für Docker (node server.js), inkl. der Pakete aus dem Monorepo
   output: "standalone",
   env: { NEXT_PUBLIC_VERSION: version, NEXT_PUBLIC_COMMIT: commit, NEXT_PUBLIC_STAND: new Date().toISOString().slice(0, 10) },
-  transpilePackages: ["@highstack/engine", "@highstack/agents", "@highstack/trading"],
+  transpilePackages: ["@highstack/engine", "@highstack/agents", "@highstack/trading", "@highstack/prognose"],
   experimental: { instrumentationHook: true, serverComponentsExternalPackages: ["postgres", "unpdf", "nodemailer"], outputFileTracingRoot: join(hier, "../..") },
 };
 export default nextConfig;
