@@ -15,6 +15,8 @@ interface AppZustand {
   profil: Profil | null;
   objekte: Objektdatensatz[];
   testmodus: boolean;
+  /** Plattform-Admin: sieht den Admin-Bereich */
+  admin: boolean;
   setzeProfil: (p: Profil) => void;
   ladeObjekte: () => Promise<void>;
   setzeObjekt: (o: Objektdatensatz) => void;
@@ -38,7 +40,8 @@ export const useApp = () => { const c = useContext(Ctx); if (!c) throw new Error
 export function App({ children }: { children: ReactNode }) {
   const [profil, setProfil] = useState<Profil | null>(null);
   const [objekte, setObjekte] = useState<Objektdatensatz[]>([]);
-  const [testmodus, setTestmodus] = useState(false);
+  const [testmodus, setTestmodus] = useState(false); const [admin, setAdmin] = useState(false);
+  const [ankuendigung, setAnkuendigung] = useState<{ text: string; art: "info" | "warn"; am: number } | null>(null);
   const [toast, setToast] = useState<{ text: string; aktion?: string; tun?: () => void } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(); const ablaufRef = useRef<(() => void) | null>(null);
   const objekteRef = useRef<Objektdatensatz[]>([]);
@@ -59,7 +62,7 @@ export function App({ children }: { children: ReactNode }) {
       for (const x of o) if (x.status === "kandidat" && !x.suchId) { const su = p.suchen.find(q => q.anlageprofilId === x.anlageprofilId); if (su) { x.suchId = su.id; api.aendereObjekt(x.id, { suchId: su.id }); } }
       api.speichereProfil(p);
     }
-    setProfil(p); setObjekte(o); setTestmodus(s.testmodus);
+    setProfil(p); setObjekte(o); setTestmodus(s.testmodus); setAdmin(s.admin); setAnkuendigung(s.ankuendigung);
   }).catch(e => setToast({ text: e.message })); }, [login]);
   objekteRef.current = objekte;
   useEffect(() => { if (profil && !profil.onboarded && pfad !== "/start") router.replace("/start"); }, [profil, pfad, router]);
@@ -88,7 +91,7 @@ export function App({ children }: { children: ReactNode }) {
   const anlageprofil = useCallback((id?: string) => { const l = profil!.anlageprofile; return l.find(a => a.id === (id ?? profil!.aktivesAnlageprofil)) ?? l[0]!; }, [profil]);
   const analyseVon = useCallback((o: Objektdatensatz) => analyse({ investor: profil!.investor, anlageprofil: anlageprofil(o.anlageprofilId), objekt: o.objekt, szenario: o.szenario, module: o.module }), [profil, anlageprofil]);
 
-  const wert = useMemo<AppZustand>(() => ({ profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion, frage }), [profil, objekte, testmodus, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion, frage]);
+  const wert = useMemo<AppZustand>(() => ({ profil, objekte, testmodus, admin, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion, frage }), [profil, objekte, testmodus, admin, setzeProfil, ladeObjekte, setzeObjekt, entferneObjekt, anlageprofil, analyseVon, meldung, loesche, meldungMitAktion, frage]);
 
   const fuss = <footer><p>highstack dient ausschließlich der Information und fundierten Aufklärung. Die Berechnungen beruhen auf Ihren Annahmen und vereinfachten Modellen. Sie ersetzen keine Anlage-, Finanzierungs-, Steuer- oder Rechtsberatung im Einzelfall.</p><nav className="fusslinks" aria-label="Rechtliches"><Link href="/impressum">Impressum</Link><Link href="/datenschutz">Datenschutz</Link><Link href="/hinweise">Nutzungshinweise</Link><Link href="/version">{versionText()}</Link></nav></footer>;
   if (login) return <>{children}<div className="wrap">{fuss}</div></>;
@@ -102,9 +105,10 @@ export function App({ children }: { children: ReactNode }) {
             <Link href="/suchen/neu" className="btn ghost sm" aria-current={pfad === "/suchen/neu" ? "page" : undefined}>+ Auftrag anlegen</Link>
             <Link href="/neu" className="btn sm" aria-current={pfad === "/neu" ? "page" : undefined}>Prüfung starten</Link>
           </div>}
-          <div className="who"><Themaschalter />{profil?.onboarded ? <Menue /> : <Link href="/konto" className="konto-b" title="Konto"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10" cy="7" r="3" /><path d="M4 17c.6-3 3-4.6 6-4.6s5.4 1.6 6 4.6" /></svg><span>{ich?.aktiv ? ich.email : "Konto"}</span></Link>}</div>
+          <div className="who"><Themaschalter />{profil?.onboarded ? <Menue admin={admin} /> : <Link href="/konto" className="konto-b" title="Konto"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10" cy="7" r="3" /><path d="M4 17c.6-3 3-4.6 6-4.6s5.4 1.6 6 4.6" /></svg><span>{ich?.aktiv ? ich.email : "Konto"}</span></Link>}</div>
         </div>
         {profil?.loeschung && pfad !== "/konto" && <div className="testband warnband">Die Löschung dieses Kontos ist beantragt und wird am {new Date(profil.loeschung.ausfuehrung).toLocaleDateString("de-DE")} ausgeführt. <Link href="/konto">Abbrechen oder Daten herunterladen</Link></div>}
+        {ankuendigung && (() => { let weg = false; try { weg = localStorage.getItem("hs_ank") === String(ankuendigung.am); } catch { /* ohne Speicher */ } return weg ? null : <div className={`testband ankuendigung ${ankuendigung.art === "warn" ? "warnband" : ""}`} role="status"><span>{ankuendigung.text}</span><button type="button" className="linkbtn" onClick={() => { try { localStorage.setItem("hs_ank", String(ankuendigung.am)); } catch { /* ohne Speicher */ } setAnkuendigung(null); }}>Ausblenden</button></div>; })()}
         {testmodus && <div className="testband"><b>Testmodus.</b> Alle Berechnungen laufen, die Experten liefern Platzhalter. Für echte Einschätzungen ANTHROPIC_API_KEY in .env eintragen.</div>}
         {profil ? children : <p className="note">Lädt …</p>}
         {fuss}

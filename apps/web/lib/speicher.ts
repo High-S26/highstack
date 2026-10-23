@@ -27,12 +27,20 @@ export interface Speicher {
   loescheMietspiegel(id: string): Promise<void>;
   /** Alles eines Mandanten löschen: Profil, Objekte, Dateien, Nutzer */
   loescheMandant(tenant: string): Promise<void>;
+  /** Plattformweite Ablage je Art (Marktberichte, Anfragen, Protokoll, Verbrauch, Einstellungen) */
+  global<T>(art: string): Promise<T[]>;
+  globalEins<T>(art: string, id: string): Promise<T | null>;
+  speichereGlobal(art: string, id: string, daten: unknown): Promise<void>;
+  loescheGlobal(art: string, id: string): Promise<void>;
+  /** Alle Mandanten mit Kennzahlen (nur Admin) */
+  mandanten(): Promise<Mandantenzeile[]>;
 }
+export interface Mandantenzeile { tenant: string; profil: Profil | null; objekte: number; geaendert: number | null; nutzer: Nutzer[] }
 
 /** Dateispeicher für Entwicklung und Einzelplatz: .data/store.json und .data/files. */
 function dateiSpeicher(verzeichnis = join(process.cwd(), ".data")): Speicher {
   const datei = join(verzeichnis, "store.json");
-  type Bestand = { profile: Record<string, Profil>; objekte: Record<string, Record<string, Objektdatensatz>>; dateien: Record<string, { tenant: string; name: string; mime: string }>; nutzer?: Record<string, Nutzer>; mietspiegel?: Record<string, Mietspiegel> };
+  type Bestand = { profile: Record<string, Profil>; objekte: Record<string, Record<string, Objektdatensatz>>; dateien: Record<string, { tenant: string; name: string; mime: string }>; nutzer?: Record<string, Nutzer>; mietspiegel?: Record<string, Mietspiegel>; global?: Record<string, Record<string, unknown>> };
   let kette: Promise<unknown> = Promise.resolve();
   const lies = async (): Promise<Bestand> => { try { return JSON.parse(await fs.readFile(datei, "utf8")); } catch { return { profile: {}, objekte: {}, dateien: {} }; } };
   const schreibe = async (b: Bestand) => { await fs.mkdir(verzeichnis, { recursive: true }); const tmp = datei + ".tmp"; await fs.writeFile(tmp, JSON.stringify(b)); await fs.rename(tmp, datei); };
@@ -53,6 +61,14 @@ function dateiSpeicher(verzeichnis = join(process.cwd(), ".data")): Speicher {
       const weg = await exklusiv(b => { if (b.dateien[id]?.tenant !== t) return false; delete b.dateien[id]; return true; }, true);
       if (weg) await fs.rm(join(verzeichnis, "files", id), { force: true });
     },
+    global: <T>(art: string) => exklusiv(b => Object.values(b.global?.[art] ?? {}) as T[], false),
+    globalEins: <T>(art: string, id: string) => exklusiv(b => (b.global?.[art]?.[id] ?? null) as T | null, false),
+    speichereGlobal: (art, id, daten) => exklusiv(b => { ((b.global ??= {})[art] ??= {})[id] = daten; }, true),
+    loescheGlobal: (art, id) => exklusiv(b => { delete b.global?.[art]?.[id]; }, true),
+    mandanten: () => exklusiv(b => {
+      const ids = new Set([...Object.keys(b.profile), ...Object.keys(b.objekte), ...Object.values(b.nutzer ?? {}).map(n => n.tenant)]);
+      return [...ids].map(t => { const os = Object.values(b.objekte[t] ?? {}); return { tenant: t, profil: b.profile[t] ?? null, objekte: os.length, geaendert: os.length ? Math.max(...os.map(o => o.geaendert)) : null, nutzer: Object.values(b.nutzer ?? {}).filter(n => n.tenant === t) }; });
+    }, false),
     mietspiegel: () => exklusiv(b => Object.values(b.mietspiegel ?? {}).sort((a, c) => a.stadt.localeCompare(c.stadt, "de")), false),
     speichereMietspiegel: m => exklusiv(b => { (b.mietspiegel ??= {})[m.id] = m; }, true),
     loescheMietspiegel: id => exklusiv(b => { delete b.mietspiegel?.[id]; }, true),
@@ -85,6 +101,15 @@ async function postgresSpeicher(url: string): Promise<Speicher> {
     async speichereObjekt(t, o) { await sql`insert into objekte (id, tenant_id, daten) values (${o.id}, ${t}, ${sql.json(o as never)}) on conflict (id) do update set daten = excluded.daten, geaendert = now() where objekte.tenant_id = ${t}`; },
     async loescheObjekt(t, id) { await sql`delete from objekte where tenant_id = ${t} and id = ${id}`; await sql`delete from dateien where tenant_id = ${t} and objekt_id = ${id}`; },
     async speichereDatei(t, objektId, id, name, mime, inhalt) { await sql`insert into dateien (id, tenant_id, objekt_id, name, mime, inhalt) values (${id}, ${t}, ${objektId}, ${name}, ${mime}, ${Buffer.from(inhalt)})`; },
+    async global<T>(art: string) { const r = await sql`select daten from global_daten where art = ${art} order by geaendert desc`; return r.map(x => x.daten as T); },
+    async globalEins<T>(art: string, id: string) { const r = await sql`select daten from global_daten where art = ${art} and id = ${id}`; return (r[0]?.daten as T) ?? null; },
+    async speichereGlobal(art, id, daten) { await sql`insert into global_daten (art, id, daten) values (${art}, ${id}, ${sql.json(daten as never)}) on conflict (art, id) do update set daten = excluded.daten, geaendert = now()`; },
+    async loescheGlobal(art, id) { await sql`delete from global_daten where art = ${art} and id = ${id}`; },
+    async mandanten() {
+      const p = await sql`select tenant_id, daten from profil`; const o = await sql`select tenant_id, count(*)::int as n, extract(epoch from max(geaendert)) * 1000 as g from objekte group by tenant_id`; const n = await sql`select daten from nutzer`;
+      const nutzer = n.map(x => x.daten as Nutzer); const ids = new Set([...p.map(x => x.tenant_id as string), ...o.map(x => x.tenant_id as string), ...nutzer.map(x => x.tenant)]);
+      return [...ids].map(t => { const oz = o.find(x => x.tenant_id === t); return { tenant: t, profil: (p.find(x => x.tenant_id === t)?.daten as Profil) ?? null, objekte: oz ? Number(oz.n) : 0, geaendert: oz ? Number(oz.g) : null, nutzer: nutzer.filter(x => x.tenant === t) }; });
+    },
     async mietspiegel() { const r = await sql`select daten from mietspiegel order by stadt`; return r.map(x => x.daten as Mietspiegel); },
     async speichereMietspiegel(m) { await sql`insert into mietspiegel (id, stadt, daten) values (${m.id}, ${m.stadt}, ${sql.json(m as never)}) on conflict (id) do update set stadt = excluded.stadt, daten = excluded.daten, geaendert = now()`; },
     async loescheMietspiegel(id) { await sql`delete from mietspiegel where id = ${id}`; },
@@ -106,13 +131,15 @@ export const vergissNutzer = (email: string) => geprueft.delete(email);
  * Speicher. Mit angemeldeter Anfrage wird zusätzlich geprüft, ob der Nutzer noch Zugang hat
  * (die Sitzung selbst ist signiert, ein entzogener Zugang greift so ohne Wartezeit bis zum Ablauf).
  */
+/** Nach Sperren oder Entsperren sofort wirksam machen */
+export const vergissPruefung = (email?: string) => { if (email) geprueft.delete(email); else geprueft.clear(); };
 export async function speicher(req?: Request): Promise<Speicher> {
   instanz ??= process.env.DATABASE_URL ? postgresSpeicher(process.env.DATABASE_URL) : Promise.resolve(dateiSpeicher());
   const s = await instanz;
   const email = process.env.AUTH_SECRET ? req?.headers.get(NUTZER_HEADER) : null;
   if (email) {
     const c = geprueft.get(email);
-    if (!c || Date.now() - c.am > 60000) { const n = await s.nutzer(email); geprueft.set(email, { ok: !!n && n.tenant === req!.headers.get(MANDANT_HEADER), am: Date.now() }); }
+    if (!c || Date.now() - c.am > 60000) { const n = await s.nutzer(email); geprueft.set(email, { ok: !!n && !n.gesperrt && n.tenant === req!.headers.get(MANDANT_HEADER), am: Date.now() }); }
     if (!geprueft.get(email)!.ok) throw new Error("Zugang entzogen. Bitte neu anmelden.");
   }
   return s;

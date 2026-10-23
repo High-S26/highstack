@@ -10,9 +10,9 @@ describe("Experten", () => {
     expect(EXPERTEN.length).toBeGreaterThanOrEqual(13);
     for (const e of EXPERTEN) for (const w of e.werkzeuge) expect(WERKZEUGE[w], `${e.id}:${w}`).toBeDefined();
   });
-  it("Modell je Rolle: stark nur für Komitee, Recht, Projektentwicklung und das Auslesen von Mietspiegeln", () => {
+  it("Modell je Rolle: stark nur für Komitee, Recht, Projektentwicklung und das Auslesen von Mietspiegeln und Marktberichten", () => {
     const stark = EXPERTEN.filter(e => e.modell === "expert").map(e => e.id).sort();
-    expect(stark).toEqual(["komitee", "mietspiegelleser", "projektentwickler", "recht"]);
+    expect(stark).toEqual(["komitee", "marktberichtleser", "mietspiegelleser", "projektentwickler", "recht"]);
   });
 });
 

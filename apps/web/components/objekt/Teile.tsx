@@ -90,9 +90,9 @@ const MARKTFELDER: { k: "marktmieteQm" | "vergleichspreisQm" | "bodenrichtwert";
 /** Markt & Vergleich: selbst eintragen oder ermitteln lassen; ermittelte Werte zeigen Spanne und Quelle. */
 let mietspiegelCache: Promise<Mietspiegel[]> | null = null;
 function Markt({ o, set }: { o: Objektdatensatz; set: (p: Partial<Objektdatensatz["objekt"]>) => void }) {
-  const { meldungMitAktion } = useApp(); const ob = o.objekt;
+  const { meldungMitAktion, admin } = useApp(); const ob = o.objekt;
   const [ms, setMs] = useState<Mietspiegel | null>(null);
-  useEffect(() => { (mietspiegelCache ??= api.mietspiegelListe().then(r => r.liste).catch(() => [])).then(l => setMs(findeMietspiegel(l, ob.ort ?? "", ob.titel ?? ""))); }, [ob.ort, ob.titel]);
+  useEffect(() => { (mietspiegelCache ??= api.mietspiegelListe().then(r => r.liste).catch(() => [])).then(l => setMs(findeMietspiegel(l.filter(m => admin || m.status === "geprueft"), ob.ort ?? "", ob.titel ?? ""))); }, [ob.ort, ob.titel, admin]);
   const lagen = ms?.merkmale.find(m => m.key === "lage")?.klassen ?? [];
   const [laeuft, setLaeuft] = useState(false); const [info, setInfo] = useState<string | null>(null);
   const ermitteln = async () => {
@@ -110,7 +110,7 @@ function Markt({ o, set }: { o: Objektdatensatz; set: (p: Partial<Objektdatensat
     <div className="markt">
       <div className="markt-kopf"><div><b>Markt &amp; Vergleich</b><span className="note">Selbst eintragen oder ermitteln lassen</span></div>
         <button type="button" className="btn sm" onClick={ermitteln} disabled={laeuft || !(ob.ort?.trim() || ob.titel?.trim())} title={ob.ort?.trim() ? "" : "Erst Ort eintragen"}>{laeuft ? "Ermittelt …" : <><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M10 2.5l1.8 4.2 4.2 1.8-4.2 1.8L10 14.5l-1.8-4.2L4 8.5l4.2-1.8z" /></svg> Ermitteln</>}</button></div>
-      {ms && <div className="markt-ms"><span className="note">{ms.status === "geprueft" ? "✓" : "◌"} <a href={`/daten/mietspiegel/${ms.id}`}>Mietspiegel {ms.stadt}</a> in der Datenbasis{ms.status === "entwurf" ? " (Entwurf)" : ""}</span>
+      {ms && <div className="markt-ms"><span className="note">✓ Mietspiegel {ms.stadt}{ms.gueltigAb ? ` (gültig ab ${new Date(ms.gueltigAb).toLocaleDateString("de-DE", { month: "2-digit", year: "numeric" })})` : ""} hinterlegt{admin && <> · <a href={`/admin/mietspiegel/${ms.id}`}>{ms.status === "entwurf" ? "Entwurf prüfen" : "bearbeiten"}</a></>}</span>
         {lagen.length > 0 && <div className="chips" role="radiogroup" aria-label="Wohnlage">{lagen.map(k => { const v = k.wert ?? k.label; return <button key={v} type="button" role="radio" className="chip" aria-checked={ob.wohnlage === v} aria-pressed={ob.wohnlage === v} onClick={() => set({ wohnlage: ob.wohnlage === v ? null : v })}>{k.label}</button>; })}<span className="note">Wohnlage{ob.wohnlage ? "" : ": unbekannt, Spanne breiter"}</span></div>}
       </div>}
       <div className="fields">{MARKTFELDER.map(f => { const h = ob.herkunft?.[f.k]; return (

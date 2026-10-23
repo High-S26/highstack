@@ -104,7 +104,22 @@ export const MIETSPIEGEL_SCHEMA = {
   required: ["stadt", "art", "merkmale", "felder"],
 } as const;
 
-export const SCHEMA_JE_AUSGABE: Record<string, object> = { mietspiegel: MIETSPIEGEL_SCHEMA, kurzurteil: KURZURTEIL_SCHEMA, bericht: BERICHT_SCHEMA, komitee: KOMITEE_SCHEMA, compliance: COMPLIANCE_SCHEMA, extraktion: EXTRAKTION_SCHEMA, marktwerte: MARKTWERTE_SCHEMA };
+export const MARKTBERICHT_SCHEMA = {
+  type: "object",
+  properties: {
+    titel: { type: "string" }, herausgeber: { type: "string" }, stand: { type: "string" }, datum: { type: ["string", "null"] },
+    kernaussagen: { type: "array", items: { type: "string" } },
+    fakten: { type: "array", items: { type: "object", properties: {
+      thema: { type: "string", enum: ["zins", "makro", "rendite", "miete", "kaufpreis", "transaktion", "leerstand", "flaechenumsatz", "prognose"] },
+      segment: { type: "string", enum: ["wohnen", "buero", "logistik", "einzelhandel", "gewerbe", "gesamt"] },
+      region: { type: "string" }, kennzahl: { type: "string" }, wert: zahlOderNull, wertText: { type: "string" }, einheit: { type: "string" },
+      veraenderung: { type: "string" }, stichtag: { type: "string" }, seite: { type: "integer" },
+    }, required: ["thema", "segment", "region", "kennzahl", "einheit", "stichtag"] } },
+  },
+  required: ["titel", "herausgeber", "stand", "fakten", "kernaussagen"],
+} as const;
+
+export const SCHEMA_JE_AUSGABE: Record<string, object> = { mietspiegel: MIETSPIEGEL_SCHEMA, marktbericht: MARKTBERICHT_SCHEMA, kurzurteil: KURZURTEIL_SCHEMA, bericht: BERICHT_SCHEMA, komitee: KOMITEE_SCHEMA, compliance: COMPLIANCE_SCHEMA, extraktion: EXTRAKTION_SCHEMA, marktwerte: MARKTWERTE_SCHEMA };
 
 export interface Bericht {
   kernaussage: string; bewertung: "positiv" | "neutral" | "kritisch";

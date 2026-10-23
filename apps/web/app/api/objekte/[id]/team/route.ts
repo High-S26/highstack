@@ -1,6 +1,7 @@
 import { neuerVerbrauch, teamlauf, teamlaufNoetig } from "@highstack/agents";
-import { ereignisstrom, laufoptionen } from "@/lib/agenten";
+import { ereignisstrom, laufoptionen, marktwissenFuer } from "@/lib/agenten";
 import { mandant, speicher } from "@/lib/speicher";
+import { bucheVerbrauch } from "@/lib/admin";
 export const dynamic = "force-dynamic";
 export const maxDuration = 800;
 
@@ -11,7 +12,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const o = await s.objekt(t, params.id); if (!o) return Response.json({ fehler: "Nicht gefunden" }, { status: 404 });
   const p = await s.profil(t);
   return ereignisstrom(async (senden, signal) => {
-    const opts = laufoptionen(p, o, signal); const verbrauch = neuerVerbrauch(); const t0 = Date.now();
+    const opts = laufoptionen(p, o, signal, await marktwissenFuer(s, o)); const verbrauch = neuerVerbrauch(); const t0 = Date.now();
     if (!body.erzwingen) { const g = teamlaufNoetig(opts); if (!g.noetig) { senden({ typ: "team_uebersprungen", grund: g.grund }); return; } }
     senden({ typ: "team_start", testmodus: opts.testmodus });
     const r = await teamlauf({ ...opts, verbrauch, erzwingen: true, ohne: Object.entries(p.experten ?? {}).filter(([, an]) => !an).map(([k]) => k), vorhanden: body.neu ? undefined : o.experten, gleichzeitig: Number(process.env.HIGHSTACK_TEAM_CONCURRENCY ?? 3), onEreignis: senden });
@@ -20,6 +21,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (r.komitee && !r.komitee.ausSpeicher) frisch.experten.komitee = { ergebnis: r.komitee.ergebnis, schritte: r.komitee.schritte, am: Date.now(), verlauf: [], hash: r.komitee.hash };
     frisch.compliance = r.compliance ?? undefined; frisch.geaendert = Date.now();
     await s.speichereObjekt(t, frisch);
+    await bucheVerbrauch(s, t, "team", verbrauch);
     senden({ typ: "verbrauch", ...verbrauch, ms: Date.now() - t0, ausSpeicher: Object.values(r.berichte).filter(b => "ausSpeicher" in b && b.ausSpeicher).length + (r.komitee?.ausSpeicher ? 1 : 0) });
     senden({ typ: "team_fertig", komitee: r.komitee?.ergebnis ?? null, compliance: r.compliance });
   }, req);

@@ -1,6 +1,16 @@
 import { ausUmgebung, type Dokumentquelle, type Ereignis } from "@highstack/agents";
 import { analyse, type Analyseeingabe } from "@highstack/engine";
 import type { Objektdatensatz, Profil } from "./typen";
+import type { Speicher } from "./speicher";
+import { faktenFuer, zeigeWert, type Marktbericht } from "./marktwissen";
+
+/** Freigegebenes Marktwissen für den Kontext der Experten: Fakten mit Quelle, passend zu Ort und Objektart */
+export async function marktwissenFuer(s: Speicher, o: Objektdatensatz) {
+  try {
+    const f = faktenFuer(await s.global<Marktbericht>("marktbericht"), o.objekt, 14);
+    return f.length ? { marktwissen: f.map(x => ({ kennzahl: x.kennzahl, region: x.region, wert: zeigeWert(x), veraenderung: x.veraenderung, stichtag: x.stichtag, quelle: x.quelle })) } : undefined;
+  } catch { return undefined; }
+}
 
 export function eingabeFuer(p: Profil, o: Objektdatensatz): Analyseeingabe {
   const ap = p.anlageprofile.find(a => a.id === o.anlageprofilId) ?? p.anlageprofile[0]!;
@@ -12,10 +22,10 @@ export function dokumentquelle(o: Objektdatensatz): Dokumentquelle {
     lies: async key => { const d = o.dokumente.find(x => x.schluessel === key && x.text); return d ? { titel: d.titel, text: d.text!, befund: d.befund } : null; },
   };
 }
-export function laufoptionen(p: Profil, o: Objektdatensatz, signal?: AbortSignal) {
+export function laufoptionen(p: Profil, o: Objektdatensatz, signal?: AbortSignal, zusatz?: Record<string, unknown>) {
   const { client, modelle, testmodus } = ausUmgebung();
   const eingabe = eingabeFuer(p, o);
-  return { client, modelle, testmodus, eingabe, analyse: analyse(eingabe), dokumente: dokumentquelle(o), signal };
+  return { client, modelle, testmodus, eingabe, analyse: analyse(eingabe), dokumente: dokumentquelle(o), signal, zusatz };
 }
 
 /** Server-Sent Events aus einer asynchronen Arbeit. */

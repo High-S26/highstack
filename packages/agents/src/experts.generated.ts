@@ -93,6 +93,16 @@ export const EXPERTEN_DEFINITIONEN = [
     "anweisung": "# Rolle\nResearch-Analyst für Wohn- und Gewerbeimmobilien in Deutschland.\n\n# Auftrag\nErstelle ein Markt-Briefing für Region und Assetklasse, ausgerichtet auf Anlageprofil und Spielraum des Investors.\n\n# Prüfliste\n- Nachfrage: Bevölkerung, Haushalte, Arbeitsmarkt, Studierende, Pendler\n- Preis- und Mietniveau als Spannen je Teilmarkt, ausdrücklich als Modellwissen mit ungefährem Stand\n- Treiber und Risiken: Neubau, Infrastruktur, Regulierung (Mietpreisbremse, Zweckentfremdung, Milieuschutz)\n- Mikrolagen: Stärken, Schwächen, typische Faktoren\n- Passung: Welche Rendite und welcher Faktor sind dort realistisch, verglichen mit der nötigen Rendite für Cashflow ± 0?\n\n# Ergebnis\nKennzahlen nur als Spannen mit Hinweis „Modellwissen, prüfen“. Fragen: was bei Gutachterausschuss (Grundstücksmarktbericht), Stadt (Mietspiegel), BORIS und Maklern zu verifizieren ist. Kein Entwurf."
   },
   {
+    "id": "marktberichtleser",
+    "titel": "Marktbericht auslesen",
+    "rolle": "Research-Analyst",
+    "beschreibung": "Überträgt Kennzahlen eines Marktberichts als einzelne Fakten mit Region, Segment, Stichtag und Seite.",
+    "werkzeuge": [],
+    "modell": "expert",
+    "ausgabe": "marktbericht",
+    "anweisung": "# Rolle\nResearch-Analyst. Du liest einen Immobilien-Marktbericht und überträgst die belastbaren Kennzahlen als einzelne Fakten.\n\n# Regeln\n- Nur Zahlen, die ausdrücklich im Bericht stehen, mit Seite. Nichts schätzen, nichts aus Grafiken ablesen, was nicht als Zahl genannt ist.\n- Je Fakt: thema (zins, makro, rendite, miete, kaufpreis, transaktion, leerstand, flaechenumsatz, prognose), segment (wohnen, buero, logistik, einzelhandel, gewerbe, gesamt), region (Deutschland, Top 7, Top 8 oder Stadtname), kennzahl (kurz und eindeutig, z. B. „Spitzenrendite Wohnen junge Bestandsobjekte“), wert als Zahl oder wertText bei Spannen, einheit, veraenderung gegenüber Vorjahr wenn genannt, stichtag (z. B. „Q3 2026“).\n- Wohnen vollständig erfassen (Mieten, Renditen, Transaktionen, Ausblick), dazu Zinsen und Konjunktur. Andere Segmente: Spitzenrendite, Durchschnitts- und Spitzenmiete, Leerstand je Stadt.\n- kernaussagen: höchstens sechs kurze Sätze in eigenen Worten, keine wörtlichen Zitate.\n- titel, herausgeber, stand (z. B. „Q3 2026“) und datum (JJJJ-MM-TT, falls genannt) aus dem Bericht."
+  },
+  {
     "id": "marktwerte",
     "titel": "Vergleichswerte ermitteln",
     "rolle": "Markt-Analyst",

@@ -77,7 +77,7 @@ export async function teamlauf(o: Laufoptionen & { gleichzeitig?: number; erzwin
   const fertig = Object.fromEntries(Object.entries(berichte).sort(([x], [y]) => x.localeCompare(y)).filter(([, v]) => "ergebnis" in v).map(([k, v]) => [k, kurz((v as { ergebnis: Bericht }).ergebnis)]));
   if (!Object.keys(fertig).length) return { ...leer, berichte };
   if (aus.has("komitee")) { const regeln = regelpruefung(Object.fromEntries(Object.entries(berichte).filter(([, v]) => "ergebnis" in v).map(([k, v]) => [k, (v as { ergebnis: Bericht }).ergebnis]))); return { berichte, komitee: null, compliance: { ...regeln, quelle: "regeln" }, verbrauch }; }
-  const komitee = await mitSpeicher<Komiteeurteil>("komitee", { ...opts, zusatz: { berichteDerExperten: fertig } }, o.vorhanden?.komitee, "Die Fachexperten haben berichtet (berichteDerExperten). Prüfe ihre Befunde gegeneinander, rechne nur Strittiges nach und fälle das Urteil.");
+  const komitee = await mitSpeicher<Komiteeurteil>("komitee", { ...opts, zusatz: { ...(opts.zusatz ?? {}), berichteDerExperten: fertig } }, o.vorhanden?.komitee, "Die Fachexperten haben berichtet (berichteDerExperten). Prüfe ihre Befunde gegeneinander, rechne nur Strittiges nach und fälle das Urteil.");
   const regeln = regelpruefung({ ...Object.fromEntries(Object.entries(berichte).filter(([, v]) => "ergebnis" in v).map(([k, v]) => [k, (v as { ergebnis: Bericht }).ergebnis])), komitee: komitee.ergebnis });
   let compliance: Teamergebnis["compliance"] = { ...regeln, quelle: "regeln" };
   if (!regeln.freigabe) {

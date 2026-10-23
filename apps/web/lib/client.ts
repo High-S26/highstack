@@ -4,7 +4,7 @@ import type { Mietspiegel } from "./mietspiegel";
 
 async function json<T>(r: Response): Promise<T> { if (r.status === 410 && typeof location !== "undefined") { location.href = "/login?fehler=geloescht"; } if (r.status === 401 && typeof location !== "undefined" && location.pathname !== "/login") { location.href = "/login"; } if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error((e as { fehler?: string }).fehler ?? `Fehler ${r.status}`); } return r.json() as Promise<T>; }
 export const api = {
-  status: () => fetch("/api/status").then(r => json<{ testmodus: boolean; speicher: string }>(r)),
+  status: () => fetch("/api/status").then(r => json<{ testmodus: boolean; speicher: string; admin: boolean; ankuendigung: { text: string; art: "info" | "warn"; am: number } | null }>(r)),
   profil: () => fetch("/api/profil").then(r => json<Profil>(r)),
   speichereProfil: (p: Profil) => fetch("/api/profil", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(p) }).then(r => json<Profil>(r)),
   objekte: () => fetch("/api/objekte").then(r => json<Objektdatensatz[]>(r)),

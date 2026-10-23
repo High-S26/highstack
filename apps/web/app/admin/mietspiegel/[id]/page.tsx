@@ -45,14 +45,14 @@ export default function MietspiegelSeite({ params }: { params: { id: string } })
   const fehler = pruefe(m); const ergebnis = abfrage(m, { baujahr: test.baujahr, flaeche: test.flaeche, lage: test.lage || null });
   const zeilen = m.merkmale[ri]?.klassen ?? []; const spalten = ci >= 0 ? m.merkmale[ci]!.klassen : [{ label: "Wert" }];
   const freigeben = async () => { clearTimeout(timer.current); try { const r = await api.speichereMietspiegel({ ...m, status: "geprueft" }); setM(r); meldung(`Mietspiegel ${m.stadt} freigegeben`); } catch (e) { meldung((e as Error).message); } };
-  const loeschen = async () => { if (!await frage({ titel: `Mietspiegel ${m.stadt} löschen?`, text: "Die erfasste Tabelle wird gelöscht. Objekte behalten bereits übernommene Werte.", ja: "Löschen", gefahr: true })) return; await api.loescheMietspiegel(m.id); router.push("/daten"); };
+  const loeschen = async () => { if (!await frage({ titel: `Mietspiegel ${m.stadt} löschen?`, text: "Die erfasste Tabelle wird gelöscht. Objekte behalten bereits übernommene Werte.", ja: "Löschen", gefahr: true })) return; await api.loescheMietspiegel(m.id); router.push("/admin?tab=daten"); };
 
   return (
     <div className="view">
-      <div className="objbar"><Link className="btn ghost sm" href="/daten">← Datenbasis</Link><h1>Mietspiegel {m.stadt}</h1>
+      <div className="objbar"><Link className="btn ghost sm" href="/admin?tab=daten">← Datenbasis</Link><h1>Mietspiegel {m.stadt}</h1>
         <span className={`badge ${m.status === "geprueft" ? "b-on" : "b-warn"}`}>{m.status === "geprueft" ? `geprüft${m.geprueftVon ? ` von ${m.geprueftVon}` : ""}` : "Entwurf"}</span>{m.herkunft === "ki" && <span className="tag">von der KI ausgelesen</span>}
         <span className="note">{stand}</span>{darf && <button type="button" className="btn sm danger" onClick={loeschen}>Löschen</button>}</div>
-      {!darf && <p className="note">Nur lesen: Pflegen dürfen Datenverantwortliche.</p>}
+      {!darf && <p className="note">Nur lesen: Pflegen dürfen Plattform-Admins.</p>}
       <fieldset className="ms-grid" disabled={!darf}>
         <section className="panel">
           <h2>Quelle und Gültigkeit</h2>

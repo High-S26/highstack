@@ -1,4 +1,6 @@
-import { ausUmgebung, fuehreAus, type Marktwerte } from "@highstack/agents";
+import { ausUmgebung, fuehreAus, neuerVerbrauch, type Marktwerte } from "@highstack/agents";
+import { bucheVerbrauch, istAdmin } from "@/lib/admin";
+import { stadtAus, vermerkeAnfrage } from "@/lib/anfragen";
 import type { Objekt } from "@highstack/engine";
 import { mandant, speicher } from "@/lib/speicher";
 import { orientierung } from "@/lib/marktwerte";
@@ -17,7 +19,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!o.objekt.ort?.trim() && !o.objekt.titel?.trim()) return Response.json({ fehler: "Bitte zuerst Ort oder Stadtteil eintragen." }, { status: 400 });
   const { client, modelle, testmodus } = ausUmgebung();
   // Zuerst die Datenbasis: Mietspiegel der Stadt, wenn er ein passendes Feld hat
-  const ms = findeMietspiegel(await s.mietspiegel(), o.objekt.ort ?? "", o.objekt.titel ?? "");
+  const admin = await istAdmin(req, s);
+  const ms = findeMietspiegel((await s.mietspiegel()).filter(m => admin || m.status === "geprueft"), o.objekt.ort ?? "", o.objekt.titel ?? "");
+  // Fehlt der Mietspiegel, merkt sich die Plattform die Nachfrage; der Nutzer muss nichts tun
+  if (!ms && o.objekt.ort?.trim()) await vermerkeAnfrage(s, "mietspiegel", stadtAus(o.objekt.ort), t);
   const t1 = ms ? abfrage(ms, { baujahr: o.objekt.baujahr, flaeche: o.objekt.wohnflaeche, lage: o.objekt.wohnlage ?? null }) : null;
   const ausMietspiegel = (r: Marktwerte & { quelle: string }) => {
     if (!ms || !t1) return r;
@@ -28,8 +33,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (testmodus) return Response.json(ausMietspiegel({ ...orientierung(o.objekt), quelle: "orientierung" }));
   try {
     const p = await s.profil(t); const ap = p.anlageprofile.find(a => a.id === o.anlageprofilId) ?? p.anlageprofile[0]!;
-    const r = await fuehreAus<Marktwerte>("marktwerte", { client, modelle, eingabe: { investor: p.investor, anlageprofil: ap, objekt: o.objekt }, signal: req.signal, maxRunden: 2 },
+    const verbrauch = neuerVerbrauch();
+    const r = await fuehreAus<Marktwerte>("marktwerte", { verbrauch, client, modelle, eingabe: { investor: p.investor, anlageprofil: ap, objekt: o.objekt }, signal: req.signal, maxRunden: 2 },
       `Schätze die Vergleichswerte für dieses Objekt: ${o.objekt.titel}, ${o.objekt.ort}, ${o.objekt.asset}, ${o.objekt.wohnflaeche ?? "?"} m², Baujahr ${o.objekt.baujahr ?? "?"}, Energieklasse ${o.objekt.energieklasse ?? "?"}.`);
+    await bucheVerbrauch(s, t, "marktwerte", verbrauch);
     return Response.json(ausMietspiegel({ ...r.ergebnis, quelle: "ki" }));
   } catch { return Response.json(ausMietspiegel({ ...orientierung(o.objekt), quelle: "orientierung" })); }
 }
