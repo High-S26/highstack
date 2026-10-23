@@ -34,6 +34,27 @@ export async function textAusUrl(roh: string): Promise<{ text: string; titel?: s
 const zahl = (s?: string) => { if (!s) return null; const t = s.replace(/\s/g, ""); const n = Number(/,\d{1,2}$/.test(t) ? t.replace(/\./g, "").replace(",", ".") : t.replace(/[.,](?=\d{3}\b)/g, "").replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : null; };
 const finde = (text: string, muster: RegExp[]) => { for (const m of muster) { const r = text.match(m); if (r?.[1]) return r[1]; } return undefined; };
 
+/**
+ * Betrag nach einer Bezeichnung finden, robust gegen typische Exposé-Schreibweisen:
+ * „Hausgeld: 310 €“, „Wohngeld mtl. ca. € 310,-“, „Hausgeld (inkl. Rücklage) 310,00 EUR“,
+ * „Hausgeld 2025: 310 Euro“, Tabellen mit Zeilenumbruch zwischen Bezeichnung und Wert.
+ * Ein Betrag zählt nur mit Währung davor oder danach; Jahreszahlen werden übersprungen.
+ */
+export function betragNach(text: string, bezeichnung: RegExp, weite = 90): number | null {
+  const re = new RegExp(bezeichnung.source, "gi"); let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const rest = text.slice(m.index + m[0].length, m.index + m[0].length + weite);
+    const geld = /(€|EUR|Euro)?\s*(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)(\s*,-)?\s*(€|EUR|Euro)?/gi; let g: RegExpExecArray | null;
+    while ((g = geld.exec(rest))) {
+      if (!g[2]) { geld.lastIndex++; continue; }
+      const vorher = rest.slice(0, g.index);
+      if (/[.!?]\s/.test(vorher.replace(/\b(?:inkl|ca|mtl|monatl|zzgl|bzw|lt|gem|ggf|z\.\s?B)\./gi, ""))) break; // nächster Satz
+      if (g[1] || g[4] || g[3]) { const n = zahl(g[2]); if (n) return n; }
+    }
+  }
+  return null;
+}
+
 /** Ohne KI: typische Angaben aus Exposés per Muster erkennen */
 export function musterErkennung(text: string, titel?: string): Erfassung {
   const t = text.replace(/ /g, " ");
@@ -44,8 +65,11 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
   if (qm && qm > 10 && qm < 20000) f.wohnflaeche = Math.round(qm * 10) / 10;
   const miete = zahl(finde(t, [/(?:Ist-?|Netto-?|Kalt)miete[^\d€]{0,30}([\d.,]+)\s*(?:€|EUR)/i, /Mieteinnahmen[^\d€]{0,30}([\d.,]+)\s*(?:€|EUR)/i]));
   if (miete && miete < 1e6) f.miete = /p\.?\s*a\.?|jährlich|pro Jahr/i.test(t.slice(t.search(/miete/i), t.search(/miete/i) + 80)) && miete > 3000 ? Math.round(miete / 12) : miete;
-  const hg = zahl(finde(t, [/Hausgeld[^\d€]{0,30}([\d.,]+)\s*(?:€|EUR)/i]));
-  if (hg && hg < 5000) f.hausgeldNichtUmlagefaehig = Math.round(hg * 0.4);
+  // Hausgeld (auch „Wohngeld“): nicht umlagefähigen Anteil direkt nehmen, sonst 40 % des Gesamtbetrags
+  const nu = betragNach(t, /(?:davon\s+)?nicht\s+umlage(?:f(?:ä|ae)hig|bar)(?:er\s+Anteil)?/);
+  const hg = betragNach(t, /(?:Haus|Wohn)geld/);
+  if (hg && hg < 5000) { f.hausgeldGesamt = hg; f.hausgeldNichtUmlagefaehig = nu && nu < hg ? nu : Math.round(hg * 0.4); }
+  else if (nu && nu < 3000) f.hausgeldNichtUmlagefaehig = nu;
   const bj = finde(t, [/Baujahr[^\d]{0,10}(1[89]\d\d|20\d\d)/i]); if (bj) f.baujahr = Number(bj);
   const ek = finde(t, [/Energieeffizienzklasse[^A-H]{0,10}([A-H]\+?)\b/i, /Effizienzklasse[^A-H]{0,10}([A-H]\+?)\b/i]); if (ek) f.energieklasse = ek.toUpperCase();
   const ort = t.match(/\b(\d{5})\s+([A-ZÄÖÜ][a-zäöüß]+(?:[- ][A-ZÄÖÜ][a-zäöüß]+)?)/); if (ort) f.ort = ort[2];
@@ -58,7 +82,7 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
   const zimmer = finde(t, [/(\d(?:[.,]5)?)\s*-?\s*Zimmer/i]);
   const tit = (titel ?? t.split("\n").find(z => z.trim().length > 12 && z.trim().length < 120))?.replace(/\s*[|–-]\s*(ImmoScout24|Immowelt|Kleinanzeigen|immonet).*$/i, "").replace(/^(Exposé|Expose|Objekt|Angebot)\s*[:\-–]\s*/i, "").trim();
   f.titel = tit || [zimmer ? `${zimmer}-Zi.-${asset}` : asset, f.ort].filter(Boolean).join(", ");
-  const gefunden = (Object.keys(f) as (keyof Objekt)[]).filter(k => !["asset", "titel", "gefragt"].includes(k));
+  const gefunden = (Object.keys(f) as (keyof Objekt)[]).filter(k => !["asset", "titel", "gefragt", "hausgeldGesamt"].includes(k));
   return { felder: f, gefunden, quelle: gefunden.length ? "muster" : "keine", text };
 }
 
@@ -84,6 +108,7 @@ export function ausExtrakt(x: Extrakt): Partial<Objekt> {
   if (x.kaufpreis) f.kaufpreis = x.kaufpreis; if (x.wohnflaeche) f.wohnflaeche = x.wohnflaeche;
   if (x.vermietet != null) f.leer = !x.vermietet; if (x.kaltmieteMonat) f.miete = x.kaltmieteMonat;
   const hg = x.hausgeldNichtUmlagefaehig ?? (x.hausgeldGesamt != null ? Math.round(x.hausgeldGesamt * 0.4) : null); if (hg) f.hausgeldNichtUmlagefaehig = hg;
+  if (x.hausgeldGesamt) f.hausgeldGesamt = x.hausgeldGesamt;
   if (x.ruecklageAnteil) f.ruecklageAnteil = x.ruecklageAnteil; if (x.baujahr) f.baujahr = x.baujahr; if (x.energieklasse) f.energieklasse = x.energieklasse;
   if (x.erbbaurecht) f.erbbaurecht = true; if (x.sonderumlage) f.sonderumlage = true;
   if (x.stellplaetze?.length) { f.stellplaetze = stellplaetzeAusExtrakt(x.stellplaetze); f.gefragt = { stellplatz: "ja", "sp-art": "ja" }; }

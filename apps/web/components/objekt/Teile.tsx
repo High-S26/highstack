@@ -34,7 +34,7 @@ export function Daten({ o, a, setze, zuUnterlagen }: { o: Objektdatensatz; a: An
         <Zahl label={ob.asset === "Gewerbe" ? "Nutzfläche" : "Wohnfläche"} einheit="m²" wert={ob.wohnflaeche} onChange={v => set({ wohnflaeche: v })} />
         <Auswahl label="Vermietung" wert={ob.leer ? "l" : "v"} optionen={[["v", "vermietet"], ["l", "leer / bezugsfrei"]]} onChange={v => set({ leer: v === "l" })} />
         {!ob.leer && <Zahl label="Ist-Kaltmiete" einheit="€/Monat" wert={ob.miete} onChange={v => set({ miete: v })} schritt={10} />}
-        <Zahl voll label={ob.asset === "ETW" ? "Hausgeld, nicht umlagefähig inkl. Rücklage" : "Nicht umlagefähige Kosten"} einheit="€/Monat" wert={ob.hausgeldNichtUmlagefaehig} onChange={v => set({ hausgeldNichtUmlagefaehig: v })} schritt={5} />
+        <Zahl voll label={ob.asset === "ETW" ? "Hausgeld, nicht umlagefähig inkl. Rücklage" : "Nicht umlagefähige Kosten"} einheit="€/Monat" wert={ob.hausgeldNichtUmlagefaehig} onChange={v => set({ hausgeldNichtUmlagefaehig: v })} schritt={5} hinweis={ob.hausgeldGesamt ? `Hausgeld gesamt laut Exposé ${eur(ob.hausgeldGesamt)}; angesetzt ${ob.hausgeldNichtUmlagefaehig && Math.round(ob.hausgeldGesamt * 0.4) === ob.hausgeldNichtUmlagefaehig ? "40 % als nicht umlagefähig" : "der genannte nicht umlagefähige Teil"}` : undefined} />
       </div>
       <div className="grp">Grundriss</div>
       <Grundrissvorschau o={o} zuUnterlagen={zuUnterlagen ?? (() => undefined)} />

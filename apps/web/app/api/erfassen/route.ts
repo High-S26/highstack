@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     const x = r.ergebnis.objekte?.[0];
     if (!x) return Response.json({ ...muster, text: text.slice(0, 20000), hinweis });
     const felder = { ...muster.felder, ...ausExtrakt(x) };
-    const gefunden = (Object.keys(felder) as (keyof typeof felder)[]).filter(k => !["asset", "titel", "gefragt"].includes(k));
+    const gefunden = (Object.keys(felder) as (keyof typeof felder)[]).filter(k => !["asset", "titel", "gefragt", "hausgeldGesamt"].includes(k));
     return Response.json({ felder, gefunden, quelle: "ki", text: text.slice(0, 20000), hinweis });
   } catch { return Response.json({ ...muster, text: text.slice(0, 20000), hinweis: "Der Daten-Analyst war nicht erreichbar; die Werte stammen aus der Mustererkennung." }); }
 }
