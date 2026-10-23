@@ -1,6 +1,7 @@
 "use client";
 import { mitStellplaetzen, MODULE, standardSzenario, standardwerte, VORLAGEN, type Analyse, type ParamDef, type Simulation, type Szenario } from "@highstack/engine";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { findeMietspiegel, type Mietspiegel } from "@/lib/mietspiegel";
 import { api } from "@/lib/client";
 import { EINSTUFUNG, eur, kennzahl, num, pct, STRUKTUR, teur, vorzeichen } from "@/lib/format";
 import type { Objektdatensatz } from "@/lib/typen";
@@ -87,15 +88,19 @@ const MARKTFELDER: { k: "marktmieteQm" | "vergleichspreisQm" | "bodenrichtwert";
   { k: "bodenrichtwert", label: "Bodenrichtwert", einheit: "€/m²", quelle: "BORIS" },
 ];
 /** Markt & Vergleich: selbst eintragen oder ermitteln lassen; ermittelte Werte zeigen Spanne und Quelle. */
+let mietspiegelCache: Promise<Mietspiegel[]> | null = null;
 function Markt({ o, set }: { o: Objektdatensatz; set: (p: Partial<Objektdatensatz["objekt"]>) => void }) {
   const { meldungMitAktion } = useApp(); const ob = o.objekt;
+  const [ms, setMs] = useState<Mietspiegel | null>(null);
+  useEffect(() => { (mietspiegelCache ??= api.mietspiegelListe().then(r => r.liste).catch(() => [])).then(l => setMs(findeMietspiegel(l, ob.ort ?? "", ob.titel ?? ""))); }, [ob.ort, ob.titel]);
+  const lagen = ms?.merkmale.find(m => m.key === "lage")?.klassen ?? [];
   const [laeuft, setLaeuft] = useState(false); const [info, setInfo] = useState<string | null>(null);
   const ermitteln = async () => {
     setLaeuft(true); setInfo(null);
     try {
-      const r = await api.ermitteln(o.id); const vorher = { marktmieteQm: ob.marktmieteQm, vergleichspreisQm: ob.vergleichspreisQm, bodenrichtwert: ob.bodenrichtwert, herkunft: ob.herkunft };
+      const r = await api.ermitteln(o.id, ob); const vorher = { marktmieteQm: ob.marktmieteQm, vergleichspreisQm: ob.vergleichspreisQm, bodenrichtwert: ob.bodenrichtwert, herkunft: ob.herkunft };
       const quelle = r.quelle === "ki" ? `Markt-Analyst, ${r.stand}` : r.stand; const am = Date.now();
-      const herkunft = { ...(ob.herkunft ?? {}), marktmieteQm: { quelle, von: r.marktmieteQm.von, bis: r.marktmieteQm.bis, am }, vergleichspreisQm: { quelle, von: r.vergleichspreisQm.von, bis: r.vergleichspreisQm.bis, am }, ...(r.bodenrichtwert ? { bodenrichtwert: { quelle, von: r.bodenrichtwert.von, bis: r.bodenrichtwert.bis, am } } : {}) };
+      const herkunft = { ...(ob.herkunft ?? {}), marktmieteQm: { quelle: r.quellen?.marktmieteQm ?? quelle, von: r.marktmieteQm.von, bis: r.marktmieteQm.bis, am }, vergleichspreisQm: { quelle, von: r.vergleichspreisQm.von, bis: r.vergleichspreisQm.bis, am }, ...(r.bodenrichtwert ? { bodenrichtwert: { quelle, von: r.bodenrichtwert.von, bis: r.bodenrichtwert.bis, am } } : {}) };
       set({ marktmieteQm: r.marktmieteQm.wert, vergleichspreisQm: r.vergleichspreisQm.wert, ...(r.bodenrichtwert ? { bodenrichtwert: r.bodenrichtwert.wert } : {}), herkunft });
       setInfo(`${r.grundlage} Sicherheit: ${r.sicherheit}.${r.hinweise?.length ? ` Prüfen: ${r.hinweise.join(", ")}.` : ""}`);
       meldungMitAktion("Vergleichswerte ermittelt", "Rückgängig", () => set(vorher));
@@ -105,6 +110,9 @@ function Markt({ o, set }: { o: Objektdatensatz; set: (p: Partial<Objektdatensat
     <div className="markt">
       <div className="markt-kopf"><div><b>Markt &amp; Vergleich</b><span className="note">Selbst eintragen oder ermitteln lassen</span></div>
         <button type="button" className="btn sm" onClick={ermitteln} disabled={laeuft || !(ob.ort?.trim() || ob.titel?.trim())} title={ob.ort?.trim() ? "" : "Erst Ort eintragen"}>{laeuft ? "Ermittelt …" : <><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M10 2.5l1.8 4.2 4.2 1.8-4.2 1.8L10 14.5l-1.8-4.2L4 8.5l4.2-1.8z" /></svg> Ermitteln</>}</button></div>
+      {ms && <div className="markt-ms"><span className="note">{ms.status === "geprueft" ? "✓" : "◌"} <a href={`/daten/mietspiegel/${ms.id}`}>Mietspiegel {ms.stadt}</a> in der Datenbasis{ms.status === "entwurf" ? " (Entwurf)" : ""}</span>
+        {lagen.length > 0 && <div className="chips" role="radiogroup" aria-label="Wohnlage">{lagen.map(k => { const v = k.wert ?? k.label; return <button key={v} type="button" role="radio" className="chip" aria-checked={ob.wohnlage === v} aria-pressed={ob.wohnlage === v} onClick={() => set({ wohnlage: ob.wohnlage === v ? null : v })}>{k.label}</button>; })}<span className="note">Wohnlage{ob.wohnlage ? "" : ": unbekannt, Spanne breiter"}</span></div>}
+      </div>}
       <div className="fields">{MARKTFELDER.map(f => { const h = ob.herkunft?.[f.k]; return (
         <div key={f.k} className={`markt-feld${h ? " ermittelt" : ""}`}>
           <Zahl label={f.label} einheit={f.einheit} wert={ob[f.k]} onChange={v => { const { [f.k]: _weg, ...rest } = ob.herkunft ?? {}; set({ [f.k]: v, herkunft: rest }); }} hinweis={h ? `ermittelt: ${f.k === "marktmieteQm" ? `${num(h.von, 2)} bis ${num(h.bis, 2)} €` : `${eur(h.von)} bis ${eur(h.bis)}`} · ${h.quelle}` : `Quelle: ${f.quelle}`} />

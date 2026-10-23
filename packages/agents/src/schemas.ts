@@ -87,7 +87,24 @@ export const MARKTWERTE_SCHEMA = {
 export interface Marktwerte { marktmieteQm: Spanne; vergleichspreisQm: Spanne; bodenrichtwert?: Spanne | null; grundlage: string; stand: string; sicherheit: "niedrig" | "mittel" | "hoch"; hinweise?: string[] }
 export interface Spanne { wert: number; von: number; bis: number }
 
-export const SCHEMA_JE_AUSGABE: Record<string, object> = { kurzurteil: KURZURTEIL_SCHEMA, bericht: BERICHT_SCHEMA, komitee: KOMITEE_SCHEMA, compliance: COMPLIANCE_SCHEMA, extraktion: EXTRAKTION_SCHEMA, marktwerte: MARKTWERTE_SCHEMA };
+const zahlOderNull = { type: ["number", "null"] } as const;
+export const MIETSPIEGEL_SCHEMA = {
+  type: "object",
+  properties: {
+    stadt: { type: "string" }, art: { type: "string", enum: ["qualifiziert", "einfach", "unbekannt"] },
+    gueltigAb: { type: ["string", "null"] }, gueltigBis: { type: ["string", "null"] }, quelleName: { type: "string" },
+    merkmale: { type: "array", items: { type: "object", properties: {
+      key: { type: "string", enum: ["baujahr", "flaeche", "lage", "ausstattung"] }, label: { type: "string" },
+      klassen: { type: "array", items: { type: "object", properties: { label: { type: "string" }, von: zahlOderNull, bis: zahlOderNull, wert: { type: "string" } }, required: ["label"] } },
+    }, required: ["key", "label", "klassen"] } },
+    felder: { type: "array", items: { type: "object", properties: { k: { type: "array", items: { type: "integer" } }, von: zahlOderNull, mittel: zahlOderNull, bis: zahlOderNull }, required: ["k"] } },
+    zuschlaege: { type: "array", items: { type: "object", properties: { text: { type: "string" }, wert: { type: "number" }, einheit: { type: "string", enum: ["€/m²", "%"] } }, required: ["text", "wert", "einheit"] } },
+    hinweise: { type: "string" },
+  },
+  required: ["stadt", "art", "merkmale", "felder"],
+} as const;
+
+export const SCHEMA_JE_AUSGABE: Record<string, object> = { mietspiegel: MIETSPIEGEL_SCHEMA, kurzurteil: KURZURTEIL_SCHEMA, bericht: BERICHT_SCHEMA, komitee: KOMITEE_SCHEMA, compliance: COMPLIANCE_SCHEMA, extraktion: EXTRAKTION_SCHEMA, marktwerte: MARKTWERTE_SCHEMA };
 
 export interface Bericht {
   kernaussage: string; bewertung: "positiv" | "neutral" | "kritisch";

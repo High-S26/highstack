@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { MANDANT_HEADER, NUTZER_HEADER } from "./auth";
 import type { Nutzer, Objektdatensatz, Profil } from "./typen";
+import type { Mietspiegel } from "./mietspiegel";
 import { standardProfil } from "./vorgaben";
 
 /** Speicher-Schnittstelle. Jede Operation ist auf einen Mandanten beschränkt. */
@@ -20,6 +21,10 @@ export interface Speicher {
   speichereNutzer(n: Nutzer): Promise<void>;
   nutzerVon(tenant: string): Promise<Nutzer[]>;
   loescheNutzer(email: string): Promise<void>;
+  /** Mietspiegel-Datenbasis, mandantenübergreifend */
+  mietspiegel(): Promise<Mietspiegel[]>;
+  speichereMietspiegel(m: Mietspiegel): Promise<void>;
+  loescheMietspiegel(id: string): Promise<void>;
   /** Alles eines Mandanten löschen: Profil, Objekte, Dateien, Nutzer */
   loescheMandant(tenant: string): Promise<void>;
 }
@@ -27,7 +32,7 @@ export interface Speicher {
 /** Dateispeicher für Entwicklung und Einzelplatz: .data/store.json und .data/files. */
 function dateiSpeicher(verzeichnis = join(process.cwd(), ".data")): Speicher {
   const datei = join(verzeichnis, "store.json");
-  type Bestand = { profile: Record<string, Profil>; objekte: Record<string, Record<string, Objektdatensatz>>; dateien: Record<string, { tenant: string; name: string; mime: string }>; nutzer?: Record<string, Nutzer> };
+  type Bestand = { profile: Record<string, Profil>; objekte: Record<string, Record<string, Objektdatensatz>>; dateien: Record<string, { tenant: string; name: string; mime: string }>; nutzer?: Record<string, Nutzer>; mietspiegel?: Record<string, Mietspiegel> };
   let kette: Promise<unknown> = Promise.resolve();
   const lies = async (): Promise<Bestand> => { try { return JSON.parse(await fs.readFile(datei, "utf8")); } catch { return { profile: {}, objekte: {}, dateien: {} }; } };
   const schreibe = async (b: Bestand) => { await fs.mkdir(verzeichnis, { recursive: true }); const tmp = datei + ".tmp"; await fs.writeFile(tmp, JSON.stringify(b)); await fs.rename(tmp, datei); };
@@ -48,6 +53,9 @@ function dateiSpeicher(verzeichnis = join(process.cwd(), ".data")): Speicher {
       const weg = await exklusiv(b => { if (b.dateien[id]?.tenant !== t) return false; delete b.dateien[id]; return true; }, true);
       if (weg) await fs.rm(join(verzeichnis, "files", id), { force: true });
     },
+    mietspiegel: () => exklusiv(b => Object.values(b.mietspiegel ?? {}).sort((a, c) => a.stadt.localeCompare(c.stadt, "de")), false),
+    speichereMietspiegel: m => exklusiv(b => { (b.mietspiegel ??= {})[m.id] = m; }, true),
+    loescheMietspiegel: id => exklusiv(b => { delete b.mietspiegel?.[id]; }, true),
     nutzer: e => exklusiv(b => b.nutzer?.[e] ?? null, false),
     speichereNutzer: n => exklusiv(b => { (b.nutzer ??= {})[n.email] = n; }, true),
     nutzerVon: t => exklusiv(b => Object.values(b.nutzer ?? {}).filter(n => n.tenant === t).sort((a, c) => a.erstellt - c.erstellt), false),
@@ -77,6 +85,9 @@ async function postgresSpeicher(url: string): Promise<Speicher> {
     async speichereObjekt(t, o) { await sql`insert into objekte (id, tenant_id, daten) values (${o.id}, ${t}, ${sql.json(o as never)}) on conflict (id) do update set daten = excluded.daten, geaendert = now() where objekte.tenant_id = ${t}`; },
     async loescheObjekt(t, id) { await sql`delete from objekte where tenant_id = ${t} and id = ${id}`; await sql`delete from dateien where tenant_id = ${t} and objekt_id = ${id}`; },
     async speichereDatei(t, objektId, id, name, mime, inhalt) { await sql`insert into dateien (id, tenant_id, objekt_id, name, mime, inhalt) values (${id}, ${t}, ${objektId}, ${name}, ${mime}, ${Buffer.from(inhalt)})`; },
+    async mietspiegel() { const r = await sql`select daten from mietspiegel order by stadt`; return r.map(x => x.daten as Mietspiegel); },
+    async speichereMietspiegel(m) { await sql`insert into mietspiegel (id, stadt, daten) values (${m.id}, ${m.stadt}, ${sql.json(m as never)}) on conflict (id) do update set stadt = excluded.stadt, daten = excluded.daten, geaendert = now()`; },
+    async loescheMietspiegel(id) { await sql`delete from mietspiegel where id = ${id}`; },
     async loescheDatei(t, id) { await sql`delete from dateien where tenant_id = ${t} and id = ${id}`; },
     async nutzer(e) { const r = await sql`select daten from nutzer where email = ${e}`; return (r[0]?.daten as Nutzer) ?? null; },
     async speichereNutzer(n) { await sql`insert into nutzer (email, tenant_id, daten) values (${n.email}, ${n.tenant}, ${sql.json(n as never)}) on conflict (email) do update set tenant_id = excluded.tenant_id, daten = excluded.daten`; },

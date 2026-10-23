@@ -1,5 +1,6 @@
 "use client";
 import type { Objektdatensatz, Profil } from "./typen";
+import type { Mietspiegel } from "./mietspiegel";
 
 async function json<T>(r: Response): Promise<T> { if (r.status === 410 && typeof location !== "undefined") { location.href = "/login?fehler=geloescht"; } if (r.status === 401 && typeof location !== "undefined" && location.pathname !== "/login") { location.href = "/login"; } if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error((e as { fehler?: string }).fehler ?? `Fehler ${r.status}`); } return r.json() as Promise<T>; }
 export const api = {
@@ -13,7 +14,13 @@ export const api = {
   loescheObjekt: (id: string) => fetch(`/api/objekte/${id}`, { method: "DELETE" }),
   rueckfrage: (id: string, experte: string, frage: string) => fetch(`/api/objekte/${id}/rueckfrage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ experte, frage }) }).then(r => json<{ antwort: string; verlauf: { rolle: string; text: string }[] }>(r)),
   hochladen: (id: string, dateien: File[], schluessel?: string) => { const f = new FormData(); dateien.forEach(d => f.append("dateien", d)); if (schluessel) f.append("schluessel", schluessel); return fetch(`/api/objekte/${id}/dokumente`, { method: "POST", body: f }).then(r => json<{ ergebnis: { datei: string; schluessel: string; titel: string; zeichen: number; sicher: boolean; grundriss?: number[] }[]; dokumente: Objektdatensatz["dokumente"] }>(r)); },
-  ermitteln: (id: string) => fetch(`/api/objekte/${id}/ermitteln`, { method: "POST" }).then(r => json<import("@highstack/agents").Marktwerte & { quelle: "ki" | "orientierung" }>(r)),
+  mietspiegelListe: () => fetch("/api/mietspiegel").then(r => json<{ liste: Mietspiegel[]; darfPflegen: boolean }>(r)),
+  mietspiegel: (id: string) => fetch(`/api/mietspiegel/${id}`).then(r => json<Mietspiegel>(r)),
+  neuerMietspiegel: (m: Partial<Mietspiegel>) => fetch("/api/mietspiegel", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(m) }).then(r => json<Mietspiegel>(r)),
+  speichereMietspiegel: (m: Partial<Mietspiegel> & { id: string }) => fetch(`/api/mietspiegel/${m.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(m) }).then(r => json<Mietspiegel>(r)),
+  loescheMietspiegel: (id: string) => fetch(`/api/mietspiegel/${id}`, { method: "DELETE" }).then(r => json<{ ok: true }>(r)),
+  mietspiegelLesen: (datei: File, quelleUrl: string) => { const f = new FormData(); f.append("datei", datei); f.append("quelleUrl", quelleUrl); return fetch("/api/mietspiegel/lesen", { method: "POST", body: f }).then(r => json<Mietspiegel>(r)); },
+  ermitteln: (id: string, objekt?: Partial<import("@highstack/engine").Objekt>) => fetch(`/api/objekte/${id}/ermitteln`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(objekt ?? {}) }).then(r => json<import("@highstack/agents").Marktwerte & { quelle: "ki" | "orientierung"; quellen?: Partial<Record<"marktmieteQm" | "vergleichspreisQm" | "bodenrichtwert", string>>; mietspiegel?: { id: string; stadt: string; status: string; url: string; offen: string[] } }>(r)),
   entferneDatei: (id: string, datei: string) => fetch(`/api/objekte/${id}/dokumente?datei=${encodeURIComponent(datei)}`, { method: "DELETE" }).then(r => json<{ dokumente: Objektdatensatz["dokumente"] }>(r)),
   kurzurteil: (id: string, neu?: boolean) => fetch(`/api/objekte/${id}/kurzurteil`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ neu }) }).then(r => json<{ ergebnis: Kurzurteil; ausSpeicher: boolean; verbrauch: Verbrauchsanzeige }>(r)),
   erfassen: (q: { datei?: File; url?: string; text?: string }) => { const f = new FormData(); if (q.datei) f.append("datei", q.datei); if (q.url) f.append("url", q.url); if (q.text) f.append("text", q.text); return fetch("/api/erfassen", { method: "POST", body: f }).then(r => json<{ felder: Partial<import("@highstack/engine").Objekt>; gefunden: string[]; quelle: "ki" | "muster" | "keine"; text: string; hinweis?: string }>(r)); },

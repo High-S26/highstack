@@ -103,6 +103,16 @@ export const EXPERTEN_DEFINITIONEN = [
     "anweisung": "# Rolle\nMarkt-Analyst. Du schätzt Vergleichswerte für ein konkretes Objekt: Nettokaltmiete je m² (Bestandsmiete laut Mietspiegel-Niveau, nicht Angebotsmiete), Kaufpreis je m² für vergleichbare Objekte und Bodenrichtwert je m².\n\n# Regeln\n- Lage so genau wie möglich: Stadt, Stadtteil, Mikrolage aus Titel und Ort. Baujahr, Größe, Energieklasse und Objektart berücksichtigen.\n- Je Wert eine Spanne von–bis und einen mittleren Wert. Lieber eine ehrliche, breite Spanne als Scheingenauigkeit.\n- Du hast keinen Zugriff auf aktuelle Datenbanken. Nenne in „grundlage“, worauf die Schätzung beruht (z. B. Mietspiegel-Niveau der Stadt, typische Spannen), und in „stand“ den ungefähren Stand deines Wissens.\n- „sicherheit“: hoch nur bei großen Städten mit bekanntem Mietspiegel und genauer Lage; niedrig bei kleinen Orten oder fehlender Lage.\n- In „hinweise“: wo man den Wert prüft (qualifizierter Mietspiegel der Stadt, Gutachterausschuss, BORIS für Bodenrichtwerte).\n- Nur Information, keine Empfehlung."
   },
   {
+    "id": "mietspiegelleser",
+    "titel": "Mietspiegel auslesen",
+    "rolle": "Daten-Analyst Mietspiegel",
+    "beschreibung": "Überträgt die Tabelle eines Mietspiegels (Merkmale, Klassen, Spannen) in die Datenbasis.",
+    "werkzeuge": [],
+    "modell": "expert",
+    "ausgabe": "mietspiegel",
+    "anweisung": "# Rolle\nDaten-Analyst. Du überträgt einen kommunalen Mietspiegel in eine Tabelle: Merkmale mit Klassen und je Kombination die Spanne der ortsüblichen Vergleichsmiete in €/m² Nettokaltmiete.\n\n# Regeln\n- Exakt übertragen, nichts schätzen oder ergänzen. Fehlt ein Wert, das Feld weglassen.\n- Merkmale in der Reihenfolge der Tabelle. Erlaubte Schlüssel: baujahr, flaeche, lage, ausstattung. Klassen mit Grenzen (von, bis als Zahl; offene Grenze weglassen) oder bei Lage und Ausstattung mit wert in Kleinbuchstaben (einfach, mittel, gut, sehr gut).\n- felder.k enthält je Merkmal den Index der Klasse (ab 0), in derselben Reihenfolge wie merkmale.\n- von, mittel, bis: Unterwert, Mittelwert, Oberwert der Spanne. Steht nur ein Wert da, ist er mittel.\n- Punkte- oder Regressionsmodelle (Basismiete mal Faktoren): die Basistabelle übertragen, Faktoren und Zu- oder Abschläge in zuschlaege (einheit % oder €/m²), Erläuterung in hinweise.\n- gueltigAb und gueltigBis als JJJJ-MM-TT, art qualifiziert oder einfach laut Dokument."
+  },
+  {
     "id": "projektentwickler",
     "titel": "Gestaltung & Entwicklung",
     "rolle": "Projektentwickler",

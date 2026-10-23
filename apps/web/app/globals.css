@@ -851,3 +851,27 @@ details>summary:hover{background:color-mix(in srgb,var(--sunk) 70%,var(--line))}
 @media (max-width:640px){.extern .tr{grid-template-columns:1fr}}
 .stress{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .objbar h1{font-size:22px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* Datenbasis / Mietspiegel */
+.ds-neu{display:grid;gap:10px;padding:14px;border-radius:14px;background:var(--sunk)}
+.ds-neu .row{align-items:center;flex-wrap:wrap}
+.ds-fehlt{display:grid;gap:6px}
+.ds-quellen{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ds-quellen li{display:grid;gap:2px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px}
+.ds-quellen span{color:var(--muted);font-size:13px}
+.ms-grid{border:0;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;min-width:0}
+@media (max-width:900px){.ms-grid{grid-template-columns:1fr}}
+.ms-tab{border:0;padding:0;margin:0;min-width:0}
+.ms-merkmal{display:grid;gap:6px;padding:10px 0;border-top:1px solid var(--line)}
+.ms-klassen{display:grid;gap:6px}
+.ms-klasse{display:grid;grid-template-columns:minmax(0,1fr) 80px 80px 32px;gap:6px;align-items:center}
+.ms-klasse:not(:has(input:nth-of-type(2))){grid-template-columns:minmax(0,1fr) 32px}
+.ms-klasse input{min-height:36px;padding:6px 9px;font-size:14px}
+.ms-dreier{display:grid;grid-template-columns:repeat(3,minmax(44px,1fr));gap:3px;min-width:150px}
+.ms-zelle{min-height:32px;padding:4px 5px;font-size:13px;text-align:right;border-radius:7px}
+.ms-dreier .ms-zelle:nth-child(2){font-weight:600;border-color:color-mix(in srgb,var(--gold) 50%,var(--line))}
+.ms-tab table th{white-space:nowrap}
+.ms-ergebnis{display:grid;gap:2px}
+.ms-ergebnis b{font-family:var(--f-display);font-size:26px}
+.markt-ms{display:grid;gap:6px}
+.markt-ms a{color:var(--purple)}

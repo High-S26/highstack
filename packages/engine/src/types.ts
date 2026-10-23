@@ -64,6 +64,8 @@ export interface Objekt {
   stellplaetze?: Stellplatz[];
   /** Beantwortete Rückfragen: „nein“ oder „unbekannt“, damit nicht erneut gefragt wird */
   gefragt?: Record<string, "ja" | "nein" | "unbekannt">;
+  /** Wohnlage laut Mietspiegel der Stadt (einfach, mittel, gut …) */
+  wohnlage?: string | null;
   /** Hausgeld gesamt laut Exposé (nur zur Anzeige; gerechnet wird mit dem nicht umlagefähigen Teil) */
   hausgeldGesamt?: number | null;
   /** Woher ein Wert stammt, wenn er ermittelt und nicht eingegeben wurde */

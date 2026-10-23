@@ -15,6 +15,8 @@ export interface Laufoptionen {
   /** Zusätzliche Daten für den Experten, z. B. Berichte anderer Experten oder Portfolio */
   zusatz?: Record<string, unknown>;
   signal?: AbortSignal; onEreignis?: (e: Ereignis) => void; maxRunden?: number;
+  /** Antwortlänge, z. B. für große Tabellen */
+  maxTokens?: number;
   /** Wird hochgezählt: Aufrufe, Tokens, Dauer */
   verbrauch?: Verbrauch;
 }
@@ -51,7 +53,7 @@ export async function fuehreAus<T = unknown>(expertId: string, o: Laufoptionen, 
   try {
     for (let runde = 1; runde <= max; runde++) {
       const letzte = runde === max || erzwinge;
-      const res = await rufe(o, { model: ex.modell === "fast" ? o.modelle.fast : o.modelle.expert, max_tokens: 8000, system, messages, tools, tool_choice: letzte || !werkzeuge.length ? { type: "tool", name: "abgabe" } : { type: "auto" } });
+      const res = await rufe(o, { model: ex.modell === "fast" ? o.modelle.fast : o.modelle.expert, max_tokens: o.maxTokens ?? 8000, system, messages, tools, tool_choice: letzte || !werkzeuge.length ? { type: "tool", name: "abgabe" } : { type: "auto" } });
       messages.push({ role: "assistant", content: res.content });
       const aufrufe = res.content.filter((b): b is Extract<Block, { type: "tool_use" }> => b.type === "tool_use");
       const abgabe = aufrufe.find(b => b.name === "abgabe");

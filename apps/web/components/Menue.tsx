@@ -10,6 +10,7 @@ export const MENUE: [string, string, string, string][] = [
   ["/portfolio", "Portfolio", "Bestand und Vermögen", "M4.5 7h11a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5v-7A1.5 1.5 0 0 1 4.5 7M7.5 7V4.5h5V7"],
   ["/experten", "Experten", "Team, Rollen, an und aus", "M7 4.4a2.6 2.6 0 1 0 0 5.2a2.6 2.6 0 1 0 0-5.2M13.5 5.3a2.2 2.2 0 1 0 0 4.4a2.2 2.2 0 1 0 0-4.4M2.5 16.5c.4-2.8 2.2-4.2 4.5-4.2s4.1 1.4 4.5 4.2M12 12.4c2.6-.3 4.9.9 5.5 4.1"],
   ["/profil", "Profil", "Kapital, Anlageprofile, Rahmen", "M10 4a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 17c.5-3 3-4.8 6-4.8s5.5 1.8 6 4.8"],
+  ["/daten", "Datenbasis", "Mietspiegel und Marktdaten", "M3.5 5.5c0-1.4 2.9-2.5 6.5-2.5s6.5 1.1 6.5 2.5v9c0 1.4-2.9 2.5-6.5 2.5s-6.5-1.1-6.5-2.5zM3.5 5.5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5M3.5 10c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5"],
   ["/konto", "Konto", "Zugang, Paket, Export", "M10 2.5l6 2.5v4.5c0 3.8-2.6 6.6-6 8-3.4-1.4-6-4.2-6-8V5z"],
 ];
 export const aktivPfad = (pfad: string, href: string) => href === "/" ? pfad === "/" : pfad === href || pfad.startsWith(href + "/") || (href === "/pruefen" && pfad.startsWith("/objekt"));
