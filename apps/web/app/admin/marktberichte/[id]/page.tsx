@@ -17,12 +17,12 @@ export default function MarktberichtSeite({ params }: { params: { id: string } }
   const aendere = (p: Partial<Marktbericht>) => { const n = { ...b, ...p }; setB(n); setStand("Ungespeichert …"); clearTimeout(timer.current); timer.current = setTimeout(async () => { try { const d = await sende(n); setB(x => x && { ...x, status: d.status }); setStand("Gespeichert"); } catch (e) { setStand((e as Error).message); } }, 700); };
   const fakt = (i: number, p: Partial<Fakt>) => aendere({ fakten: b.fakten.map((f, n) => n === i ? { ...f, ...p } : f) });
   const fehler = pruefeBericht(b);
-  const freigeben = async () => { clearTimeout(timer.current); try { setB(await sende({ ...b, status: "geprueft" })); meldung("Freigegeben: Nutzer sehen die Fakten jetzt als Marktlage"); } catch (e) { meldung((e as Error).message); } };
+  const freigeben = async () => { clearTimeout(timer.current); try { setB(await sende({ ...b, status: "geprueft" })); meldung("Freigegeben: fließt jetzt in Marktszenarien und Wertentwicklung ein"); } catch (e) { meldung((e as Error).message); } };
   return (
     <div className="view">
       <div className="objbar"><Link className="btn ghost sm" href="/admin?tab=berichte">← Marktberichte</Link><h1>{b.herausgeber} {b.titel}</h1>
         <span className={`badge ${b.status === "geprueft" ? "b-on" : "b-warn"}`}>{b.status === "geprueft" ? "freigegeben" : "Entwurf"}</span><span className="note">{stand}</span>
-        <button type="button" className="btn sm danger" onClick={async () => { if (await frage({ titel: "Marktbericht löschen?", text: "Die Fakten verschwinden aus der Marktlage aller Nutzer.", ja: "Löschen", gefahr: true })) { await fetch(`/api/admin/marktberichte/${b.id}`, { method: "DELETE" }); router.push("/admin?tab=berichte"); } }}>Löschen</button></div>
+        <button type="button" className="btn sm danger" onClick={async () => { if (await frage({ titel: "Marktbericht löschen?", text: "Die Fakten fließen nicht mehr in Marktszenarien ein.", ja: "Löschen", gefahr: true })) { await fetch(`/api/admin/marktberichte/${b.id}`, { method: "DELETE" }); router.push("/admin?tab=berichte"); } }}>Löschen</button></div>
       <div className="two">
         <section className="panel"><h2>Angaben</h2><div className="fields">
           <Text label="Herausgeber" wert={b.herausgeber} onChange={v => aendere({ herausgeber: v })} /><Text label="Titel" wert={b.titel} onChange={v => aendere({ titel: v })} />

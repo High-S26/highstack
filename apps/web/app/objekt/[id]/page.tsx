@@ -9,7 +9,6 @@ import { Daten, Playbook, Durchspielen, Ergebnisbereich, Gestaltung, Steuern } f
 import { Unterlagen } from "@/components/objekt/Unterlagen";
 import { Concierge } from "@/components/objekt/Concierge";
 import { Passung } from "@/components/grafik/Netz";
-import { Marktlage } from "@/components/objekt/Marktlage";
 import { api } from "@/lib/client";
 import { EINSTUFUNG } from "@/lib/format";
 import { Info } from "@/components/Info";
@@ -107,7 +106,7 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
         {(!datenZu || tab === "daten") && <div className="col" data-mobil-versteckt={tab !== "daten" ? "ja" : undefined}><Daten o={o} a={a} setze={setze} zuUnterlagen={() => zeige("unterlagen")} /></div>}
         <div className="col">
           {begleitet && (tab === "ergebnis" || tab === "daten") && <Concierge o={o} a={a} setze={setze} zuUnterlagen={() => zeige("unterlagen")} aus={() => setzeModus("selbst")} />}
-          {tab === "ergebnis" || (tab === "daten" && !datenZu) ? <>{o.objekt.kaufpreis ? <Kurzurteilpanel objekt={o} onNeu={neuVomServer} /> : null}<Ergebnisbereich a={a} apName={anlageprofil(o.anlageprofilId).name} spielraum={<Playbook o={o} a={a} zuDurchspielen={() => zeige("spielen")} />} passung={<><Passung o={o.objekt} a={a} /><Marktlage id={o.id} ort={o.objekt.ort} asset={o.objekt.asset} /></>} /></> : null}
+          {tab === "ergebnis" || (tab === "daten" && !datenZu) ? <>{o.objekt.kaufpreis ? <Kurzurteilpanel objekt={o} onNeu={neuVomServer} /> : null}<Ergebnisbereich a={a} apName={anlageprofil(o.anlageprofilId).name} spielraum={<Playbook o={o} a={a} zuDurchspielen={() => zeige("spielen")} />} passung={<Passung o={o.objekt} a={a} />} /></> : null}
           {tab === "spielen" && <Durchspielen o={o} a={a} setze={setze} />}
           {tab === "gestaltung" && <Gestaltung o={o} a={a} setze={setze} />}
           {tab === "steuern" && <Steuern a={a} />}

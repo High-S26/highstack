@@ -121,3 +121,23 @@ describe("Externe Faktoren", () => {
     expect(messe(e.stress.find(s => s.id === "krise")!.sim, "nv")!).toBeLessThan(messe(e.basis, "nv")!);
   });
 });
+
+describe("Prognose", () => {
+  it("Wert aus Miete und Rendite: steigende Rendite drückt den Wert", async () => {
+    const { wertAusMarkt } = await import("../src");
+    const gleich = wertAusMarkt(0.02, 0.04, 0, 10); expect(gleich.wertentwicklung).toBeCloseTo(0.02, 6);
+    const hoeher = wertAusMarkt(0.02, 0.04, 0.005, 10); expect(hoeher.ausRendite).toBeLessThan(0); expect(hoeher.wertentwicklung).toBeLessThan(0.02);
+  });
+  it("Zerlegung geht auf und Bandbreite ist geordnet und reproduzierbar", async () => {
+    const { zerlegung, bandbreite, elastizitaeten } = await import("../src");
+    const a = analyse({ investor: INV, anlageprofil: AP, objekt: OBJ }); const m = a.simulation!;
+    const z = zerlegung(m);
+    expect(z.eigenkapital + z.nebenkosten + z.tilgung + z.wertzuwachs).toBeCloseTo(z.vermoegenEnde, 0);
+    const b1 = bandbreite(a.params, OBJ, a.bewertung.miete, a.szenario, undefined, 200)!; const b2 = bandbreite(a.params, OBJ, a.bewertung.miete, a.szenario, undefined, 200)!;
+    expect(b1.ergebnis[0]).toBeLessThan(b1.ergebnis[1]); expect(b1.ergebnis[1]).toBeLessThan(b1.ergebnis[2]);
+    expect(b1.ergebnis).toEqual(b2.ergebnis);
+    const e = elastizitaeten(a.params, OBJ, a.bewertung.miete, a.szenario)!;
+    expect(e.find(x => x.key === "wertentwicklung")!.nv).toBeGreaterThan(0);
+    expect(e.find(x => x.key === "anschlusszinsAufschlag")!.cf).toBeLessThan(0);
+  });
+});

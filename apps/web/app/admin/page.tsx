@@ -45,7 +45,7 @@ function Uebersicht() {
     ...(d.daten.marktberichte.entwurf ? [[`${d.daten.marktberichte.entwurf} Marktbericht-Entwurf prüfen`, "/admin?tab=berichte"] as [string, string]] : []),
     ...(d.daten.anfragen ? [[`${d.daten.anfragen} offene Nachfrage nach fehlenden Daten`, "/admin?tab=daten"] as [string, string]] : []),
     ...d.loeschantraege.map(l => [`Löschantrag Konto ${l.tenant}: Ausführung ${datum(l.ausfuehrung)}`, "/admin?tab=konten"] as [string, string]),
-    ...(!d.daten.marktberichte.geprueft ? [["Noch kein Marktbericht freigegeben: Nutzer sehen keine Marktlage", "/admin?tab=berichte"] as [string, string]] : []),
+    ...(!d.daten.marktberichte.geprueft ? [["Noch kein Marktbericht freigegeben: Marktszenarien laufen mit Standardannahmen", "/admin?tab=berichte"] as [string, string]] : []),
   ];
   const sys = d.system;
   return (

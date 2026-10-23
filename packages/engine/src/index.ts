@@ -6,3 +6,4 @@ export * from "./analyse";
 export * from "./beispiel";
 export * from "./strategie";
 export * from "./extern";
+export * from "./prognose";

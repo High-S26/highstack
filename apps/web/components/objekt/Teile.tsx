@@ -10,6 +10,7 @@ import { Strategien } from "./Strategien";
 import { useApp } from "../App";
 import { Positionen } from "./Positionen";
 import { ExterneFaktoren } from "./Extern";
+import { Prognose } from "./Prognose";
 import { Stellplaetze } from "./Stellplaetze";
 import { Grundrissvorschau } from "./Ansicht";
 import { Info } from "../Info";
@@ -248,6 +249,7 @@ export function Durchspielen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; 
         <p className="note">Ihre Einstellung: {fmt(basis)}. Jeweils ein Faktor wird verändert; rot schlechter, grün besser.</p>
         <div className="tornado">{tor.map(t => <div key={t.label} className="tr"><div>{t.label}</div><div><div className="tt"><div className="mid" />{[t.sa, t.sb].map((v, i) => v == null || basis == null || Math.abs(v - basis) < 1e-9 ? null : <div key={i} className={`seg ${v < basis ? "lo" : "hi"}`} style={{ left: `${50 + Math.min(0, (v - basis) / maxD * 48)}%`, width: `${Math.abs((v - basis) / maxD * 48)}%` }} />)}</div><div className="tv"><span>{fmt(Math.min(...[t.sa, t.sb, basis].filter((x): x is number => x != null)))}</span><span>{fmt(Math.max(...[t.sa, t.sb, basis].filter((x): x is number => x != null)))}</span></div></div></div>)}</div>
       </section>}
+      {m && <Prognose o={o} a={a} setze={setze} />}
       {m && <ExterneFaktoren o={o} a={a} />}
       {m && <section className="panel">
         <h2>Schwellen &amp; Zielpreise</h2>

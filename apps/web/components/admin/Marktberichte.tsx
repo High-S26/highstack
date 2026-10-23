@@ -17,7 +17,7 @@ export function Marktberichte() {
   return (
     <section className="panel">
       <div className="ph"><h2>Marktberichte</h2><span className="tag">{l ? `${l.filter(b => b.status === "geprueft").length} freigegeben · ${l.filter(b => b.status === "entwurf").length} Entwurf` : "lädt …"}</span></div>
-      <p className="note">Gespeichert werden einzelne Kennzahlen mit Quelle, Stichtag und Seite sowie Kernaussagen in eigenen Worten, nicht der Bericht. Nutzer sehen freigegebene Fakten als „Marktlage“ im Objekt; die Experten nutzen sie als Kontext.</p>
+      <p className="note">Gespeichert werden einzelne Kennzahlen mit Quelle, Stichtag und Seite sowie Kernaussagen in eigenen Worten, nicht der Bericht. Freigegebene Fakten fließen in die Marktszenarien und die Wertentwicklung im Durchspielen ein und dienen den Experten als Kontext; als Bericht angezeigt werden sie nicht.</p>
       <div className="ds-neu">
         <div className="fields">
           <div className="fld"><label htmlFor="mb-url">Link zum Bericht</label><input id="mb-url" type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" /></div>
