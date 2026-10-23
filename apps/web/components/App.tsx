@@ -52,6 +52,7 @@ export function App({ children }: { children: ReactNode }) {
 
   const [ich, setIch] = useState<{ aktiv: boolean; email?: string; rolle?: string } | null>(null);
   const login = pfad === "/login";
+  const trading = pfad.startsWith("/trading");
   const frei = ["/impressum", "/datenschutz", "/hinweise", "/version"].includes(pfad);
   useEffect(() => { if (!login && !frei) fetch("/api/auth/ich").then(r => r.status === 401 ? (location.href = "/login", null) : r.json()).then(d => d && setIch(d)).catch(() => undefined); }, [login]);
   const abmelden = async () => { await fetch("/api/auth/abmelden", { method: "POST" }); location.href = "/login"; };
@@ -101,10 +102,13 @@ export function App({ children }: { children: ReactNode }) {
       <div className="wrap">
         <div className="appbar">
           <Link href="/" className="brand" aria-label="highstack, zur Übersicht"><Logo /></Link>
-          {profil?.onboarded && <div className="aktionen">
+          {profil?.onboarded && pfad !== "/" && <nav className="bereich" aria-label="Bereich"><Link href="/investments" aria-current={!trading ? "page" : undefined}>Investments</Link><Link href="/trading" aria-current={trading ? "page" : undefined}>Trading</Link></nav>}
+          {profil?.onboarded && pfad !== "/" && (trading ? <div className="aktionen">
+            <Link href="/trading/neu" className="btn sm" aria-current={pfad === "/trading/neu" ? "page" : undefined}>+ Agent einstellen</Link>
+          </div> : <div className="aktionen">
             <Link href="/suchen/neu" className="btn ghost sm" aria-current={pfad === "/suchen/neu" ? "page" : undefined}>+ Auftrag anlegen</Link>
             <Link href="/neu" className="btn sm" aria-current={pfad === "/neu" ? "page" : undefined}>Prüfung starten</Link>
-          </div>}
+          </div>)}
           <div className="who"><Themaschalter />{profil?.onboarded ? <Menue admin={admin} /> : <Link href="/konto" className="konto-b" title="Konto"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10" cy="7" r="3" /><path d="M4 17c.6-3 3-4.6 6-4.6s5.4 1.6 6 4.6" /></svg><span>{ich?.aktiv ? ich.email : "Konto"}</span></Link>}</div>
         </div>
         {profil?.loeschung && pfad !== "/konto" && <div className="testband warnband">Die Löschung dieses Kontos ist beantragt und wird am {new Date(profil.loeschung.ausfuehrung).toLocaleDateString("de-DE")} ausgeführt. <Link href="/konto">Abbrechen oder Daten herunterladen</Link></div>}

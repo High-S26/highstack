@@ -123,7 +123,8 @@ async function postgresSpeicher(url: string): Promise<Speicher> {
   };
 }
 
-let instanz: Promise<Speicher> | null = null;
+// Eine Instanz je Prozess, auch über getrennt gebündelte Teile hinweg (Seiten, Routen, Dauerlauf)
+const global_ = globalThis as { hsSpeicher?: Promise<Speicher> };
 const geprueft = new Map<string, { ok: boolean; am: number }>();
 /** Nutzer wurde entfernt: Sitzung sofort ungültig (Prüfung zwischengespeichert für 60 s) */
 export const vergissNutzer = (email: string) => geprueft.delete(email);
@@ -134,8 +135,8 @@ export const vergissNutzer = (email: string) => geprueft.delete(email);
 /** Nach Sperren oder Entsperren sofort wirksam machen */
 export const vergissPruefung = (email?: string) => { if (email) geprueft.delete(email); else geprueft.clear(); };
 export async function speicher(req?: Request): Promise<Speicher> {
-  instanz ??= process.env.DATABASE_URL ? postgresSpeicher(process.env.DATABASE_URL) : Promise.resolve(dateiSpeicher());
-  const s = await instanz;
+  global_.hsSpeicher ??= process.env.DATABASE_URL ? postgresSpeicher(process.env.DATABASE_URL) : Promise.resolve(dateiSpeicher());
+  const s = await global_.hsSpeicher;
   const email = process.env.AUTH_SECRET ? req?.headers.get(NUTZER_HEADER) : null;
   if (email) {
     const c = geprueft.get(email);

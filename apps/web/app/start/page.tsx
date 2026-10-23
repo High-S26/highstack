@@ -33,12 +33,12 @@ export default function Start() {
   // Abbrechen: Erstnutzer starten mit Standardwerten, Wiederkehrende verwerfen nur die Änderungen
   const erstmals = !profil!.onboarded;
   const abbrechen = async () => {
-    if (schritt === 5) { router.push("/"); return; }
+    if (schritt === 5) { router.push("/investments"); return; }
     if (erstmals) {
       if (!await frage({ titel: "Einrichtung später?", text: "Sie starten mit typischen Standardwerten (50.000 € Eigenkapital, 230.000 € Kredit). Alles lässt sich jederzeit unter Profil ändern.", ja: "Mit Standardwerten starten", nein: "Weiter einrichten" })) return;
-      const p = { ...profil!, onboarded: true }; await api.speichereProfil(p); setzeProfil(p); router.replace("/"); return;
+      const p = { ...profil!, onboarded: true }; await api.speichereProfil(p); setzeProfil(p); router.replace("/investments"); return;
     }
-    if (await frage({ titel: "Abbrechen?", text: "Ihre Änderungen in diesem Assistenten werden nicht übernommen. Ihr Profil bleibt wie es war.", ja: "Abbrechen", nein: "Weiter bearbeiten", gefahr: true })) router.push("/");
+    if (await frage({ titel: "Abbrechen?", text: "Ihre Änderungen in diesem Assistenten werden nicht übernommen. Ihr Profil bleibt wie es war.", ja: "Abbrechen", nein: "Weiter bearbeiten", gefahr: true })) router.push("/investments");
   };
 
   if (schritt === 0) return (
@@ -50,7 +50,7 @@ export default function Start() {
         <li><b>Objekte prüfen</b><span>Exposé hochladen, Ergebnis sehen, Annahmen durchspielen</span></li>
         <li><b>Experten fragen</b><span>Makler, Bank, Verwalter, Steuer und Recht als Team, auf Abruf</span></li>
       </ul>
-      <div className="row"><button type="button" className="btn" onClick={() => setSchritt(1)}>Einrichten</button><button type="button" className="btn ghost" onClick={mitBeispiel}>Erst ein Beispiel ansehen</button>{!erstmals && <button type="button" className="btn ghost" onClick={() => router.push("/")}>Abbrechen</button>}</div>
+      <div className="row"><button type="button" className="btn" onClick={() => setSchritt(1)}>Einrichten</button><button type="button" className="btn ghost" onClick={mitBeispiel}>Erst ein Beispiel ansehen</button>{!erstmals && <button type="button" className="btn ghost" onClick={() => router.push("/investments")}>Abbrechen</button>}</div>
       <p className="note">Alles lässt sich später unter Profil ändern. highstack informiert, berät aber nicht.</p>
     </div>
   );
@@ -123,7 +123,7 @@ export default function Start() {
         <div className="wiz-wahl">
           <button type="button" className="wiz-karte" onClick={() => router.push("/neu")}><b>Ein Objekt prüfen</b><span>Exposé, Link oder Text einfügen, Ergebnis in einer Minute</span></button>
           <button type="button" className="wiz-karte" onClick={() => router.push("/suchen/neu")}><b>Einen Suchauftrag anlegen</b><span>Was und wo Sie suchen; Treffer werden gerankt</span></button>
-          <button type="button" className="wiz-karte" onClick={() => router.push("/")}><b>Erst umsehen</b><span>Zur Übersicht mit Ihren ersten Schritten</span></button>
+          <button type="button" className="wiz-karte" onClick={() => router.push("/investments")}><b>Erst umsehen</b><span>Zur Übersicht mit Ihren ersten Schritten</span></button>
         </div>
         <WizFuss zurueck={() => setSchritt(4)} />
       </div>}

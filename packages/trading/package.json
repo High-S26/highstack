@@ -1,0 +1,9 @@
+{
+  "name": "@highstack/trading",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Trading-Agent: Strategien, Risikomanager, Broker-Bausteine (Simulation, Alpaca, manuell)"
+}

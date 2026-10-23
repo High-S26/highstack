@@ -925,3 +925,37 @@ details>summary:hover{background:color-mix(in srgb,var(--sunk) 70%,var(--line))}
 .pg-wf-z.summe{border-top:1px solid var(--line);padding-top:6px;font-weight:600}
 .pg-wf-z.summe .pg-wf-b i{background:var(--gold)}
 @media (max-width:520px){.pg-wf-z{grid-template-columns:110px 1fr 80px}}
+
+/* Bereichsschalter Investments / Trading */
+.bereich{display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--sunk);margin-left:8px}
+.bereich a{padding:6px 13px;border-radius:999px;font-size:13px;font-weight:600;color:var(--muted);text-decoration:none}
+.bereich a[aria-current="page"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(9,17,31,.12)}
+@media (max-width:760px){.bereich{order:3;width:100%;justify-content:stretch;margin:0}.bereich a{flex:1;text-align:center}}
+
+/* Trading */
+.tr-leer{justify-items:start}
+.tr-stufen{display:flex;gap:8px;flex-wrap:wrap}
+.tr-stufen span{display:inline-flex;gap:8px;align-items:center;padding:6px 12px;border-radius:999px;background:var(--sunk);font-size:13px}
+.tr-stufen b{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--anthrazit);color:#fff;font-size:12px}
+.tr-karten{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.tr-karte{display:grid;gap:8px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--schatten);text-decoration:none;color:var(--fg)}
+.tr-karte:hover{border-color:var(--gold)}
+.tr-k{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.tr-k>div{display:grid}.tr-k span{font-size:11.5px;color:var(--muted)}.tr-k strong{font-family:var(--f-display);font-size:18px}
+.tr-zugang{display:grid;gap:8px;padding:14px;border-radius:14px;background:var(--sunk)}
+.tr-zus dl{display:grid;gap:4px;margin:0}.tr-zus dl>div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}.tr-zus dt{color:var(--muted)}.tr-zus dd{margin:0;font-weight:600;text-align:right}
+.tr-balken{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}
+.tr-spur{height:12px;background:var(--sunk);border-radius:6px;overflow:hidden;display:flex}
+.tr-spur:nth-of-type(1){justify-content:flex-end}
+.tr-spur i{display:block;height:100%;background:var(--good)}.tr-spur i.neg{background:var(--crit)}
+@media (max-width:600px){.tr-balken{grid-template-columns:1fr 1fr}.tr-balken span{grid-column:auto}}
+.tr-vorschlaege{display:grid;gap:8px}
+.tr-v{display:grid;gap:6px;padding:12px;border-radius:12px;border:1px solid var(--line);border-left:4px solid var(--good)}
+.tr-v.verkauf{border-left-color:var(--crit)}
+.tr-v>div:first-child{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.tr-v p{margin:0;font-size:13.5px}
+.tr-log{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:420px;overflow:auto;font-size:13px}
+.tr-log li{display:grid;grid-template-columns:92px 72px 1fr;gap:8px;padding:5px 6px;border-radius:6px}
+.tr-log li:nth-child(odd){background:var(--sunk)}
+.tr-lz{color:var(--muted);font-variant-numeric:tabular-nums}.tr-la{font-weight:600}
+.l-order .tr-la{color:var(--purple)}.l-signal .tr-la{color:var(--gold-ink)}.l-fehler .tr-la,.l-sperre .tr-la{color:var(--crit)}.l-schluss .tr-la,.l-ausstieg .tr-la{color:var(--warn)}
+@media (max-width:600px){.tr-log li{grid-template-columns:70px 1fr}.tr-log li span:last-child{grid-column:1/-1}}

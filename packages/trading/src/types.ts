@@ -1,0 +1,75 @@
+/** Minutenkerze */
+export interface Bar { t: string; o: number; h: number; l: number; c: number; v: number }
+
+export interface Konto { equity: number; cash: number; waehrung: string }
+export interface Position { symbol: string; qty: number; einstand: number; kurs: number; wert: number; gv: number }
+export interface OrderAntrag { symbol: string; seite: "kauf" | "verkauf"; qty: number; grund: string }
+export interface Ausfuehrung { id: string; symbol: string; seite: "kauf" | "verkauf"; qty: number; preis: number | null; status: "ausgefuehrt" | "offen" | "abgelehnt"; meldung?: string; zeit: string }
+
+export type StrategieTyp = "ausbruch" | "mittelwert" | "anomalie";
+export interface StrategieWerte {
+  /** Ausbruch: Minuten der Eröffnungsspanne */
+  spanneMin: number;
+  /** Mindestvolumen gegenüber dem Durchschnitt */
+  volumenFaktor: number;
+  /** Mittelwert und Anomalie: Abweichung in Standardabweichungen */
+  z: number;
+  /** Rückblick in Minuten */
+  fenster: number;
+  /** Ziel als Vielfaches des Risikos */
+  zielR: number;
+}
+export type BrokerArt = "simulation" | "alpaca-paper" | "alpaca-live" | "manuell" | "ibkr";
+
+export interface AgentEinstellungen {
+  name: string;
+  broker: BrokerArt;
+  /** Name der App beim manuellen Broker, z. B. Trade Republic */
+  brokerApp?: string;
+  startkapital: number;
+  /** Tagesziel: ist es erreicht, schließt der Agent alles und pausiert bis morgen */
+  tagesziel: number;
+  /** Tagesverlust-Limit: ist es erreicht, schließt der Agent alles und stoppt für heute */
+  tagesverlust: number;
+  /** Risiko je Trade in Prozent des Kontos (Abstand Einstieg bis Stopp) */
+  risikoProTrade: number;
+  /** Höchster Anteil des Kontos in einer Position */
+  maxPosition: number;
+  maxTradesTag: number;
+  maxPositionen: number;
+  symbole: string[];
+  strategie: StrategieTyp;
+  werte: StrategieWerte;
+  richtung: "long" | "long-short";
+  /** Minuten vor Handelsschluss, zu denen alles geschlossen wird */
+  schlussVorEnde: number;
+  /** vorschlag: jede Order bestätigen; auto: innerhalb der Grenzen selbst handeln */
+  modus: "vorschlag" | "auto";
+}
+
+export interface Signal { symbol: string; richtung: "long" | "short"; kurs: number; stopp: number; ziel: number; staerke: number; grund: string }
+
+/** Vom Agenten geführte Position mit Stopp und Ziel (Software-Stopps, je Takt geprüft) */
+export interface Gefuehrt { symbol: string; richtung: "long" | "short"; qty: number; einstieg: number; stopp: number; ziel: number; seit: string; grund: string }
+
+export interface Vorschlag { id: string; zeit: string; antrag: OrderAntrag; signal?: Signal; art: "einstieg" | "ausstieg"; status: "offen" | "ausgefuehrt" | "abgelehnt" | "verfallen"; meldung?: string }
+
+export interface Logeintrag { zeit: string; art: "signal" | "order" | "sperre" | "ausstieg" | "schluss" | "info" | "fehler"; text: string }
+
+export interface Tag { datum: string; start: number; ende: number | null; trades: number; status: "laeuft" | "ziel" | "limit" | "notaus" | "beendet" }
+
+export interface Agentzustand {
+  aktiv: boolean;
+  tag: Tag | null;
+  verlauf: Tag[];
+  gefuehrt: Gefuehrt[];
+  vorschlaege: Vorschlag[];
+  log: Logeintrag[];
+  letzterTakt: string | null;
+  /** Kontostand der Simulation; beim echten Broker führt der Broker */
+  sim?: { cash: number; positionen: Record<string, { qty: number; einstand: number }> };
+  /** Uhr der Simulation: virtueller Handelstag im Zeitraffer */
+  simUhr?: { datum: string; minute: number };
+  /** Manueller Broker: vom Nutzer bestätigte Bestände */
+  manuell?: { cash: number; positionen: Record<string, { qty: number; einstand: number }> };
+}
