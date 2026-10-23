@@ -23,7 +23,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
   const setzeMarktlage = async (an: boolean) => { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ marktlage: an }) }); if (r.ok) { meldung(an ? "Marktumfeld wird berücksichtigt" : "Marktumfeld wird ignoriert"); lade(); } };
   const aktion = async (b: object, text?: string) => {
     setLaeuft(JSON.stringify(b));
-    try { const r = await fetch(`/api/trading/${params.id}/aktion`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }); const d = await r.json(); if (!r.ok) throw new Error(d.fehler); if (text) meldung(text); await lade(); }
+    try { const r = await fetch(`/api/trading/${params.id}/aktion`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }); const d = await r.json(); if (!r.ok) throw new Error(d.fehler); if (d.meldung || text) meldung(d.meldung ?? text); await lade(); }
     catch (e) { meldung((e as Error).message); } finally { setLaeuft(null); }
   };
   if (!a) return <p className="note">Lädt …</p>;
@@ -34,7 +34,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
   const bil = trefferbilanz(z.abschluesse ?? []); const g = bil.gesamt;
   const zahl = (v: number | null, d = 2) => v == null ? "–" : v.toLocaleString("de-DE", { maximumFractionDigits: d, minimumFractionDigits: d });
   const balken = (wert: number, max: number) => `${Math.min(100, Math.max(0, (wert / max) * 100))}%`;
-  const notaus = async () => { if (await frage({ titel: "Not-Aus auslösen?", text: manuell ? "Der Agent hält an. Offene Positionen schließen Sie in Ihrer App." : "Alle Positionen werden sofort zum Marktpreis geschlossen und der Agent hält an.", ja: "Not-Aus", gefahr: true })) aktion({ aktion: "notaus" }, "Not-Aus ausgeführt"); };
+  const notaus = async () => { if (await frage({ titel: "Not-Aus auslösen?", text: manuell ? "Der Agent hält an. Offene Positionen schließen Sie in Ihrer App." : "Alle Positionen werden sofort zum Marktpreis geschlossen und der Agent hält an.", ja: "Not-Aus", gefahr: true })) aktion({ aktion: "notaus" }); };
   return (
     <div className="view">
       <div className="objbar"><Link className="btn ghost sm" href="/trading">← Trading</Link><h1>{e.name}</h1>
@@ -44,7 +44,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
         <button type="button" className="btn sm gefahr" onClick={notaus}>Not-Aus</button>
       </div>
       {a.live.fehler && <p className="hint">{a.live.fehler}</p>}
-      {sim && <div className="testband">Simulation mit künstlichen Kursen: läuft der Agent, vergeht alle 5 Sekunden eine Handelsminute. <button type="button" className="linkbtn" disabled={!!laeuft} onClick={() => aktion({ aktion: "tag" }, "Handelstag durchgespielt")}>{laeuft?.includes("tag") ? "spielt …" : "Rest des Tages sofort durchspielen"}</button> · <button type="button" className="linkbtn" onClick={async () => { if (await frage({ titel: "Simulation zurücksetzen?", text: "Kontostand, Verlauf und Protokoll der Simulation werden gelöscht.", ja: "Zurücksetzen", gefahr: true })) aktion({ aktion: "zuruecksetzen" }, "Zurückgesetzt"); }}>zurücksetzen</button></div>}
+      {sim && <div className="testband">Simulation mit künstlichen Kursen: läuft der Agent, vergeht alle 5 Sekunden eine Handelsminute. {z.aktiv ? <button type="button" className="linkbtn" disabled={!!laeuft} onClick={() => aktion({ aktion: "tag" }, "Handelstag durchgespielt")}>{laeuft?.includes("tag") ? "spielt …" : "Rest des Tages sofort durchspielen"}</button> : <span>Zum Durchspielen den Agenten starten.</span>} · <button type="button" className="linkbtn" onClick={async () => { if (await frage({ titel: "Simulation zurücksetzen?", text: "Kontostand, Verlauf und Protokoll der Simulation werden gelöscht.", ja: "Zurücksetzen", gefahr: true })) aktion({ aktion: "zuruecksetzen" }, "Zurückgesetzt"); }}>zurücksetzen</button></div>}
       <div className="tiles">{([["Konto", k ? `${eur(k.equity)}` : "–"], ["heute", t ? `${tagesGV >= 0 ? "+" : ""}${eur(tagesGV)}` : "–"], ["Trades heute", t ? `${t.trades} / ${e.maxTradesTag}` : "–"], ["seit Start", k ? `${k.equity - e.startkapital >= 0 ? "+" : ""}${eur(k.equity - e.startkapital)}` : "–"]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong className={l !== "Konto" && l !== "Trades heute" && v.startsWith("-") ? "dn" : ""}>{v}</strong></div>)}</div>
       {t && <section className="panel tr-grenzen">
         <div className="ph"><h2>Heute</h2><span className="tag">{({ laeuft: "läuft", ziel: "Tagesziel erreicht", limit: "Verlustlimit erreicht", notaus: "Not-Aus", beendet: "beendet" } as Record<string, string>)[t.status]}</span></div>
@@ -94,7 +94,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
         </> : <p className="note">Noch kein abgeschlossener Trade.</p>}
       </section>
       <section className="panel">
-        <div className="ph"><h2>Protokoll</h2><button type="button" className="btn sm ghost" disabled={!!laeuft} onClick={() => aktion({ aktion: "takt" })}>Jetzt prüfen</button></div>
+        <div className="ph"><h2>Protokoll</h2><button type="button" className="btn sm ghost" disabled={!!laeuft || !z.aktiv} title={z.aktiv ? undefined : "Agent ist angehalten"} onClick={() => aktion({ aktion: "takt" })}>Jetzt prüfen</button></div>
         <ol className="tr-log">{z.log.slice(0, 80).map((l, i) => <li key={i} className={`l-${l.art}`}><span className="tr-lz">{l.zeit.includes("T") ? new Date(l.zeit).toLocaleTimeString("de-DE") : l.zeit}</span><span className="tr-la">{LOGART[l.art]}</span><span>{l.text}</span></li>)}</ol>
       </section>
       {(e.broker === "alpaca-paper" || manuell) && <section className="panel"><h2>Alpaca-Zugang</h2>

@@ -1,5 +1,5 @@
 "use client";
-import { hinweise, neueEinstellungen, STRATEGIEN, VORLAGEN, type AgentEinstellungen, type StrategieTyp } from "@highstack/trading";
+import { GRENZEN as G, hinweise, neueEinstellungen, pruefeEinstellungen, STRATEGIEN, VORLAGEN, type AgentEinstellungen, type StrategieTyp } from "@highstack/trading";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useApp } from "@/components/App";
@@ -20,6 +20,11 @@ export default function NeuerAgent() {
   const abbrechen = useAbbrechen("/trading", schritt > 1);
   const nimmVorlage = (id: string, k = e.startkapital) => { setVorlage(id); set(VORLAGEN.find(v => v.id === id)!.werte(k)); };
   const h = hinweise(e);
+  // Gleiche Prüfung wie auf dem Server; Fehler je Schritt zeigen und Weiter sperren
+  const pf = pruefeEinstellungen(e).fehler;
+  const FELDER2 = ["name", "startkapital", "tagesziel", "tagesverlust", "risikoProTrade", "maxPosition", "maxTradesTag", "maxPositionen", "schlussVorEnde"];
+  const f2 = pf.filter(x => FELDER2.includes(x.feld)); const f3 = pf.filter(x => !FELDER2.includes(x.feld) && x.feld !== "broker");
+  const Fehler = ({ l }: { l: typeof pf }) => l.length ? <ul className="flags">{l.map(x => <li key={x.feld + x.text} className="crit">{x.text}</li>)}</ul> : null;
   const brauchtZugang = e.broker === "alpaca-paper" || e.broker === "manuell";
   const anlegen = async () => {
     setLegt(true);
@@ -51,22 +56,23 @@ export default function NeuerAgent() {
           <h1>Ziel und Grenzen</h1>
           <p className="lead">Das Tagesziel ist eine Ausstiegsregel: Ist es erreicht, schließt der Agent alles und hört für heute auf. Ebenso beim Verlustlimit.</p>
           <div className="fields">
-            <Zahl label="Startkapital" einheit="€" wert={e.startkapital} onChange={v => { const k = v ?? 500; set({ startkapital: k }); nimmVorlage(vorlage, k); }} />
+            <Zahl label="Startkapital" einheit="€" min={G.startkapital[0]} max={G.startkapital[1]} wert={e.startkapital} onChange={v => { const k = v ?? 500; set({ startkapital: k }); nimmVorlage(vorlage, k); }} />
             <Text label="Name" wert={e.name} onChange={v => set({ name: v })} />
           </div>
           <span className="flabel">Vorschlag übernehmen</span>
           <div className="wiz-wahl" role="radiogroup" aria-label="Vorschläge">{VORLAGEN.map(v => <button key={v.id} type="button" role="radio" aria-checked={vorlage === v.id} className="wiz-karte" onClick={() => nimmVorlage(v.id)}><b>{v.name}</b><span>{v.text}</span></button>)}</div>
           <div className="fields">
-            <Zahl label="Tagesziel (dann Schluss)" einheit="€" wert={e.tagesziel} onChange={v => set({ tagesziel: v ?? 0 })} />
-            <Zahl label="Verlustlimit je Tag (dann Stopp)" einheit="€" wert={e.tagesverlust} onChange={v => set({ tagesverlust: v ?? 0 })} />
-            <Zahl label="Risiko je Trade" prozent wert={e.risikoProTrade} onChange={v => set({ risikoProTrade: v ?? 0.005 })} info="Abstand vom Einstieg bis zum Stopp mal Stückzahl, in Prozent des Kontos. Bestimmt die Positionsgröße." />
-            <Zahl label="Höchstens je Position" prozent wert={e.maxPosition} onChange={v => set({ maxPosition: v ?? 0.2 })} />
-            <Zahl label="Trades je Tag höchstens" wert={e.maxTradesTag} onChange={v => set({ maxTradesTag: v ?? 3 })} />
-            <Zahl label="Positionen gleichzeitig" wert={e.maxPositionen} onChange={v => set({ maxPositionen: v ?? 2 })} />
-            <Zahl label="Alles schließen vor Handelsende" einheit="Min." wert={e.schlussVorEnde} onChange={v => set({ schlussVorEnde: v ?? 15 })} />
+            <Zahl label="Tagesziel (dann Schluss)" einheit="€" min={1} max={e.startkapital} wert={e.tagesziel} onChange={v => set({ tagesziel: v ?? 0 })} />
+            <Zahl label="Verlustlimit je Tag (dann Stopp)" einheit="€" min={1} max={Math.round(e.startkapital / 2)} wert={e.tagesverlust} onChange={v => set({ tagesverlust: v ?? 0 })} />
+            <Zahl label="Risiko je Trade" prozent min={G.risikoProTrade[0] * 100} max={G.risikoProTrade[1] * 100} wert={e.risikoProTrade} onChange={v => set({ risikoProTrade: v ?? 0.005 })} info="Abstand vom Einstieg bis zum Stopp mal Stückzahl, in Prozent des Kontos. Bestimmt die Positionsgröße." />
+            <Zahl label="Höchstens je Position" prozent min={G.maxPosition[0] * 100} max={G.maxPosition[1] * 100} wert={e.maxPosition} onChange={v => set({ maxPosition: v ?? 0.2 })} />
+            <Zahl label="Trades je Tag höchstens" min={G.maxTradesTag[0]} max={G.maxTradesTag[1]} wert={e.maxTradesTag} onChange={v => set({ maxTradesTag: v ?? 3 })} />
+            <Zahl label="Positionen gleichzeitig" min={G.maxPositionen[0]} max={G.maxPositionen[1]} wert={e.maxPositionen} onChange={v => set({ maxPositionen: v ?? 2 })} />
+            <Zahl label="Alles schließen vor Handelsende" einheit="Min." min={G.schlussVorEnde[0]} max={G.schlussVorEnde[1]} wert={e.schlussVorEnde} onChange={v => set({ schlussVorEnde: v ?? 15 })} />
           </div>
           {h.length > 0 && <ul className="flags">{h.map(x => <li key={x.text} className={x.art === "crit" ? "crit" : x.art === "warn" ? "" : "info"}>{x.text}</li>)}</ul>}
-          <WizFuss zurueck={() => setSchritt(1)} weiter={() => setSchritt(3)} />
+          <Fehler l={f2} />
+          <WizFuss zurueck={() => setSchritt(1)} weiter={() => setSchritt(3)} weiterAus={f2.length > 0} />
         </>}
         {schritt === 3 && <>
           <h1>Strategie und Werte</h1>
@@ -82,7 +88,8 @@ export default function NeuerAgent() {
           <div className="chips">{WERTE_VORSCHLAG.filter(x => !e.symbole.includes(x)).map(x => <button key={x} type="button" className="chip" onClick={() => set({ symbole: [...e.symbole, x] })}>+ {x}</button>)}</div>
           <span className="flabel">Richtung</span>
           <div className="chips">{([["long", "Nur Long (steigende Kurse)"], ["long-short", "Long und Short"]] as const).map(([v, l]) => <button key={v} type="button" className="chip" aria-pressed={e.richtung === v} disabled={v === "long-short" && e.broker === "manuell"} onClick={() => set({ richtung: v })}>{l}</button>)}</div>
-          <WizFuss zurueck={() => setSchritt(2)} weiter={() => setSchritt(4)} weiterAus={!e.symbole.length} />
+          <Fehler l={f3} />
+          <WizFuss zurueck={() => setSchritt(2)} weiter={() => setSchritt(4)} weiterAus={f3.length > 0} />
         </>}
         {schritt === 4 && <>
           <h1>Wie selbstständig?</h1>
@@ -96,7 +103,7 @@ export default function NeuerAgent() {
           </dl></div>
           {h.filter(x => x.art === "crit").map(x => <p key={x.text} className="hint">{x.text}</p>)}
           <p className="note">Information und Werkzeug, keine Anlageberatung. Sie entscheiden über Einsatz und Grenzen; Verluste sind möglich.</p>
-          <WizFuss zurueck={() => setSchritt(3)} weiter={anlegen} weiterText={legt ? "Legt an …" : "Agent anlegen"} weiterAus={legt} />
+          <WizFuss zurueck={() => setSchritt(3)} weiter={anlegen} weiterText={legt ? "Legt an …" : "Agent anlegen"} weiterAus={legt || pf.length > 0} />
         </>}
       </section>
     </div>

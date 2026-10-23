@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { abschluss, ausbruch, kuenstlicherTag, trefferbilanz, leererZustand, neueEinstellungen, notaus, simBroker, simWeiter, stueckzahl, takt, STANDARD_WERTE, type Bar } from "../src";
+import { abschluss, pruefeEinstellungen, ausbruch, kuenstlicherTag, trefferbilanz, leererZustand, neueEinstellungen, notaus, simBroker, simWeiter, stueckzahl, takt, STANDARD_WERTE, type Bar } from "../src";
 
 const bar = (c: number, v = 1000, h = c, l = c): Bar => ({ t: "", o: c, h, l, c, v });
 describe("Strategien", () => {
@@ -75,3 +75,37 @@ describe("Agent in der Simulation", () => {
     expect(a).toMatchObject({ gv: 40, r: 2 });
   });
 });
+describe("Bugfix Welle 1", () => {
+  it("Prüfung weist Echtgeld, unsinnige Grenzen und falsche Kürzel ab und wirft Fremdfelder weg", () => {
+    const { fehler } = pruefeEinstellungen({ ...neueEinstellungen(10000), broker: "alpaca-live" }, { erlaubteBroker: ["simulation"] });
+    expect(fehler.map(f => f.feld)).toContain("broker");
+    const b = pruefeEinstellungen({ ...neueEinstellungen(10000), tagesziel: 0, tagesverlust: -50, maxPosition: 1000, maxTradesTag: 0, symbole: ["aapl", "AAPL", "$$$"], tenant: "fremd" });
+    expect(b.fehler.map(f => f.feld)).toEqual(expect.arrayContaining(["tagesziel", "tagesverlust", "maxPosition", "maxTradesTag", "symbole"]));
+    expect(b.e.symbole.filter(x => x === "AAPL").length).toBe(1);
+    expect("tenant" in b.e).toBe(false);
+    expect(pruefeEinstellungen(neueEinstellungen(500)).fehler).toEqual([]);
+  });
+  it("Trades je Tag gilt auch für mehrere Signale im selben Takt", async () => {
+    const e = { ...neueEinstellungen(10000), modus: "auto" as const, richtung: "long-short" as const, strategie: "anomalie" as const, maxTradesTag: 2, maxPositionen: 6, symbole: ["AAPL", "MSFT", "NVDA", "AMD", "TSLA", "META"], tagesziel: 1e9, tagesverlust: 1e9 };
+    const z = leererZustand(); z.simUhr = { datum: "2026-10-26", minute: 0 }; const b = simBroker(z, e.startkapital);
+    for (let i = 0; i < 392; i++) { await takt(e, z, b); simWeiter(z); }
+    expect((z.verlauf[0] ?? z.tag!).trades).toBeLessThanOrEqual(2);
+  });
+  it("Nach dem Stopp offene Positionen werden geschlossen, Vorschläge verfallen", async () => {
+    const e = { ...neueEinstellungen(10000), modus: "vorschlag" as const, strategie: "anomalie" as const, tagesziel: 0.01 };
+    const z = leererZustand(); z.simUhr = { datum: "2026-10-27", minute: 0 }; const b = simBroker(z, e.startkapital);
+    await takt(e, z, b); simWeiter(z);
+    z.vorschlaege.push({ id: "x", zeit: "", antrag: { symbol: "AAPL", seite: "kauf", qty: 1, grund: "t" }, art: "einstieg", status: "offen" });
+    z.sim!.cash += 50; await takt(e, z, b); simWeiter(z);
+    expect(z.tag!.status).toBe("ziel"); expect(z.vorschlaege.find(v => v.id === "x")!.status).toBe("verfallen");
+    await b.sende({ symbol: "MSFT", seite: "kauf", qty: 1, grund: "nachträglich" });
+    await takt(e, z, b);
+    expect(Object.keys(z.sim!.positionen)).toEqual([]);
+  });
+  it("Not-Aus hält auch ohne Broker an und sagt ehrlich, dass nichts geschlossen wurde", async () => {
+    const z = leererZustand(); z.aktiv = true;
+    const r = await notaus(z, null, "Not-Aus", "Zugang fehlt");
+    expect(z.aktiv).toBe(false); expect(r.geschlossen).toBe(false); expect(r.text).toContain("nicht geschlossen");
+  });
+});
+

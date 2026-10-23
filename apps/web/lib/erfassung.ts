@@ -1,5 +1,4 @@
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { Gesperrt, holeSicher, type Antwort } from "./sicherHolen";
 import type { Assetklasse, Objekt, Stellplatz } from "@highstack/engine";
 
 /** Ergebnis des Auslesens: gefundene Felder und woher sie stammen */
@@ -10,17 +9,15 @@ export async function textAusPdf(bytes: Uint8Array): Promise<string> {
   try { const pdf = await getDocumentProxy(bytes.slice()); const r = await extractText(pdf, { mergePages: true }); return String(r.text).slice(0, 120000); } catch { return ""; }
 }
 
-const privat = (ip: string) => /^(127\.|10\.|192\.168\.|169\.254\.|0\.|::1$|fc|fd|fe80)/i.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip);
-/** Eine öffentliche Seite abrufen, die der Nutzer selbst angibt. Keine internen Adressen, max. 3 MB, 12 s. */
+/** Eine öffentliche Seite abrufen, die der Nutzer selbst angibt. Keine internen Adressen (auch nicht über Weiterleitungen), max. 3 MB, 12 s. */
 export async function textAusUrl(roh: string): Promise<{ text: string; titel?: string; hinweis?: string }> {
-  let url: URL; try { url = new URL(roh.trim()); } catch { return { text: "", hinweis: "Das ist kein gültiger Link." }; }
-  if (!/^https?:$/.test(url.protocol)) return { text: "", hinweis: "Nur Links mit http oder https." };
-  const host = url.hostname; const ips = isIP(host) ? [host] : (await lookup(host, { all: true }).catch(() => [])).map(x => x.address);
-  if (!ips.length || ips.some(privat) || host === "localhost") return { text: "", hinweis: "Diese Adresse ist nicht erreichbar." };
+  try { new URL(roh.trim()); } catch { return { text: "", hinweis: "Das ist kein gültiger Link." }; }
   try {
-    const r = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(12000), headers: { "user-agent": "Mozilla/5.0 (highstack Exposé-Leser)", accept: "text/html,application/pdf" } });
-    if (!r.ok) return { text: "", hinweis: `Die Seite antwortet mit ${r.status}. Viele Portale sperren das automatische Lesen: kopieren Sie den Text der Anzeige oder laden Sie das Exposé als PDF hoch.` };
-    const typ = r.headers.get("content-type") ?? ""; const buf = new Uint8Array(await r.arrayBuffer()).slice(0, 3_000_000);
+    let r: Antwort;
+    try { r = await holeSicher(roh.trim(), { kopf: { "user-agent": "Mozilla/5.0 (highstack Exposé-Leser)", accept: "text/html,application/pdf", "accept-encoding": "identity" } }); }
+    catch (x) { if (x instanceof Gesperrt) return { text: "", hinweis: x.message }; throw x; }
+    if (r.status < 200 || r.status >= 300) return { text: "", hinweis: `Die Seite antwortet mit ${r.status}. Viele Portale sperren das automatische Lesen: kopieren Sie den Text der Anzeige oder laden Sie das Exposé als PDF hoch.` };
+    const typ = r.typ; const buf = r.inhalt;
     if (typ.includes("pdf")) return { text: await textAusPdf(buf) };
     const html = new TextDecoder().decode(buf);
     const titel = html.match(/<title[^>]*>([^<]{3,200})<\/title>/i)?.[1]?.trim();

@@ -2,7 +2,8 @@ import { extractText, getDocumentProxy } from "unpdf";
 import { mandant, speicher } from "@/lib/speicher";
 import { id as neueId, unterlagenFuer } from "@/lib/vorgaben";
 import type { Dokument, Unterlagendatei } from "@/lib/typen";
-import { erkenneArt, grundrissSeiten, istBild, mitDateien, textAus } from "@/lib/unterlagen";
+import { erkenneArt, grundrissSeiten, mitDateien, textAus } from "@/lib/unterlagen";
+import { typAusInhalt } from "@/lib/dateityp";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
@@ -31,13 +32,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   for (const f of form.getAll("dateien")) {
     if (!(f instanceof File)) continue;
     if (f.size > 20 * 1024 * 1024) return Response.json({ fehler: `${f.name}: größer als 20 MB` }, { status: 413 });
-    const pdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"); const bild = istBild(f.type, f.name);
-    if (!pdf && !bild) return Response.json({ fehler: `${f.name}: nur PDF oder Bilder (PNG, JPG, WebP)` }, { status: 415 });
     const bytes = new Uint8Array(await f.arrayBuffer());
+    // Typ aus dem Inhalt, nicht aus Endung oder Browser-Angabe
+    const typ = typAusInhalt(bytes);
+    if (!typ) return Response.json({ fehler: `${f.name}: nur PDF oder Bilder (PNG, JPG, WebP); der Inhalt passt zu keinem davon` }, { status: 415 });
+    const pdf = typ === "application/pdf";
     let seiten: string[] = [];
     if (pdf) { try { const doc = await getDocumentProxy(bytes.slice()); seiten = (await extractText(doc, { mergePages: false })).text as string[]; } catch { seiten = []; } }
     const text = seiten.map((s2, i) => `[${f.name}, Seite ${i + 1}] ${s2}`).join("\n").slice(0, 120000);
-    const mime = f.type || (pdf ? "application/pdf" : "image/jpeg");
+    const mime = typ;
     const art = fest && erlaubt.has(fest) ? { schluessel: fest, sicher: true, grund: "von Ihnen zugeordnet" } : erkenneArt(f.name, mime, text, erlaubt);
     const dateiId = neueId();
     await s.speichereDatei(t, o.id, dateiId, f.name, mime, bytes);

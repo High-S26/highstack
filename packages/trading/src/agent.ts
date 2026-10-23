@@ -76,6 +76,7 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
   const tagesGV = konto.equity - tag.start;
 
   const allesSchliessen = async (grund: string, status: typeof tag.status) => {
+    verfalleEinstiege(z, grund);
     if (positionen.length) {
       if (b.nurZettel) { for (const p of positionen) zettel({ symbol: p.symbol, seite: p.qty > 0 ? "verkauf" : "kauf", qty: Math.abs(p.qty), grund }, "ausstieg"); }
       else { const r = await b.schliesseAlle(grund); erg.gehandelt += r.length; for (const g of z.gefuehrt) { const x = r.find(q => q.symbol === g.symbol); const k = x?.preis ?? positionen.find(p => p.symbol === g.symbol)?.kurs; if (k != null) abschluss(z, g, k, grund, zeit); } z.gefuehrt = []; }
@@ -88,7 +89,10 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
     log("order", `Vorschlag: ${antrag.seite === "kauf" ? "Kauf" : "Verkauf"} ${antrag.qty} ${antrag.symbol} (${antrag.grund})`);
   };
 
-  if (tag.status !== "laeuft") { erg.status = { ziel: "Tagesziel erreicht, Pause bis morgen", limit: "Verlustlimit erreicht, Stopp für heute", notaus: "Not-Aus", beendet: "Tag beendet" }[tag.status] ?? tag.status; return erg; }
+  if (tag.status !== "laeuft") {
+    // Positionen, die nach dem Stopp noch offen sind, nicht über Nacht liegen lassen
+    if (positionen.length && !b.nurZettel) await allesSchliessen("Nach Handelsstopp noch offene Positionen", tag.status);
+    erg.status = { ziel: "Tagesziel erreicht, Pause bis morgen", limit: "Verlustlimit erreicht, Stopp für heute", notaus: "Not-Aus", beendet: "Tag beendet" }[tag.status] ?? tag.status; return erg; }
   if (tagesGV >= e.tagesziel) { await allesSchliessen(`Tagesziel erreicht (+${eur(tagesGV)} €)`, "ziel"); erg.status = "Tagesziel erreicht"; return erg; }
   if (tagesGV <= -e.tagesverlust) { await allesSchliessen(`Verlustlimit erreicht (${eur(tagesGV)} €)`, "limit"); erg.status = "Verlustlimit erreicht"; return erg; }
   if (uhr.minutenBisSchluss <= e.schlussVorEnde) { await allesSchliessen(`${e.schlussVorEnde} Minuten vor Handelsschluss`, "beendet"); erg.status = "Schluss für heute"; return erg; }
@@ -115,7 +119,8 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
 
   // 2. Neue Signale
   const offen = new Set([...positionen.map(p => p.symbol), ...z.gefuehrt.map(g => g.symbol), ...z.vorschlaege.filter(v => v.status === "offen").map(v => v.antrag.symbol)]);
-  if (tag.trades >= e.maxTradesTag) { erg.status = "Handelslimit für heute erreicht"; return erg; }
+  const offeneEinstiege = z.vorschlaege.filter(v => v.status === "offen" && v.art === "einstieg").length;
+  if (tag.trades + offeneEinstiege >= e.maxTradesTag) { erg.status = "Handelslimit für heute erreicht"; return erg; }
   if (offen.size >= e.maxPositionen) { erg.status = "Höchstzahl Positionen erreicht"; return erg; }
   // Marktumfeld: Risikolage und wichtige Termine skalieren das Risiko je Trade
   const faktor = e.marktlage === false || !umfeld ? 1 : umfeld.faktor;
@@ -123,7 +128,9 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
   if (faktor <= 0) { erg.status = "Keine neuen Einstiege (Marktumfeld)"; return erg; }
   const fn = STRATEGIEN[e.strategie].fn;
   const signale = e.symbole.filter(s => !offen.has(s)).map(s => bars[s]?.length ? fn(s, bars[s]!, e.werte, e.richtung === "long-short") : null).filter((x): x is Signal => !!x).sort((a, c) => c.staerke - a.staerke);
-  for (const s of signale.slice(0, Math.max(0, e.maxPositionen - offen.size))) {
+  const frei = Math.max(0, Math.min(e.maxPositionen - offen.size, e.maxTradesTag - tag.trades - offeneEinstiege));
+  for (const s of signale.slice(0, frei)) {
+    if (tag.trades + z.vorschlaege.filter(v => v.status === "offen" && v.art === "einstieg").length >= e.maxTradesTag) break;
     log("signal", `${s.symbol} ${s.richtung === "long" ? "Long" : "Short"}: ${s.grund}. Stopp ${eur(s.stopp)}, Ziel ${eur(s.ziel)}`);
     if (s.richtung === "short" && b.art === "manuell") { log("sperre", `${s.symbol}: Short über die App nicht vorgesehen`); continue; }
     const q = stueckzahl({ ...e, risikoProTrade: e.risikoProTrade * faktor }, s, konto.equity, konto.cash, b.bruchstuecke);
@@ -134,15 +141,29 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
   return erg;
 }
 
-/** Not-Aus: alles schließen und Agent anhalten */
-export async function notaus(z: Agentzustand, b: Broker, grund = "Not-Aus") {
-  const uhr = await b.uhr().catch(() => null); const zeit = uhr?.zeit ?? new Date().toISOString();
-  if (!b.nurZettel) {
+/** Offene Einstiegs-Vorschläge verfallen lassen (bei Tagesziel, Limit, Schluss, Not-Aus) */
+export function verfalleEinstiege(z: Agentzustand, grund: string) {
+  for (const v of z.vorschlaege) if (v.status === "offen" && v.art === "einstieg") { v.status = "verfallen"; v.meldung = grund; }
+}
+
+/**
+ * Not-Aus: Agent sofort anhalten, dann alles schließen. Der Agent hält immer an, auch wenn der Broker
+ * nicht erreichbar ist; die Meldung sagt ehrlich, ob das Schließen geklappt hat.
+ */
+export async function notaus(z: Agentzustand, b: Broker | null, grund = "Not-Aus", brokerFehler?: string): Promise<{ geschlossen: boolean; text: string }> {
+  z.aktiv = false; if (z.tag && z.tag.status === "laeuft") z.tag.status = "notaus"; verfalleEinstiege(z, grund);
+  const uhr = b ? await b.uhr().catch(() => null) : null; const zeit = uhr?.zeit ?? new Date().toISOString();
+  let text: string; let geschlossen = false;
+  if (!b) text = `${grund}: Agent angehalten. Positionen konnten nicht geschlossen werden (${brokerFehler ?? "Broker nicht verfügbar"}); bitte direkt beim Broker prüfen.`;
+  else if (b.nurZettel) text = `${grund}: Agent angehalten; bitte offene Positionen in der App schließen.`;
+  else {
     const r = await b.schliesseAlle(grund).catch(err => { protokoll(z, "fehler", `Schließen fehlgeschlagen: ${(err as Error).message}`, zeit); return null; });
-    if (r) { for (const g of z.gefuehrt) { const x = r.find(q => q.symbol === g.symbol); if (x?.preis != null) abschluss(z, g, x.preis, grund, zeit); } z.gefuehrt = []; }
+    if (r) {
+      for (const g of z.gefuehrt) { const x = r.find(q => q.symbol === g.symbol); if (x?.preis != null) abschluss(z, g, x.preis, grund, zeit); }
+      z.gefuehrt = []; geschlossen = true; text = `${grund}: Agent angehalten, ${r.length ? `${r.length} Position(en) geschlossen` : "keine Positionen offen"}.`;
+    } else text = `${grund}: Agent angehalten. Schließen beim Broker fehlgeschlagen; Positionen bitte direkt beim Broker prüfen.`;
   }
-  z.aktiv = false; if (z.tag && z.tag.status === "laeuft") z.tag.status = "notaus";
-  protokoll(z, "schluss", `${grund}: Agent angehalten${b.nurZettel ? "; bitte offene Positionen in der App schließen" : ", alle Positionen geschlossen"}`, zeit);
+  protokoll(z, "schluss", text, zeit); return { geschlossen, text };
 }
 
 export const STANDARD_WERTE: StrategieWerte = { spanneMin: 15, volumenFaktor: 1.5, z: 2, fenster: 30, zielR: 2 };

@@ -20,20 +20,20 @@
 
 | ID | Befund | Grad |
 |---|---|---|
-| INV-017 | Gespeichertes XSS über hochgeladene Unterlagen (HTML als .png) | Blocker |
-| INV-014 | Link-Auslesen folgt Weiterleitungen ohne erneute Adressprüfung (SSRF) | Hoch |
-| TRD-001 | Echtgeld-Agent lässt sich trotz `TRADING_LIVE=0` per API anlegen, auf Automatik stellen und starten | Hoch |
-| TRD-008 | Vorschlag mit beliebiger Stückzahl bestätigen umgeht alle Risikoregeln | Hoch |
-| TRD-009 | Nach Verlustlimit/Tagesziel bleiben Vorschläge ausführbar; Positionen bleiben über Nacht offen | Hoch |
-| TRD-007 | „Trades je Tag“ greift nicht (mehrere Einstiege je Takt, bestätigte Vorschläge) | Hoch |
-| TRD-017 | Angehaltener Agent handelt bei „Jetzt prüfen“/„Tag durchspielen“, auch nach Not-Aus | Hoch |
-| TRD-002 | Not-Aus scheitert ohne Broker-Zugang; Agent bleibt aktiv | Hoch |
-| TRD-003 | Not-Aus meldet „alles geschlossen“, obwohl Schließen fehlschlug | Hoch |
-| TRD-010 | Grenzwerte weder im Assistenten noch auf dem Server geprüft | Hoch |
-| TRD-006 | API speichert ungültige Einstellungen; kaputtes JSON legt still einen Agenten an | Mittel |
-| TRD-023 | Leerer Zugang überschreibt hinterlegten Alpaca-Zugang | Niedrig |
-| INV-028 | Mietspiegel-API gibt Entwürfe und Pflegedaten an jeden Nutzer | Mittel |
-| INV-029 | Google Fonts extern geladen, Datenschutzhinweis sagt das Gegenteil | Mittel |
+| ✅ INV-017 | Gespeichertes XSS über hochgeladene Unterlagen (HTML als .png) | Blocker |
+| ✅ INV-014 | Link-Auslesen folgt Weiterleitungen ohne erneute Adressprüfung (SSRF) | Hoch |
+| ✅ TRD-001 | Echtgeld-Agent lässt sich trotz `TRADING_LIVE=0` per API anlegen, auf Automatik stellen und starten | Hoch |
+| ✅ TRD-008 | Vorschlag mit beliebiger Stückzahl bestätigen umgeht alle Risikoregeln | Hoch |
+| ✅ TRD-009 | Nach Verlustlimit/Tagesziel bleiben Vorschläge ausführbar; Positionen bleiben über Nacht offen | Hoch |
+| ✅ TRD-007 | „Trades je Tag“ greift nicht (mehrere Einstiege je Takt, bestätigte Vorschläge) | Hoch |
+| ✅ TRD-017 | Angehaltener Agent handelt bei „Jetzt prüfen“/„Tag durchspielen“, auch nach Not-Aus | Hoch |
+| ✅ TRD-002 | Not-Aus scheitert ohne Broker-Zugang; Agent bleibt aktiv | Hoch |
+| ✅ TRD-003 | Not-Aus meldet „alles geschlossen“, obwohl Schließen fehlschlug | Hoch |
+| ✅ TRD-010 | Grenzwerte weder im Assistenten noch auf dem Server geprüft | Hoch |
+| ✅ TRD-006 | API speichert ungültige Einstellungen; kaputtes JSON legt still einen Agenten an | Mittel |
+| ✅ TRD-023 | Leerer Zugang überschreibt hinterlegten Alpaca-Zugang | Niedrig |
+| ✅ INV-028 | Mietspiegel-API gibt Entwürfe und Pflegedaten an jeden Nutzer | Mittel |
+| ✅ INV-029 | Google Fonts extern geladen, Datenschutzhinweis sagt das Gegenteil | Mittel |
 
 **Ansatz:**
 - **Eingaben prüfen:** Ein gemeinsamer Prüfer (`pruefeEinstellungen`) gilt für Assistent, POST und PUT.
@@ -56,7 +56,7 @@
 | INV-019 | Steuern ignorieren eigene Positionen | Hoch |
 | INV-018 | Ermitteln ohne KI: falsche Stadt durch Teilwort, Quelle „Modellwissen“ | Hoch |
 | TRD-014 | Cockpit rundet Kurse, Stopp, Ziel auf ganze Euro | Hoch |
-| TRD-004 | Dauerlauf bei Broker-Ausfall alle 5 s, Protokoll wächst unbegrenzt | Hoch |
+| ✅ TRD-004 | Dauerlauf bei Broker-Ausfall alle 5 s, Protokoll wächst unbegrenzt | Hoch |
 | TRD-020 | Verlustlimit und Stopps nur am Minutenschluss geprüft | Mittel |
 | TRD-016 | Stückzahl „70.895“ liest sich als siebzigtausend (Bruchstücke im de-Format) | Mittel |
 | TRD-015 | Währung durchgängig €, obwohl US-Werte in USD | Mittel |

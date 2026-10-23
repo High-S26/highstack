@@ -1,12 +1,14 @@
 import { speicher } from "@/lib/speicher";
-import { leererMietspiegel, type Mietspiegel } from "@/lib/mietspiegel";
+import { leererMietspiegel, oeffentlich, type Mietspiegel } from "@/lib/mietspiegel";
 import { istAdmin, keinAdmin, protokolliere, werIst as nutzerVon } from "@/lib/admin";
 import { id as neueId } from "@/lib/vorgaben";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const s = await speicher(req);
-  return Response.json({ liste: await s.mietspiegel(), darfPflegen: await istAdmin(req, s) });
+  const admin = await istAdmin(req, s); const liste = await s.mietspiegel();
+  // Kunden sehen nur freigegebene Mietspiegel, ohne Pflegedaten
+  return Response.json({ liste: admin ? liste : liste.filter(m => m.status === "geprueft").map(oeffentlich), darfPflegen: admin });
 }
 
 export async function POST(req: Request) {

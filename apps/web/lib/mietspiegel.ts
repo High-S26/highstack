@@ -31,6 +31,9 @@ export interface Mietspiegel {
   herkunft: "manuell" | "ki";
 }
 
+/** Für Kunden: ohne Pflegedaten (wer erfasst und geprüft hat, interne Hinweise) */
+export const oeffentlich = (m: Mietspiegel): Mietspiegel => { const { erfasstVon: _e, geprueftVon: _g, hinweise: _h, ...rest } = m; return rest; };
+
 export const WOHNLAGEN: [string, string][] = [["einfach", "einfache Lage"], ["mittel", "mittlere Lage"], ["gut", "gute Lage"], ["sehr gut", "sehr gute Lage"]];
 
 export const leererMietspiegel = (id: string, stadt = ""): Mietspiegel => ({

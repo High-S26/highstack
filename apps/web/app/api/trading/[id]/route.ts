@@ -1,6 +1,6 @@
-import type { AgentEinstellungen } from "@highstack/trading";
+import { pruefeEinstellungen } from "@highstack/trading";
 import { mandant, speicher } from "@/lib/speicher";
-import { agent, ansicht, brokerFuer, exklusiv, speichere } from "@/lib/trading";
+import { agent, ansicht, brokerFuer, erlaubteBroker, exklusiv, speichere } from "@/lib/trading";
 export const dynamic = "force-dynamic";
 
 /** Agent mit Live-Kontostand und Positionen vom Broker */
@@ -14,9 +14,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const s = await speicher(req); const t = mandant(req);
   return exklusiv(params.id, async () => {
     const a = await agent(s, t, params.id); if (!a) return Response.json({ fehler: "Nicht gefunden" }, { status: 404 });
-    const b = (await req.json()) as Partial<AgentEinstellungen>;
+    const b = await req.json().catch(() => null) as Record<string, unknown> | null;
+    if (!b || typeof b !== "object") return Response.json({ fehler: "Ungültige Anfrage (kein JSON)." }, { status: 400 });
     if (b.broker && b.broker !== a.einstellungen.broker && a.zustand.aktiv) return Response.json({ fehler: "Broker nur bei angehaltenem Agenten wechseln." }, { status: 409 });
-    a.einstellungen = { ...a.einstellungen, ...b }; if (a.einstellungen.broker === "manuell") a.einstellungen.modus = "vorschlag";
+    // Broker darf bleiben, auch wenn er inzwischen gesperrt ist; ein Wechsel nur zu erlaubten
+    const erlaubt = [...new Set([...erlaubteBroker(), ...(b.broker && b.broker !== a.einstellungen.broker ? [] : [a.einstellungen.broker])])];
+    const { e, fehler } = pruefeEinstellungen(b, { basis: a.einstellungen, erlaubteBroker: erlaubt });
+    if (fehler.length) return Response.json({ fehler: fehler.map(f => f.text).join(" "), felder: fehler }, { status: 400 });
+    a.einstellungen = e;
     a.zustand.log.unshift({ zeit: new Date().toISOString(), art: "info", text: "Einstellungen geändert" });
     await speichere(s, a); return Response.json(ansicht(a));
   });

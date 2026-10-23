@@ -1,12 +1,14 @@
 import { speicher } from "@/lib/speicher";
-import { pruefe, type Mietspiegel } from "@/lib/mietspiegel";
+import { oeffentlich, pruefe, type Mietspiegel } from "@/lib/mietspiegel";
 import { istAdmin, keinAdmin, protokolliere, werIst as nutzerVon } from "@/lib/admin";
 export const dynamic = "force-dynamic";
 
 const finde = async (req: Request, id: string) => (await (await speicher(req)).mietspiegel()).find(m => m.id === id) ?? null;
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const m = await finde(req, params.id); return m ? Response.json(m) : Response.json({ fehler: "Nicht gefunden" }, { status: 404 });
+  const m = await finde(req, params.id); const admin = await istAdmin(req, await speicher(req));
+  if (!m || (!admin && m.status !== "geprueft")) return Response.json({ fehler: "Nicht gefunden" }, { status: 404 });
+  return Response.json(admin ? m : oeffentlich(m));
 }
 
 /** Speichern; status "geprueft" nur ohne Prüffehler, jede inhaltliche Änderung setzt auf Entwurf zurück */

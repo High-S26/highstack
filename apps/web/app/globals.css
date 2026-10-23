@@ -11,7 +11,7 @@
   --s-k:#a16207; --s-o:#15803d;
   --schatten:0 1px 2px rgba(14,28,56,.06),0 4px 16px rgba(14,28,56,.05);
   --r-panel:16px; --r-ctl:10px;
-  --f-display:"Newsreader","Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --f-display:"Newsreader Variable","Newsreader","Iowan Old Style","Palatino Linotype",Georgia,serif;
   --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:var(--f-body);
 }

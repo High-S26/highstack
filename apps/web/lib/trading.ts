@@ -1,4 +1,4 @@
-import { alpacaBroker, leererZustand, manuellerBroker, simBroker, simWeiter, takt, type AgentEinstellungen, type Agentzustand, type Broker } from "@highstack/trading";
+import { alpacaBroker, leererZustand, manuellerBroker, simBroker, simWeiter, takt, type AgentEinstellungen, type Agentzustand, type Broker, type BrokerArt } from "@highstack/trading";
 import { entschluessele } from "./geheim";
 import { umfeld } from "./konjunktur";
 import type { Speicher } from "./speicher";
@@ -33,6 +33,16 @@ export async function brokerFuer(a: Agentdatensatz): Promise<Broker> {
   }
 }
 
+/** Broker, die auf diesem Server angelegt und gestartet werden dürfen */
+export const erlaubteBroker = (): BrokerArt[] => ["simulation", "alpaca-paper", "manuell", ...(process.env.TRADING_LIVE === "1" ? ["alpaca-live" as const] : [])];
+
+/** Fehler ins Protokoll, gleiche Meldungen hintereinander nur einmal (mit Zähler) */
+export function fehlerLog(z: Agentzustand, text: string) {
+  const l = z.log[0]; const zeit = new Date().toISOString();
+  if (l && l.art === "fehler" && l.text.replace(/ \(\d+×\)$/, "") === text) { const n = Number(l.text.match(/\((\d+)×\)$/)?.[1] ?? 1) + 1; l.text = `${text} (${n}×)`; l.zeit = zeit; }
+  else z.log.unshift({ zeit, art: "fehler", text });
+}
+
 // Ein Agent wird nie gleichzeitig von Dauerlauf und Oberfläche verändert
 const sperren = ((globalThis as { hsSperren?: Map<string, Promise<unknown>> }).hsSperren ??= new Map<string, Promise<unknown>>());
 export function exklusiv<T>(id: string, f: () => Promise<T>): Promise<T> {
@@ -43,11 +53,14 @@ export function exklusiv<T>(id: string, f: () => Promise<T>): Promise<T> {
 export async function taktFuer(s: Speicher, id: string, schritte = 1) {
   return exklusiv(id, async () => {
     const a = await s.globalEins<Agentdatensatz>("trading", id); if (!a) return null;
-    const b = await brokerFuer(a); let letzter = null;
+    a.zustand.letzterTakt = new Date().toISOString();
+    let b: Broker;
+    try { b = await brokerFuer(a); } catch (err) { fehlerLog(a.zustand, (err as Error).message); await speichere(s, a); throw err; }
+    let letzter = null;
     const u = a.einstellungen.marktlage === false ? undefined : await umfeld(s).catch(() => undefined);
     for (let i = 0; i < schritte; i++) {
       try { letzter = await takt(a.einstellungen, a.zustand, b, new Date(), u); }
-      catch (err) { a.zustand.log.unshift({ zeit: new Date().toISOString(), art: "fehler", text: (err as Error).message }); break; }
+      catch (err) { fehlerLog(a.zustand, (err as Error).message); break; }
       if (a.einstellungen.broker === "simulation") { simWeiter(a.zustand); if (a.zustand.simUhr!.minute === 0) break; }
     }
     await speichere(s, a); return letzter;
