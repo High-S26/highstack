@@ -1,4 +1,4 @@
-import { bis, gleitend, lies, plusTage, rsi, tageZwischen } from "./indikatoren";
+import { bis, gleitend, lies, nettoLiquiditaet, plusTage, rsi, tageZwischen } from "./indikatoren";
 import type { Lagebild, Mechanismus, Punkt, Wirkung, Ziel } from "./types";
 
 /**
@@ -78,6 +78,17 @@ export const MECHANISMEN: Mechanismus[] = [
         else if (e < 2.5 && e - ev < -0.3) out.push(w(this.id, "immo-wert", 1, 0.25, 365, `Inflation Eurozone fällt (${fmt(e)} %): Raum für niedrigere Zinsen`));
       }
       return out;
+    },
+  },
+  {
+    id: "liquiditaet", name: "Netto-Liquidität der Notenbank", gewicht: 0.6, braucht: ["fed-bilanz", "tga"],
+    theorie: "Fed-Bilanz minus Reverse Repo minus Konto des Finanzministeriums: steigt diese Netto-Liquidität, steigen riskante Anlagen oft mit; sinkt sie, fehlt der Rückenwind (Liquiditätsachse des Mastermodells).",
+    wirkung(l) {
+      const j = nettoLiquiditaet(l.reihen, l.stichtag), v = nettoLiquiditaet(l.reihen, l.stichtag, 91); if (j == null || v == null || v <= 0) return [];
+      const d = j / v - 1; const fmtP = (x: number) => `${(x * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 })} %`;
+      if (d >= 0.02) return [w(this.id, "aktien-us", 1, Math.min(0.7, 0.3 + d * 5), 90, `Netto-Liquidität in 13 Wochen +${fmtP(d)}`)];
+      if (d <= -0.02) return [w(this.id, "aktien-us", -1, Math.min(0.7, 0.3 - d * 5), 90, `Netto-Liquidität in 13 Wochen ${fmtP(d)}`)];
+      return [];
     },
   },
   {

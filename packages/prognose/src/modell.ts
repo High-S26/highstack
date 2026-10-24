@@ -1,4 +1,4 @@
-import { bis, gleitend, lies, plusTage, punktAktuell, schwankungJeTag, tageZwischen } from "./indikatoren";
+import { bis, gleitend, lies, nettoLiquiditaet, plusTage, punktAktuell, schwankungJeTag, tageZwischen } from "./indikatoren";
 import { fehlendeDaten, MECHANISMEN } from "./mechanismen";
 import type { Lagebild, Prognose, Regime, Risikolage, Wirkung, Ziel } from "./types";
 
@@ -75,7 +75,13 @@ export function prognosen(l: Lagebild, gewichte: Record<string, number> = {}, id
 }
 
 /** Konjunkturphase nach Wachstums- und Inflationstrend (Investment Clock) */
-export function regime(l: Lagebild): { regime: Regime; text: string; wachstum: number | null; inflation: number | null } {
+export function regime(l: Lagebild): { regime: Regime; text: string; wachstum: number | null; inflation: number | null; liquiditaet: number | null } {
+  const lj = nettoLiquiditaet(l.reihen, l.stichtag), lv = nettoLiquiditaet(l.reihen, l.stichtag, 91);
+  const liquiditaet = lj != null && lv != null && lv > 0 ? lj / lv - 1 : null;
+  const liqText = liquiditaet == null ? "" : ` Liquidität: ${liquiditaet >= 0.02 ? "steigend, Rückenwind" : liquiditaet <= -0.02 ? "sinkend, Gegenwind" : "seitwärts"}.`;
+  const r0 = regimeOhneLiquiditaet(l); return { ...r0, text: r0.text + liqText, liquiditaet };
+}
+function regimeOhneLiquiditaet(l: Lagebild): { regime: Regime; text: string; wachstum: number | null; inflation: number | null } {
   const trend = (ids: string[]) => { for (const id of ids) { const j = lies(l.reihen, id, l.stichtag), v = lies(l.reihen, id, l.stichtag, 90); if (j != null && v != null) return j - v; } return null; };
   const wa = trend(["pmi-us", "pmi-ez", "ifo"]); const inf = trend(["inflation-us", "inflation-ez"]);
   if (wa == null || inf == null) return { regime: "unklar", text: "Für die Konjunkturphase fehlen Einkaufsmanager- oder Inflationsdaten.", wachstum: wa, inflation: inf };

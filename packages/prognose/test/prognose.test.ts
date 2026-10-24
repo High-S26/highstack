@@ -99,3 +99,14 @@ describe("Bugfix Welle 2: Import und Datenalter", () => {
   });
 });
 
+
+describe("Liquidität", () => {
+  it("steigende Netto-Liquidität stützt Aktien, die Konjunkturphase nennt sie", async () => {
+    const { wirkungen, regime } = await import("../src");
+    const woche = (start: string, n: number, f: (i: number) => number) => Array.from({ length: n }, (_, i) => ({ d: plusTage(start, i * 7), w: f(i) }));
+    const reihen = { "fed-bilanz": woche("2026-01-05", 42, i => 6_600_000 + i * 40_000), tga: woche("2026-01-05", 42, () => 800_000), "reverse-repo": woche("2026-01-05", 42, () => 100) };
+    const l = { stichtag: "2026-10-20", reihen, ereignisse: [] };
+    expect(wirkungen(l).find(w => w.mechanismus === "liquiditaet")).toMatchObject({ ziel: "aktien-us", richtung: 1 });
+    expect(regime(l).liquiditaet!).toBeGreaterThan(0.02);
+  });
+});

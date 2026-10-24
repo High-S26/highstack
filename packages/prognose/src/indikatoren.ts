@@ -21,6 +21,9 @@ export const INDIKATOREN: Indikator[] = [
   { id: "pmi-us", name: "Einkaufsmanagerindex USA (Industrie)", einheit: "Punkte", kategorie: "wachstum", frequenz: "monatlich", vorlauf: "frueh", verzug: 1, quelle: { art: "manuell", text: "ISM / S&P Global" }, grenzen: [20, 80], text: "Über 50 Wachstum, unter 50 Schrumpfung." },
   { id: "pmi-ez", name: "Einkaufsmanagerindex Eurozone", einheit: "Punkte", kategorie: "wachstum", frequenz: "monatlich", vorlauf: "frueh", verzug: 1, quelle: { art: "manuell", text: "HCOB / S&P Global" }, grenzen: [20, 80], text: "Über 50 Wachstum, unter 50 Schrumpfung." },
   { id: "ifo", name: "ifo Geschäftsklima", einheit: "Index", kategorie: "stimmung", frequenz: "monatlich", vorlauf: "frueh", verzug: 0, quelle: { art: "manuell", text: "ifo Institut" }, grenzen: [50, 150], text: "Stimmung der deutschen Wirtschaft." },
+  { id: "fed-bilanz", name: "Bilanzsumme der Fed", einheit: "Mio. $", kategorie: "zins", frequenz: "woechentlich", vorlauf: "frueh", verzug: 2, quelle: { art: "fred", serie: "WALCL", text: "FRED WALCL" }, grenzen: [500_000, 20_000_000], text: "Wächst sie, kommt Liquidität in die Märkte; schrumpft sie (QT), wird Liquidität entzogen." },
+  { id: "reverse-repo", name: "Reverse Repo der Fed", einheit: "Mrd. $", kategorie: "zins", frequenz: "taeglich", vorlauf: "frueh", verzug: 1, quelle: { art: "fred", serie: "RRPONTSYD", text: "FRED RRPONTSYD" }, grenzen: [0, 5000], text: "Geparkte Liquidität; sinkt sie, fließt Geld zurück in die Märkte." },
+  { id: "tga", name: "Konto des US-Finanzministeriums (TGA)", einheit: "Mio. $", kategorie: "zins", frequenz: "woechentlich", vorlauf: "frueh", verzug: 2, quelle: { art: "fred", serie: "WTREGEN", text: "FRED WTREGEN" }, grenzen: [0, 3_000_000], text: "Steigt das Guthaben des Finanzministeriums, wird dem Markt Liquidität entzogen." },
   { id: "eurusd", name: "Euro in US-Dollar", einheit: "USD", kategorie: "waehrung", frequenz: "taeglich", vorlauf: "gleich", verzug: 1, quelle: { art: "fred", serie: "DEXUSEU", text: "FRED DEXUSEU" }, grenzen: [0.5, 2.5], text: "Wechselkurs; wichtig für US-Werte in Euro." },
   { id: "oel", name: "Ölpreis Brent", einheit: "USD", kategorie: "rohstoff", frequenz: "taeglich", vorlauf: "frueh", verzug: 1, quelle: { art: "fred", serie: "DCOILBRENTEU", text: "FRED DCOILBRENTEU" }, grenzen: [5, 500], text: "Energiepreise wirken auf Inflation und Margen." },
   { id: "immo-preis", name: "Wohnimmobilienpreise Deutschland", einheit: "Index", kategorie: "immobilien", frequenz: "quartal", vorlauf: "spaet", verzug: 45, quelle: { art: "manuell", text: "vdp, Europace oder Destatis Häuserpreisindex" }, grenzen: [10, 1000], text: "Wertentwicklung Wohnen; Maßstab für Immobilienprognosen." },
@@ -50,6 +53,15 @@ export const bis = (p: Punkt[] | undefined, stichtag: string, verzug = 0) => (p 
 /** Erster Wert am oder nach dem Datum (für die Auflösung einer Prognose), höchstens `toleranz` Tage später */
 export function wertNach(p: Punkt[] | undefined, datum: string, toleranz = 10): Punkt | null {
   const x = (p ?? []).find(q => q.d >= datum); return x && tageZwischen(datum, x.d) <= toleranz ? x : null;
+}
+
+/**
+ * Netto-Liquidität (Mrd. $) = Fed-Bilanz − Reverse Repo − Finanzministeriumskonto, zum Stichtag.
+ * Eine verbreitete Näherung dafür, wie viel Zentralbankgeld tatsächlich in den Märkten arbeitet.
+ */
+export function nettoLiquiditaet(r: Reihen, stichtag: string, vorTagen = 0): number | null {
+  const fed = lies(r, "fed-bilanz", stichtag, vorTagen), rrp = lies(r, "reverse-repo", stichtag, vorTagen), tga = lies(r, "tga", stichtag, vorTagen);
+  return fed == null || tga == null ? null : fed / 1000 - (rrp ?? 0) - tga / 1000;
 }
 
 /** Höchstalter eines Werts je Frequenz (Tage nach dem Stichtag des Werts, zusätzlich zum Veröffentlichungsverzug) */

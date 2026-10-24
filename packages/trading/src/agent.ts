@@ -46,6 +46,15 @@ export function trefferbilanz(liste: Abschluss[]) {
   };
 }
 
+/** Korrelation der Minutenrenditen zweier Werte über die letzten n Minuten */
+export function korrelation(a: { c: number }[], b: { c: number }[], n = 60): number | null {
+  const m = Math.min(a.length, b.length, n + 1); if (m < 21) return null;
+  const ra = a.slice(-m).map((x, i, l) => (i ? x.c / l[i - 1]!.c - 1 : 0)).slice(1); const rb = b.slice(-m).map((x, i, l) => (i ? x.c / l[i - 1]!.c - 1 : 0)).slice(1);
+  const ma = ra.reduce((x, y) => x + y, 0) / ra.length, mb = rb.reduce((x, y) => x + y, 0) / rb.length;
+  let sab = 0, saa = 0, sbb = 0; for (let i = 0; i < ra.length; i++) { const da = ra[i]! - ma, db = rb[i]! - mb; sab += da * db; saa += da * da; sbb += db * db; }
+  return saa > 0 && sbb > 0 ? sab / Math.sqrt(saa * sbb) : null;
+}
+
 /** Stückzahl aus Risiko je Trade, begrenzt durch Positionsgröße und Guthaben */
 export function stueckzahl(e: AgentEinstellungen, s: Signal, equity: number, cash: number, bruchstuecke: boolean): number {
   const risikoJeStueck = Math.abs(s.kurs - s.stopp); if (risikoJeStueck <= 0 || s.kurs <= 0) return 0;
@@ -158,9 +167,15 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
     if (s.richtung === "short" && b.art === "manuell") { log("sperre", `${s.symbol}: Short über die App nicht vorgesehen`); continue; }
     const sperre = e.kontext === false ? null : kontextSperre(s.richtung, kontext?.[s.symbol]);
     if (sperre) { log("sperre", `${s.symbol}: ${s.richtung === "long" ? "Kein Kauf" : "Kein Short"} wegen ${sperre}`); continue; }
+    // Korrelationsgruppen: läuft der Wert fast gleich wie eine offene Position in derselben Richtung, ist es im Kern
+    // derselbe Trade (z. B. NVDA und AMD). Eine solche Position: halbe Größe; zwei oder mehr: kein weiterer Einstieg
+    const gleich = z.gefuehrt.filter(g => g.richtung === s.richtung && (korrelation(bars[s.symbol] ?? [], bars[g.symbol] ?? []) ?? 0) > 0.7).map(g => g.symbol);
+    if (gleich.length >= 2) { log("sperre", `${s.symbol}: läuft fast gleich wie ${gleich.join(" und ")} (Korrelation über 0,7), kein weiteres Risiko in dieselbe Richtung`); continue; }
+    const korrFaktor = gleich.length ? 0.5 : 1;
+    if (gleich.length) log("info", `${s.symbol}: läuft fast gleich wie ${gleich[0]} (Korrelation über 0,7), halbe Positionsgröße`);
     // Marktumfeld verkleinert die fertige Stückzahl, egal ob Risiko oder Höchstposition sie begrenzt
-    const voll = stueckzahl(e, s, konto.equity, konto.cash, b.bruchstuecke);
-    const q = faktor >= 1 ? voll : b.bruchstuecke && s.richtung === "long" ? Math.floor(voll * faktor * 1000) / 1000 : Math.floor(voll * faktor);
+    const voll = stueckzahl(e, s, konto.equity, konto.cash, b.bruchstuecke); const f = faktor * korrFaktor;
+    const q = f >= 1 ? voll : b.bruchstuecke && s.richtung === "long" ? Math.floor(voll * f * 1000) / 1000 : Math.floor(voll * f);
     if (q <= 0) { log("sperre", `${s.symbol}: Positionsgröße unter einer handelbaren Einheit bei ${zahl(e.risikoProTrade * 100)} % Risiko${faktor < 1 ? ` und ${zahl(faktor * 100, 0)} % Marktumfeld` : ""}`); continue; }
     await ausfuehren({ symbol: s.symbol, seite: s.richtung === "long" ? "kauf" : "verkauf", qty: q, grund: s.grund }, "einstieg", s);
   }

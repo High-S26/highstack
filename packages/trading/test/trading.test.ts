@@ -138,3 +138,15 @@ describe("Bugfix Welle 2", () => {
   });
 });
 
+
+describe("Korrelationsgruppen", () => {
+  it("erkennt gleichlaufende Werte", async () => {
+    const { korrelation } = await import("../src");
+    const a = Array.from({ length: 61 }, (_, i) => ({ c: 100 + Math.sin(i / 3) * 2 + i * 0.01 }));
+    const b = a.map(x => ({ c: x.c * 2 + 0.001 }));
+    const c = a.map((x, i) => ({ c: 100 + Math.cos(i * 1.7) }));
+    expect(korrelation(a, b)!).toBeGreaterThan(0.95);
+    expect(Math.abs(korrelation(a, c)!)).toBeLessThan(0.5);
+    expect(korrelation(a.slice(0, 10), b.slice(0, 10))).toBeNull();
+  });
+});
