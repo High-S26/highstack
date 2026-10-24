@@ -25,7 +25,9 @@ export function ausbruch(symbol: string, bars: Bar[], w: StrategieWerte, short: 
 /** Rückkehr zum Mittelwert: Kurs weit unter (über) dem volumengewichteten Durchschnitt des Tages, Ziel der Durchschnitt */
 export function mittelwert(symbol: string, bars: Bar[], w: StrategieWerte, short: boolean): Signal | null {
   if (bars.length < w.fenster + 2) return null;
-  const vw = vwap(bars); const abw = bars.slice(-w.fenster).map(b => b.c - vwap(bars.slice(0, bars.indexOf(b) + 1)));
+  // laufender VWAP in einem Durchgang (statt für jede Minute neu über alle Minuten)
+  const lauf: number[] = []; let pv = 0, vv = 0; for (const b of bars) { pv += ((b.h + b.l + b.c) / 3) * b.v; vv += b.v; lauf.push(vv ? pv / vv : b.c); }
+  const vw = lauf.at(-1)!; const abw = bars.slice(-w.fenster).map((b, i) => b.c - lauf[bars.length - w.fenster + i]!);
   const s = stdabw(abw); if (!s) return null;
   const letzte = bars.at(-1)!; const z = (letzte.c - vw) / s;
   if (z <= -w.z) { const stopp = letzte.c - (vw - letzte.c) / w.zielR; return { symbol, richtung: "long", kurs: letzte.c, stopp: r2(stopp), ziel: r2(vw), staerke: Math.min(1, -z / (2 * w.z)), grund: `${zahl(-z, 1)} Standardabweichungen unter dem Tagesdurchschnitt (${k2(vw)})` }; }
@@ -45,8 +47,40 @@ export function anomalie(symbol: string, bars: Bar[], w: StrategieWerte, short: 
   return null;
 }
 
-export const STRATEGIEN: Record<StrategieTyp, { name: string; text: string; fn: typeof ausbruch }> = {
+/** Kontext für Strategien, die den Markt brauchen (z. B. SPY als Vergleich) */
+export interface Kontext { markt?: Bar[] }
+
+/**
+ * Momentum der letzten Handelsstunde: Die Bewegung der ersten 30 Minuten setzt sich zum Handelsschluss häufig fort
+ * (Gao/Han/Li/Zhou 2018, „Market intraday momentum“). Einstieg um 15:00 New York in Richtung der Eröffnungsbewegung.
+ */
+export function momentum(symbol: string, bars: Bar[], w: StrategieWerte, short: boolean): Signal | null {
+  if (bars.length < 331 || bars.length > 336) return null; // nur im Fenster 15:00 bis 15:05
+  const r30 = bars[29]!.c / bars[0]!.o - 1; const schwelle = (w.schwelle ?? 0.3) / 100;
+  const letzte = bars.at(-1)!; const atr = mittel(bars.slice(-30).map(b => b.h - b.l)) || letzte.c * 0.001;
+  if (r30 >= schwelle) { const stopp = letzte.c - 2 * atr; return { symbol, richtung: "long", kurs: letzte.c, stopp: r2(stopp), ziel: r2(letzte.c + w.zielR * 2 * atr), staerke: Math.min(1, r30 / (3 * schwelle)), grund: `Erste 30 Minuten ${zahl(r30 * 100)} %: Momentum zum Handelsschluss` }; }
+  if (short && r30 <= -schwelle) { const stopp = letzte.c + 2 * atr; return { symbol, richtung: "short", kurs: letzte.c, stopp: r2(stopp), ziel: r2(letzte.c - w.zielR * 2 * atr), staerke: Math.min(1, -r30 / (3 * schwelle)), grund: `Erste 30 Minuten ${zahl(r30 * 100)} %: Momentum zum Handelsschluss` }; }
+  return null;
+}
+
+/**
+ * Relative Stärke mit Marktfilter: Wert läuft seit Eröffnung deutlich besser als der Markt (SPY), der Markt selbst
+ * steigt, und der Kurs liegt über dem Tagesdurchschnitt. Short spiegelbildlich bei fallendem Markt.
+ */
+export function staerke(symbol: string, bars: Bar[], w: StrategieWerte, short: boolean, ctx?: Kontext): Signal | null {
+  const m = ctx?.markt; if (!m || m.length < 31 || bars.length < 31 || bars.length !== m.length) return null;
+  const rS = bars.at(-1)!.c / bars[0]!.o - 1; const rM = m.at(-1)!.c / m[0]!.o - 1; const rel = rS - rM; const schwelle = (w.schwelle ?? 1) / 100;
+  const vorher = bars.at(-2)!.c / bars[0]!.o - 1 - (m.at(-2)!.c / m[0]!.o - 1);
+  const letzte = bars.at(-1)!; const vw = vwap(bars);
+  if (rM > 0 && rel >= schwelle && vorher < schwelle && letzte.c > vw) { const stopp = Math.min(vw, letzte.c * 0.993); const risiko = letzte.c - stopp; if (risiko <= 0) return null; return { symbol, richtung: "long", kurs: letzte.c, stopp: r2(stopp), ziel: r2(letzte.c + w.zielR * risiko), staerke: Math.min(1, rel / (3 * schwelle)), grund: `${zahl(rel * 100)} %-Punkte stärker als der Markt (${zahl(rM * 100)} %), über dem Tagesdurchschnitt` }; }
+  if (short && rM < 0 && rel <= -schwelle && vorher > -schwelle && letzte.c < vw) { const stopp = Math.max(vw, letzte.c * 1.007); const risiko = stopp - letzte.c; if (risiko <= 0) return null; return { symbol, richtung: "short", kurs: letzte.c, stopp: r2(stopp), ziel: r2(letzte.c - w.zielR * risiko), staerke: Math.min(1, -rel / (3 * schwelle)), grund: `${zahl(-rel * 100)} %-Punkte schwächer als der Markt (${zahl(rM * 100)} %), unter dem Tagesdurchschnitt` }; }
+  return null;
+}
+
+export const STRATEGIEN: Record<StrategieTyp, { name: string; text: string; fn: (symbol: string, bars: Bar[], w: StrategieWerte, short: boolean, ctx?: Kontext) => Signal | null; braucht?: "markt" }> = {
   ausbruch: { name: "Ausbruch", text: "Kauft, wenn der Kurs die Spanne der ersten Handelsminuten mit viel Volumen verlässt.", fn: ausbruch },
   mittelwert: { name: "Rückkehr zum Mittelwert", text: "Kauft deutlich unter dem Tagesdurchschnitt und zielt auf die Rückkehr dorthin.", fn: mittelwert },
   anomalie: { name: "Auffälligkeiten", text: "Reagiert auf ungewöhnliche Kurs- und Volumensprünge in Richtung des Sprungs.", fn: anomalie },
+  momentum: { name: "Momentum letzte Stunde", text: "Steigt um 15 Uhr New York in Richtung der ersten 30 Minuten ein; belegt für breite Märkte (SPY, QQQ).", fn: momentum },
+  staerke: { name: "Relative Stärke", text: "Kauft Werte, die bei steigendem Markt deutlich besser laufen als der S&P 500 (SPY).", fn: staerke, braucht: "markt" },
 };

@@ -6,7 +6,7 @@ export interface Position { symbol: string; qty: number; einstand: number; kurs:
 export interface OrderAntrag { symbol: string; seite: "kauf" | "verkauf"; qty: number; grund: string }
 export interface Ausfuehrung { id: string; symbol: string; seite: "kauf" | "verkauf"; qty: number; preis: number | null; status: "ausgefuehrt" | "offen" | "abgelehnt"; meldung?: string; zeit: string }
 
-export type StrategieTyp = "ausbruch" | "mittelwert" | "anomalie";
+export type StrategieTyp = "ausbruch" | "mittelwert" | "anomalie" | "momentum" | "staerke";
 export interface StrategieWerte {
   /** Ausbruch: Minuten der Eröffnungsspanne */
   spanneMin: number;
@@ -18,6 +18,10 @@ export interface StrategieWerte {
   fenster: number;
   /** Ziel als Vielfaches des Risikos */
   zielR: number;
+  /** Momentum und relative Stärke: Mindestbewegung in Prozent */
+  schwelle?: number;
+  /** Relative Stärke: Vergleichswert (Markt), Standard SPY */
+  referenz?: string;
 }
 export type BrokerArt = "simulation" | "alpaca-paper" | "alpaca-live" | "manuell" | "ibkr";
 

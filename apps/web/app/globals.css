@@ -969,3 +969,12 @@ label.chk input{width:auto;flex:none;margin:0}
 .tr-umfeld{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;font-size:13px;padding:10px 14px;border-radius:12px;background:var(--sunk);border-left:3px solid var(--good)}
 .tr-umfeld.neutral{border-left-color:var(--gold, var(--warn))}.tr-umfeld.risk-off{border-left-color:var(--crit)}
 .kj-vorschau{margin:8px 0}.kj-rb{margin-top:12px;display:grid;gap:8px}
+/* Trading: Rückblick */
+.rb-kurve{margin:10px 0;display:grid;gap:6px}
+.rb-kurve svg{width:100%;height:160px;background:var(--sunk);border-radius:var(--r-ctl)}
+.rb-kurve polyline{stroke-width:2;vector-effect:non-scaling-stroke}
+.rb-a{stroke:var(--gold)}.rb-v{stroke:var(--muted);stroke-dasharray:4 3}
+.rb-null{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+.rb-kurve figcaption{display:flex;gap:14px;font-size:12.5px;color:var(--muted)}
+.rb-leg::before{content:"";display:inline-block;width:14px;height:2px;margin-right:6px;vertical-align:middle;background:currentColor}
+.rb-leg.rb-a{color:var(--gold-ink)}

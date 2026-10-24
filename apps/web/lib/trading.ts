@@ -1,4 +1,4 @@
-import { alpacaBroker, leererZustand, manuellerBroker, simBroker, simWeiter, takt, type AgentEinstellungen, type Agentzustand, type Broker, type BrokerArt } from "@highstack/trading";
+import { alpacaBroker, leererZustand, manuellerBroker, simBroker, simWeiter, takt, type AgentEinstellungen, type Agentzustand, type Broker, type BrokerArt, type Kennzahlen, type Rueckblickergebnis } from "@highstack/trading";
 import { entschluessele } from "./geheim";
 import { umfeld } from "./konjunktur";
 import type { Speicher } from "./speicher";
@@ -7,7 +7,8 @@ import type { Speicher } from "./speicher";
  * Trading-Agenten je Konto. Abgelegt in der globalen Ablage (Art „trading“) mit Konto-Kennung;
  * Zugangsdaten verschlüsselt und nie an die Oberfläche zurückgegeben.
  */
-export interface Agentdatensatz { id: string; tenant: string; einstellungen: AgentEinstellungen; zustand: Agentzustand; zugang?: { keyId: string; secret: string } | null; erstellt: number; geaendert: number }
+export type GespeicherterRueckblick = Rueckblickergebnis & { am: number; varianten?: { name: string; kennzahlen: Kennzahlen }[]; einstellungen: Pick<AgentEinstellungen, "strategie" | "symbole" | "richtung"> };
+export interface Agentdatensatz { id: string; tenant: string; einstellungen: AgentEinstellungen; zustand: Agentzustand; zugang?: { keyId: string; secret: string } | null; erstellt: number; geaendert: number; rueckblick?: GespeicherterRueckblick }
 export type Agentansicht = Omit<Agentdatensatz, "zugang"> & { zugangHinterlegt: boolean };
 export const ansicht = (d: Agentdatensatz): Agentansicht => { const { zugang, ...rest } = d; return { ...rest, zugangHinterlegt: !!zugang }; };
 

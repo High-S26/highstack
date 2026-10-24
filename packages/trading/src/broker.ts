@@ -50,11 +50,16 @@ export function kuenstlicherTag(symbol: string, datum: string, minuten = 390): B
 }
 const rd = (v: number) => Math.round(v * 100) / 100;
 
-export function simBroker(z: Agentzustand, startkapital: number): Broker {
+/**
+ * Simulation: künstliche Kurse oder, für den Rückblick, echte historische Minutenkerzen (`quelle`).
+ * Die Uhr läuft in z.simUhr; jeder Takt sieht nur die Kerzen bis zur aktuellen Minute.
+ */
+export function simBroker(z: Agentzustand, startkapital: number, opts: { quelle?: (symbol: string, datum: string) => Bar[]; waehrung?: string } = {}): Broker {
   z.sim ??= { cash: startkapital, positionen: {} };
   const uhr = z.simUhr ??= { datum: new Date().toISOString().slice(0, 10), minute: 0 };
-  const tag = (s: string) => kuenstlicherTag(s, uhr.datum).slice(0, Math.max(1, uhr.minute + 1));
-  const kurs = (s: string) => tag(s).at(-1)!.c;
+  const quelle = opts.quelle ?? kuenstlicherTag;
+  const tag = (s: string) => quelle(s, uhr.datum).slice(0, Math.max(1, uhr.minute + 1));
+  const kurs = (s: string) => { const k = tag(s).at(-1)?.c; if (k == null) throw new Error(`Keine Kurse für ${s} am ${uhr.datum}`); return k; };
   const positionen = async (): Promise<Position[]> => Object.entries(z.sim!.positionen).filter(([, p]) => p.qty !== 0).map(([s, p]) => { const k = kurs(s); return { symbol: s, qty: p.qty, einstand: p.einstand, kurs: k, wert: p.qty * k, gv: (k - p.einstand) * p.qty }; });
   const sende = async (a: OrderAntrag): Promise<Ausfuehrung> => {
     const k = rd(kurs(a.symbol) * (a.seite === "kauf" ? 1.0005 : 0.9995)); const delta = a.seite === "kauf" ? a.qty : -a.qty;
@@ -68,9 +73,9 @@ export function simBroker(z: Agentzustand, startkapital: number): Broker {
   return {
     art: "simulation", nurZettel: false, bruchstuecke: true,
     async uhr() { const m = uhr.minute; const s = 9 * 60 + 30 + m; return { offen: m < 390, minutenBisSchluss: 390 - m, minutenSeitOeffnung: m, datum: uhr.datum, zeit: `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")} (Simulation)` }; },
-    async konto() { const pos = await positionen(); const equity = z.sim!.cash + pos.reduce((a, p) => a + p.wert, 0); return { equity: rd(equity), cash: rd(z.sim!.cash), waehrung: "EUR" }; },
+    async konto() { const pos = await positionen(); const equity = z.sim!.cash + pos.reduce((a, p) => a + p.wert, 0); return { equity: rd(equity), cash: rd(z.sim!.cash), waehrung: opts.waehrung ?? "EUR" }; },
     positionen,
-    async bars(symbole) { return Object.fromEntries(symbole.map(s => [s, tag(s)])); },
+    async bars(symbole) { return Object.fromEntries(symbole.map(s => [s, opts.quelle ? (quelle(s, uhr.datum).length ? tag(s) : []) : tag(s)])); },
     sende,
     async schliesseAlle() { const pos = await positionen(); const r: Ausfuehrung[] = []; for (const p of pos) r.push(await sende({ symbol: p.symbol, seite: p.qty > 0 ? "verkauf" : "kauf", qty: Math.abs(p.qty), grund: "alle schließen" })); return r; },
   };

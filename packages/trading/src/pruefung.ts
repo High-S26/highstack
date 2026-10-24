@@ -18,6 +18,7 @@ export const GRENZEN = {
   z: [0.5, 6],
   fenster: [5, 240],
   zielR: [0.5, 10],
+  schwelle: [0.05, 10],
 } as const;
 const SYMBOL = /^[A-Z][A-Z0-9.]{0,9}$/;
 const BROKER: BrokerArt[] = ["simulation", "alpaca-paper", "alpaca-live", "manuell", "ibkr"];
@@ -65,6 +66,8 @@ export function pruefeEinstellungen(roh: unknown, opts: { basis?: AgentEinstellu
     if (typeof v !== "number" || !Number.isFinite(v)) { f(`werte.${k}`, `${name}: bitte eine Zahl angeben.`); continue; }
     werte[k] = v; im(k, v, name);
   }
+  if (wr.schwelle != null || werte.schwelle != null) { const v = wr.schwelle ?? werte.schwelle; if (typeof v !== "number" || !Number.isFinite(v)) f("werte.schwelle", "Schwelle: bitte eine Zahl angeben."); else { werte.schwelle = v; im("schwelle", v, "Schwelle (%)"); } }
+  if (typeof wr.referenz === "string") { const ref = wr.referenz.trim().toUpperCase(); if (!SYMBOL.test(ref)) f("werte.referenz", "Vergleichswert: ungültiges Kürzel."); else werte.referenz = ref; }
 
   if ("symbole" in r && !Array.isArray(r.symbole)) f("symbole", "Werte bitte als Liste angeben, z. B. [\"AAPL\", \"MSFT\"].");
   const rohSymbole = Array.isArray(r.symbole) ? r.symbole : basis.symbole;

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/App";
 import type { Agentansicht } from "@/lib/trading";
 import { BROKER_NAMEN } from "@/lib/tradingTexte";
+import { Rueckblick } from "@/components/trading/Rueckblick";
 
 type Live = { konto: Konto | null; positionen: Position[]; uhr: { offen: boolean; minutenBisSchluss: number; zeit: string } | null; fehler: string | null };
 const LOGART: Record<string, string> = { signal: "Signal", order: "Order", sperre: "Gesperrt", ausstieg: "Ausstieg", schluss: "Schluss", info: "Info", fehler: "Fehler" };
@@ -94,6 +95,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
           <details><summary>Letzte Trades</summary><div className="tbl"><table><thead><tr><th>Wert</th><th className="num">Einstieg → Ausstieg</th><th className="num">Ergebnis</th><th>Ausstieg</th></tr></thead><tbody>{(z.abschluesse ?? []).slice(0, 15).map((x, i) => <tr key={i}><td><b>{x.symbol}</b> {x.richtung === "short" ? "short" : "long"}</td><td className="num">{kf(x.einstieg)} → {kf(x.ausstieg)}</td><td className={`num ${x.gv < 0 ? "dn" : "up"}`}>{g$(x.gv)} · {zahl(x.r)} R</td><td>{x.ausstiegGrund}</td></tr>)}</tbody></table></div></details>
         </> : <p className="note">Noch kein abgeschlossener Trade.</p>}
       </section>
+      <Rueckblick id={a.id} rueckblick={a.rueckblick} startkapital={e.startkapital} alpacaMoeglich={a.zugangHinterlegt} onNeu={lade} />
       <section className="panel">
         <div className="ph"><h2>Protokoll</h2><button type="button" className="btn sm ghost" disabled={!!laeuft || !z.aktiv} title={z.aktiv ? undefined : "Agent ist angehalten"} onClick={() => aktion({ aktion: "takt" })}>Jetzt prüfen</button></div>
         <ol className="tr-log">{z.log.slice(0, 80).map((l, i) => <li key={i} className={`l-${l.art}`}><span className="tr-lz">{l.zeit.includes("T") ? new Date(l.zeit).toLocaleTimeString("de-DE") : l.zeit}</span><span className="tr-la">{LOGART[l.art]}</span><span>{l.text}</span></li>)}</ol>

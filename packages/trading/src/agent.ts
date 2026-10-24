@@ -106,7 +106,8 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
   if (tagesGV - schliessKosten <= -e.tagesverlust) { await allesSchliessen(`Verlustlimit erreicht (${geldPm(tagesGV, w)}, mit Schließkosten ${geldPm(tagesGV - schliessKosten, w)})`, "limit"); erg.status = "Verlustlimit erreicht"; return erg; }
   if (uhr.minutenBisSchluss <= e.schlussVorEnde) { await allesSchliessen(`${e.schlussVorEnde} Minuten vor Handelsschluss`, "beendet"); erg.status = "Schluss für heute"; return erg; }
 
-  const bars = await b.bars([...new Set([...e.symbole, ...positionen.map(p => p.symbol)])]);
+  const referenz = STRATEGIEN[e.strategie].braucht === "markt" ? (e.werte.referenz ?? "SPY") : null;
+  const bars = await b.bars([...new Set([...e.symbole, ...positionen.map(p => p.symbol), ...(referenz ? [referenz] : [])])]);
   const ausfuehren = async (antrag: OrderAntrag, art: Vorschlag["art"], signal?: Signal) => {
     // Ausstiege immer sofort (Schutz), Einstiege nur im Automatik-Modus; manuelle Broker bekommen Zettel
     if (b.nurZettel || (art === "einstieg" && e.modus === "vorschlag")) { zettel(antrag, art, signal); return; }
@@ -145,7 +146,7 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
   if (umfeld && e.marktlage !== false && z.umfeld !== umfeld.text) { z.umfeld = umfeld.text; log("info", `Marktumfeld: ${umfeld.text}`); }
   if (faktor <= 0) { erg.status = "Keine neuen Einstiege (Marktumfeld)"; return erg; }
   const fn = STRATEGIEN[e.strategie].fn;
-  const signale = e.symbole.filter(s => !offen.has(s)).map(s => bars[s]?.length ? fn(s, bars[s]!, e.werte, e.richtung === "long-short") : null).filter((x): x is Signal => !!x).sort((a, c) => c.staerke - a.staerke);
+  const signale = e.symbole.filter(s => !offen.has(s)).map(s => bars[s]?.length ? fn(s, bars[s]!, e.werte, e.richtung === "long-short", { markt: referenz ? bars[referenz] : undefined }) : null).filter((x): x is Signal => !!x).sort((a, c) => c.staerke - a.staerke);
   const frei = Math.max(0, Math.min(e.maxPositionen - offen.size, e.maxTradesTag - tag.trades - offeneEinstiege));
   for (const s of signale.slice(0, frei)) {
     if (tag.trades + z.vorschlaege.filter(v => v.status === "offen" && v.art === "einstieg").length >= e.maxTradesTag) break;
