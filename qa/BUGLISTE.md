@@ -85,7 +85,39 @@ Alle übrigen Befunde mit „Mittel“ und „Niedrig“, zum Beispiel:
 
 Die Hinweise (INV-010, INV-025, INV-031, TRD-026, TRD-027) gehören in den Produktbacklog.
 
-## Neu seit dem Testlauf: Konjunktur & Prognosen
+## Nachtest Welle 1 (24.10.2026, Stand e72a4e5)
+
+Alle 15 Befunde aus Welle 1 sind bestätigt behoben. Die Einzelheiten stehen in [nachtest-welle1-investments.md](nachtest-welle1-investments.md) und [nachtest-welle1-trading.md](nachtest-welle1-trading.md).
+- INV-028 ist nur im Code belegt, weil im Testmodus jeder Admin ist.
+- TRD-004: Der Agent hält bei Dauerfehlern nicht von selbst an.
+
+Neue Befunde: 21. Davon sind 4 hoch, 8 mittel, 8 niedrig, 1 ist ein Hinweis. Der Forecast-Teil wurde dabei zum ersten Mal geprüft.
+
+### Kommt in Welle 2 (falsche Ergebnisse)
+
+| ID | Befund | Grad |
+|---|---|---|
+| INV-037 | Konjunktur-Import übernimmt falsche Werte ohne Warnung (Komma-Trenner, ungültige Daten), Folge: Anschlusszins 71,40 % | Hoch |
+| INV-038 | Veraltete Bundrendite gilt als „aktuelle Marktdaten“ | Hoch |
+| TRD-030 | Marktumfeld verkleinert Positionen nicht, wenn die Höchstposition begrenzt; das Cockpit verspricht trotzdem 38 % | Hoch |
+| TRD-026 | Vorschlag lässt sich bestätigen, obwohl der Kurs schon unter dem Stopp liegt; offene Vorschläge blockieren das Tageslimit (hochgestuft) | Hoch |
+| TRD-034 | Veraltete Marktdaten steuern die Positionsgröße, ohne Altersgrenze und ohne Datum | Mittel |
+| TRD-031 | Neuer Termin wirkt erst nach bis zu 10 Minuten | Mittel |
+| INV-039 | Rückblick wird nicht gespeichert: „Überprüfung“ und Gewichte bleiben leer | Mittel |
+| INV-040 | „Lauf jetzt“ legt nach neuen Daten am selben Tag keine Prognosen an | Mittel |
+| INV-034 | Upload mehrerer Dateien: eine ungültige verwirft die gültigen, verwaiste Dateien bleiben liegen | Mittel |
+| TRD-028 | „Bitte eine Zahl angeben.“ nennt das Feld nicht; `symbole` als Text wird still ersetzt | Mittel |
+| TRD-032, TRD-033 | Marktumfeld im Cockpit: Fehler beim Umschalten unbemerkt, Anzeige wird nicht aktualisiert | Mittel |
+
+### Kommt in Welle 3
+
+INV-035, INV-036, INV-041, INV-042, INV-043, INV-045, TRD-029, TRD-035, TRD-036 (niedrig), INV-044 (Hinweis).
+
+### Testdaten aufräumen
+
+Auf dem Testserver liegen künstliche Konjunkturreihen: `bund10j`, `immo-preis`, S&P 500, VIX 35,8 und ein Termin am 25.10. Auf echten Servern dürfen sie nie landen.
+
+## Konjunktur & Prognosen: Prüfumfang für künftige Läufe
 
 Der Forecast-Teil (Version 0.13) war nicht Gegenstand dieses Laufs. Im nächsten Lauf prüfen:
 - **Admin › Konjunktur & Prognosen:**
