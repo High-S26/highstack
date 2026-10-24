@@ -51,6 +51,8 @@ export interface AgentEinstellungen {
   modus: "vorschlag" | "auto";
   /** Marktumfeld (Risikolage, wichtige Termine) skaliert das Risiko je Trade; Standard an */
   marktlage?: boolean;
+  /** Nachrichten, Insider-Käufe und Short-Anteil als Filter; Standard an */
+  kontext?: boolean;
 }
 
 export interface Signal { symbol: string; richtung: "long" | "short"; kurs: number; stopp: number; ziel: number; staerke: number; grund: string }

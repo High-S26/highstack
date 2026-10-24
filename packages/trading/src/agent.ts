@@ -1,5 +1,6 @@
 import type { Broker } from "./broker";
 import { geld, geldPm, kurs as kf, stueck, zahl } from "./format";
+import { kontextSperre, type Kontextlage } from "./kontext";
 import { STRATEGIEN } from "./strategien";
 import type { Abschluss, AgentEinstellungen, Agentzustand, Gefuehrt, Logeintrag, OrderAntrag, Signal, StrategieTyp, StrategieWerte, Umfeld, Vorschlag } from "./types";
 
@@ -57,7 +58,7 @@ export function stueckzahl(e: AgentEinstellungen, s: Signal, equity: number, cas
 
 export interface Taktergebnis { gehandelt: number; vorgeschlagen: number; status: string }
 
-export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, jetzt = new Date(), umfeld?: Umfeld): Promise<Taktergebnis> {
+export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, jetzt = new Date(), umfeld?: Umfeld, kontext?: Record<string, Kontextlage>): Promise<Taktergebnis> {
   const erg: Taktergebnis = { gehandelt: 0, vorgeschlagen: 0, status: "" };
   const uhr = await b.uhr(); const zeit = uhr.zeit; z.letzterTakt = jetzt.toISOString();
   const log = (art: Logeintrag["art"], text: string) => protokoll(z, art, text, zeit);
@@ -155,6 +156,8 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
     const chance = Math.abs(s.ziel - s.kurs) - 2 * SPANNE * s.kurs; const risiko = Math.abs(s.kurs - s.stopp) + 2 * SPANNE * s.kurs;
     if (chance < risiko) { log("sperre", `${s.symbol}: Chance (${kf(Math.max(0, chance))}) nach Kosten kleiner als Risiko (${kf(risiko)})`); continue; }
     if (s.richtung === "short" && b.art === "manuell") { log("sperre", `${s.symbol}: Short über die App nicht vorgesehen`); continue; }
+    const sperre = e.kontext === false ? null : kontextSperre(s.richtung, kontext?.[s.symbol]);
+    if (sperre) { log("sperre", `${s.symbol}: ${s.richtung === "long" ? "Kein Kauf" : "Kein Short"} wegen ${sperre}`); continue; }
     // Marktumfeld verkleinert die fertige Stückzahl, egal ob Risiko oder Höchstposition sie begrenzt
     const voll = stueckzahl(e, s, konto.equity, konto.cash, b.bruchstuecke);
     const q = faktor >= 1 ? voll : b.bruchstuecke && s.richtung === "long" ? Math.floor(voll * faktor * 1000) / 1000 : Math.floor(voll * faktor);
@@ -200,7 +203,7 @@ export const VORLAGEN: { id: string; name: string; text: string; werte: (k: numb
   { id: "ausgewogen", name: "Ausgewogen", text: "Moderates Risiko, Long und Short", werte: k => ({ tagesziel: Math.round(k * 0.02), tagesverlust: Math.round(k * 0.015), risikoProTrade: 0.005, maxPosition: 0.3, maxTradesTag: 6, maxPositionen: 3, richtung: "long-short", schlussVorEnde: 15, strategie: "ausbruch", werte: STANDARD_WERTE }) },
   { id: "aktiv", name: "Aktiv", text: "Mehr Trades, größere Ausschläge, Auffälligkeiten", werte: k => ({ tagesziel: Math.round(k * 0.04), tagesverlust: Math.round(k * 0.025), risikoProTrade: 0.01, maxPosition: 0.4, maxTradesTag: 12, maxPositionen: 4, richtung: "long-short", schlussVorEnde: 10, strategie: "anomalie", werte: { ...STANDARD_WERTE, z: 2.5 } }) },
 ];
-export const neueEinstellungen = (k = 500): AgentEinstellungen => ({ name: "Mein Trading-Agent", broker: "simulation", startkapital: k, symbole: ["AAPL", "MSFT", "NVDA", "AMD", "TSLA", "META"], modus: "vorschlag", marktlage: true, ...VORLAGEN[0]!.werte(k) } as AgentEinstellungen);
+export const neueEinstellungen = (k = 500): AgentEinstellungen => ({ name: "Mein Trading-Agent", broker: "simulation", startkapital: k, symbole: ["AAPL", "MSFT", "NVDA", "AMD", "TSLA", "META"], modus: "vorschlag", marktlage: true, kontext: true, ...VORLAGEN[0]!.werte(k) } as AgentEinstellungen);
 
 /** Plausibilität der Einstellungen, mit ehrlichen Hinweisen */
 export function hinweise(e: AgentEinstellungen): { art: "warn" | "crit" | "info"; text: string }[] {

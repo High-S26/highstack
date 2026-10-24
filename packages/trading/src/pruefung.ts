@@ -84,7 +84,8 @@ export function pruefeEinstellungen(roh: unknown, opts: { basis?: AgentEinstellu
   let modus = (r.modus ?? basis.modus) as AgentEinstellungen["modus"]; if (modus !== "vorschlag" && modus !== "auto") { f("modus", "Betriebsart: vorschlag oder auto."); modus = "vorschlag"; }
   if (broker === "manuell") { modus = "vorschlag"; richtung = "long"; }
   const marktlage = typeof r.marktlage === "boolean" ? r.marktlage : basis.marktlage ?? true;
+  const kontext = typeof r.kontext === "boolean" ? r.kontext : basis.kontext ?? true;
 
-  const e: AgentEinstellungen = { name, broker, ...(brokerApp ? { brokerApp } : {}), startkapital, tagesziel, tagesverlust, risikoProTrade, maxPosition, maxTradesTag, maxPositionen, symbole, strategie, werte, richtung, schlussVorEnde, modus, marktlage };
+  const e: AgentEinstellungen = { name, broker, ...(brokerApp ? { brokerApp } : {}), startkapital, tagesziel, tagesverlust, risikoProTrade, maxPosition, maxTradesTag, maxPositionen, symbole, strategie, werte, richtung, schlussVorEnde, modus, marktlage, kontext };
   return { e, fehler };
 }

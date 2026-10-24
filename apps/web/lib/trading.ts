@@ -1,6 +1,7 @@
 import { alpacaBroker, leererZustand, manuellerBroker, simBroker, simWeiter, takt, type AgentEinstellungen, type Agentzustand, type Broker, type BrokerArt, type Kennzahlen, type Rueckblickergebnis } from "@highstack/trading";
 import { entschluessele } from "./geheim";
 import { umfeld } from "./konjunktur";
+import { kontextFuer } from "./kontext";
 import type { Speicher } from "./speicher";
 
 /**
@@ -59,8 +60,10 @@ export async function taktFuer(s: Speicher, id: string, schritte = 1) {
     try { b = await brokerFuer(a); } catch (err) { fehlerLog(a.zustand, (err as Error).message); await speichere(s, a); throw err; }
     let letzter = null;
     const u = a.einstellungen.marktlage === false ? undefined : await umfeld(s).catch(() => undefined);
+    // Nachrichten, Insider und Short-Anteil nur für echte Kurse; die Simulation hat künstliche Kurse
+    const k = a.einstellungen.kontext === false || a.einstellungen.broker === "simulation" ? undefined : (await kontextFuer(a).catch(() => null))?.lage;
     for (let i = 0; i < schritte; i++) {
-      try { letzter = await takt(a.einstellungen, a.zustand, b, new Date(), u); }
+      try { letzter = await takt(a.einstellungen, a.zustand, b, new Date(), u, k); }
       catch (err) { fehlerLog(a.zustand, (err as Error).message); break; }
       if (a.einstellungen.broker === "simulation") { simWeiter(a.zustand); if (a.zustand.simUhr!.minute === 0) break; }
     }

@@ -7,6 +7,7 @@ import { useApp } from "@/components/App";
 import type { Agentansicht } from "@/lib/trading";
 import { BROKER_NAMEN } from "@/lib/tradingTexte";
 import { Rueckblick } from "@/components/trading/Rueckblick";
+import { Kontext } from "@/components/trading/Kontext";
 
 type Live = { konto: Konto | null; positionen: Position[]; uhr: { offen: boolean; minutenBisSchluss: number; zeit: string } | null; fehler: string | null };
 const LOGART: Record<string, string> = { signal: "Signal", order: "Order", sperre: "Gesperrt", ausstieg: "Ausstieg", schluss: "Schluss", info: "Info", fehler: "Fehler" };
@@ -20,6 +21,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
   useEffect(() => { lade(); const t = setInterval(lade, 5000); return () => clearInterval(t); }, [lade]);
   const [umfeld, setUmfeld] = useState<{ lage: string; faktor: number; gruende: string[] } | null>(null);
   useEffect(() => { const hole = () => fetch("/api/trading/umfeld").then(r => r.ok ? r.json() : null).then(setUmfeld).catch(() => null); hole(); const t = setInterval(hole, 30_000); return () => clearInterval(t); }, []);
+  const setzeKontext = async (an: boolean) => { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ kontext: an }) }); if (r.ok) { meldung(an ? "Nachrichten und Insider werden als Filter genutzt" : "Nachrichten und Insider werden ignoriert"); lade(); } else { const d = await r.json().catch(() => ({})); meldung(`Nicht gespeichert: ${d.fehler ?? `Fehler ${r.status}`}`); } };
   const setzeMarktlage = async (an: boolean) => { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ marktlage: an }) }); if (r.ok) { meldung(an ? "Marktumfeld wird berücksichtigt" : "Marktumfeld wird ignoriert"); lade(); } else { const d = await r.json().catch(() => ({})); meldung(`Nicht gespeichert: ${d.fehler ?? `Fehler ${r.status}`}`); } };
   const aktion = async (b: object, text?: string) => {
     setLaeuft(JSON.stringify(b));
@@ -95,6 +97,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
           <details><summary>Letzte Trades</summary><div className="tbl"><table><thead><tr><th>Wert</th><th className="num">Einstieg → Ausstieg</th><th className="num">Ergebnis</th><th>Ausstieg</th></tr></thead><tbody>{(z.abschluesse ?? []).slice(0, 15).map((x, i) => <tr key={i}><td><b>{x.symbol}</b> {x.richtung === "short" ? "short" : "long"}</td><td className="num">{kf(x.einstieg)} → {kf(x.ausstieg)}</td><td className={`num ${x.gv < 0 ? "dn" : "up"}`}>{g$(x.gv)} · {zahl(x.r)} R</td><td>{x.ausstiegGrund}</td></tr>)}</tbody></table></div></details>
         </> : <p className="note">Noch kein abgeschlossener Trade.</p>}
       </section>
+      <Kontext id={a.id} an={e.kontext !== false} umschalten={setzeKontext} />
       <Rueckblick id={a.id} rueckblick={a.rueckblick} startkapital={e.startkapital} alpacaMoeglich={a.zugangHinterlegt} onNeu={lade} />
       <section className="panel">
         <div className="ph"><h2>Protokoll</h2><button type="button" className="btn sm ghost" disabled={!!laeuft || !z.aktiv} title={z.aktiv ? undefined : "Agent ist angehalten"} onClick={() => aktion({ aktion: "takt" })}>Jetzt prüfen</button></div>
