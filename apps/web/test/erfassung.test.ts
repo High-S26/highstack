@@ -64,3 +64,20 @@ describe("Grobe Orientierung ohne KI (INV-018)", () => {
     expect(orientierung({ ort: "Köln", titel: "x", wohnflaeche: null, baujahr: null, energieklasse: null }).marktmieteQm.von).toBe(Math.round(8.5 * 10) / 10);
   });
 });
+
+describe("Nachtest Welle 2 Investments", () => {
+  it("„Erbbaurecht: nein“ und „Sonderumlage: keine“ sind Verneinungen (INV-003)", () => {
+    const a = musterErkennung("Kaufpreis: 199.000 €\nErbbaurecht: nein\nSonderumlage: keine").felder;
+    expect(a.erbbaurecht).toBe(false); expect(a.sonderumlage).toBe(false);
+  });
+  it("Stellplatz, Hotel oder Mittelstraße sind keine Makler-Kontaktzeilen (INV-046)", () => {
+    const a = musterErkennung("Apartment mit Stellplatz in 50937 Köln\nWohnfläche: 34 m²\nKaufpreis: 129.000 €").felder;
+    expect(a.titel).toBe("Apartment mit Stellplatz in 50937 Köln"); expect(a.ort).toBe("Köln");
+  });
+  it("Server übernimmt gültige Felder und meldet ungültige, statt das Objekt zu sperren (INV-047, INV-049)", async () => {
+    const { bereinige } = await import("../lib/objektpruefung");
+    const r = bereinige({ ruecklageAnteil: 6500, baujahr: 2090, gebaeudeanteil: 1.5, ort: 123, stellplaetze: "x", kaufpreis: 250000, energieklasse: "b" });
+    expect(r.objekt).toEqual({ ruecklageAnteil: 6500, kaufpreis: 250000, energieklasse: "B" });
+    expect(r.verworfen.length).toBe(4);
+  });
+});

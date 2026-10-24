@@ -110,3 +110,12 @@ describe("Liquidität", () => {
     expect(regime(l).liquiditaet!).toBeGreaterThan(0.02);
   });
 });
+
+describe("Import: Leerzeichen und mehrdeutige Tausenderpunkte (INV-037)", () => {
+  it("liest Leerzeichen als Trenner und entscheidet 1.085 über die Grenzen", () => {
+    expect(leseTabelle("2026-07-01 2,15", { heute: "2026-10-24" }).punkte).toEqual([{ d: "2026-07-01", w: 2.15 }]);
+    expect(leseTabelle("2026-07-01;1.085", { grenzen: [0.5, 2.5], heute: "2026-10-24" }).punkte).toEqual([{ d: "2026-07-01", w: 1.085 }]);
+    expect(leseTabelle("2026-07-01;1.085", { grenzen: [100, 50000], heute: "2026-10-24" }).punkte).toEqual([{ d: "2026-07-01", w: 1085 }]);
+    expect(leseTabelle("2026-07-01;1.085", { heute: "2026-10-24" }).fehler[0]!.text).toContain("mehrdeutig");
+  });
+});

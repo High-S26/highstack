@@ -74,7 +74,7 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
   const setze = (patch: Partial<Objektdatensatz>) => {
     const neu = { ...o, ...patch, geaendert: Date.now() }; setO(neu); setzeObjekt(neu);
     offen.current = { ...offen.current, ...patch }; setGespeichert("Ungespeichert …"); clearTimeout(timer.current);
-    timer.current = setTimeout(async () => { const p = offen.current; offen.current = {}; try { await api.aendereObjekt(o.id, p); setGespeichert("Gespeichert"); } catch { setGespeichert("Nicht gespeichert"); } }, 600);
+    timer.current = setTimeout(async () => { const p = offen.current; offen.current = {}; try { const r = await api.aendereObjekt(o.id, p) as typeof o & { hinweise?: string[] }; if (r.hinweise?.length) { setGespeichert("Teilweise gespeichert"); meldung(`Nicht übernommen: ${r.hinweise.join("; ")}`); const { hinweise: _h, ...x } = r; if (!Object.keys(offen.current).length) { setO(x); setzeObjekt(x); } } else setGespeichert("Gespeichert"); } catch (e) { setGespeichert("Nicht gespeichert"); meldung(`Nicht gespeichert: ${(e as Error).message}`); } }, 600);
   };
   const neuVomServer = (x: Objektdatensatz) => { setO(x); setzeObjekt(x); };
   const b = a.bewertung;

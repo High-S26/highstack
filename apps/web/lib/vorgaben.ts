@@ -46,7 +46,7 @@ export function neueSuche(p: Profil, name?: string): Suchauftrag {
 
 /** Risikoneigung wirkt auf Tilgung, geforderte Kapitaldienstdeckung (DSCR) und die Energieklasse als K.O.-Kriterium */
 export const RISIKO_VORGABEN: Record<Investorenprofil["risiko"], { tilgung: number; minDscr: number; text: string }> = {
-  vorsichtig: { tilgung: 0.03, minDscr: 1.25, text: "Tilgung 3 %, Miete muss die Rate um 25 % übersteigen (DSCR 1,25), Energieklasse G/H ausgeschlossen" },
+  vorsichtig: { tilgung: 0.03, minDscr: 1.25, text: "Tilgung 3 %, Miete muss die Rate um 25 % übersteigen (DSCR 1,25); beim ersten Anlageprofil zusätzlich Energieklasse G/H als K.O." },
   ausgewogen: { tilgung: 0.02, minDscr: 1.1, text: "Tilgung 2 %, Miete muss die Rate um 10 % übersteigen (DSCR 1,1)" },
   offensiv: { tilgung: 0.015, minDscr: 1.0, text: "Tilgung 1,5 %, Miete muss die Rate decken (DSCR 1,0); mehr Hebel, mehr Schwankung" },
 };

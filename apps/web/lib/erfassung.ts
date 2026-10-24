@@ -65,7 +65,7 @@ export function verneintBei(satz: string, wort: RegExp): boolean {
   const m = new RegExp(wort.source, wort.flags.replace("g", "")).exec(satz); if (!m) return false;
   // davor: bis 25 Zeichen, aber nicht über ein Komma hinweg; danach: bis 15 Zeichen bis zum nächsten Komma
   const vor = satz.slice(Math.max(0, m.index - 25), m.index).split(/[,;:]/).at(-1) ?? "";
-  const nach = satz.slice(m.index + m[0].length, m.index + m[0].length + 15).split(/[,;:]/)[0] ?? "";
+  const nach = satz.slice(m.index + m[0].length, m.index + m[0].length + 15).replace(/^\s*:/, "").split(/[,;:]/)[0] ?? "";
   return VERNEINUNG.test(vor) || VERNEINUNG.test(nach);
 }
 export function merkmal(t: string, wort: RegExp): "ja" | "nein" | null {
@@ -74,7 +74,7 @@ export function merkmal(t: string, wort: RegExp): "ja" | "nein" | null {
 }
 /** Stellplatz verneint: „kein Stellplatz“, „ohne Garage“, „Stellplatz nicht vorhanden“ (nicht: „nicht im Preis enthalten“) */
 const stellplatzVerneint = (x: string) => /\b(kein\w*|ohne)\s+(\w+\s+)?(Tiefgaragen)?(Stellpl|Garage|Parkpl|Carport|Tiefgarage)/i.test(x) || /(Stellpl\w*|Garage|Parkpl\w*|Carport|Tiefgarage)[^.]{0,40}\bnicht\s+(vorhanden|verfügbar|dabei)/i.test(x);
-const KONTAKT = /GmbH|\bAG\b|\bKG\b|Immobilien(?!\w*wohnung)|Makler|Tel\.?|Telefon|Fax|E-?Mail|www\.|https?:|Büro|Ansprechpartner|Impressum/i;
+const KONTAKT = /GmbH|\bAG\b|\bKG\b|Immobilien(?!\w*wohnung)|Makler|\bTel\b\.?|Telefon|\bFax\b|E-?Mail|www\.|https?:|\bBüro\b|Ansprechpartner|Impressum/i;
 
 /** Ohne KI: typische Angaben aus Exposés per Muster erkennen */
 export function musterErkennung(text: string, titel?: string): Erfassung {

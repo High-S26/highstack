@@ -29,6 +29,8 @@ const FELDER: { k: keyof Objekt; label: string; fmt: (v: unknown) => string }[] 
   { k: "leer", label: "Vermietung", fmt: v => v ? "leer / bezugsfrei" : "vermietet" },
   { k: "baujahr", label: "Baujahr", fmt: v => String(v) },
   { k: "energieklasse", label: "Energieklasse", fmt: v => String(v) },
+  { k: "erbbaurecht", label: "Erbbaurecht", fmt: v => v ? "ja (K.O.-Kriterium möglich)" : "nein" },
+  { k: "sonderumlage", label: "Sonderumlage", fmt: v => v ? "ja / offen" : "nein" },
 ];
 const PFLICHT: (keyof Objekt)[] = ["kaufpreis", "wohnflaeche", "ort", "miete", "hausgeldNichtUmlagefaehig"];
 
@@ -132,6 +134,8 @@ export default function NeuesObjekt() {
             {!ob.leer && <div className={`erf ${markiert("miete")}`}><Zahl label="Ist-Kaltmiete" einheit="€/Monat" wert={ob.miete} onChange={v => set({ miete: v })} /></div>}
             <div className={`erf ${markiert("hausgeldNichtUmlagefaehig")}`}><Zahl label={ob.asset === "ETW" ? "Hausgeld, nicht umlagefähig inkl. Rücklage" : "Nicht umlagefähige Kosten"} einheit="€/Monat" wert={ob.hausgeldNichtUmlagefaehig} onChange={v => set({ hausgeldNichtUmlagefaehig: v })} hinweis={ob.hausgeldGesamt ? `aus ${eur(ob.hausgeldGesamt)} Hausgeld laut Exposé` : undefined} /></div>
             <div className={`erf ${markiert("baujahr")}`}><Zahl label="Baujahr" wert={ob.baujahr} onChange={v => set({ baujahr: v })} /></div>
+            <div className={`erf ${markiert("erbbaurecht")}`}><Auswahl label="Erbbaurecht" wert={ob.erbbaurecht ? "j" : "n"} optionen={[["n", "nein"], ["j", "ja"]]} onChange={v => set({ erbbaurecht: v === "j" })} /></div>
+            <div className={`erf ${markiert("sonderumlage")}`}><Auswahl label="Sonderumlage" wert={ob.sonderumlage ? "j" : "n"} optionen={[["n", "keine"], ["j", "ja / offen"]]} onChange={v => set({ sonderumlage: v === "j" })} /></div>
             <div className="full sp-wiz"><span className="lrow"><span className="flabel">Stellplatz</span>{gefunden.includes("stellplaetze") && <span className="tag up">✓ im Text gefunden</span>}</span><Stellplaetze ob={ob} set={set} /></div>
           </div>
           <WizFuss zurueck={() => setSchritt(quelle === "hand" ? 1 : 2)} />

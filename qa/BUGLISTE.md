@@ -117,6 +117,37 @@ INV-035, INV-036, INV-041, INV-042, INV-043, INV-045, TRD-029, TRD-035, TRD-036 
 
 Auf dem Testserver liegen künstliche Konjunkturreihen: `bund10j`, `immo-preis`, S&P 500, VIX 35,8 und ein Termin am 25.10. Auf echten Servern dürfen sie nie landen.
 
+## Nachtest Welle 2 (24.10.2026, Stand 7b30665)
+
+Einzelheiten: [nachtest-welle2-investments.md](nachtest-welle2-investments.md), [nachtest-welle2-trading.md](nachtest-welle2-trading.md).
+
+- **Investments:** 13 von 17 Befunden sind behoben, 4 teilweise.
+- **Trading:** 7 von 12 sind behoben, 5 teilweise.
+- **Neu:** 14 Befunde, darunter ein Blocker, den die neue Serverprüfung eingeführt hatte: INV-047, die Rücklage sperrte jede Änderung am Objekt.
+- **Nachgerechnet:** Steuern mit Küche, Zielpreise, Treffsicherheit sowie 22 Simulationstage aus dem Protokoll. Alle stimmen.
+
+### Danach behoben (117dc15 und folgende)
+
+| ID | Befund | Grad |
+|---|---|---|
+| ✅ INV-047 | Serverprüfung sperrte das Objekt (Rücklage in € als 0–1 geprüft). Jetzt werden ungültige Felder verworfen und gemeldet, der Rest wird gespeichert, und die Seite zeigt den Grund. | Blocker |
+| ✅ INV-049 | Falsche Datentypen per API legten Seiten lahm. Jetzt werden Typen geprüft; dazu Grundprüfung für Szenario und Profil. | Mittel |
+| ✅ INV-048 | Zu große Eingaben wurden auf den letzten Zwischenstand gekürzt. Jetzt gilt der Wert von vor der Eingabe, mit Meldung. | Mittel |
+| ✅ INV-046 | „Stellplatz“, „Hotel“ und ähnliche Wörter galten als Makler-Kontaktzeile | Mittel |
+| ✅ INV-050 | Erbbaurecht und Sonderumlage werden angezeigt und sind vor dem Anlegen korrigierbar | Mittel |
+| ✅ INV-003 | „Erbbaurecht: nein“ und „Sonderumlage: keine“ | Rest |
+| ✅ INV-037 | Leerzeichen als Trenner; „1.085“ wird über die Grenzen entschieden, sonst nachgefragt | Rest |
+| ✅ INV-001 | Profiltext verspricht kein Energieklasse-K.O. mehr, das nicht gesetzt wird | Rest |
+| ✅ TRD-020 | Stopps in der Simulation zum Stopp-Kurs | Rest |
+| ✅ TRD-026 | Stückzahl beim Bestätigen zum aktuellen Kurs | Rest |
+| ✅ TRD-037 bis 041, TRD-016, 028, 032 | siehe Commit 117dc15 | Mittel/Niedrig |
+
+**Noch offen:**
+- **TRD-015:** Bei „Eigene App“ werden USD-Signalkurse mit dem EUR-Einstand verrechnet. Dafür fehlt die Wechselkurs-Umrechnung.
+- **INV-015:** Die Forecast-Tabelle ist auf dem Handy zu breit.
+- **Niedrig und Hinweise** aus beiden Nachtests (Welle 3).
+- **Testdaten:** Vor echtem Betrieb Testreihen, Rückblick und Gewichte im Admin zurücksetzen.
+
 ## Konjunktur & Prognosen: Prüfumfang für künftige Läufe
 
 Der Forecast-Teil (Version 0.13) war nicht Gegenstand dieses Laufs. Im nächsten Lauf prüfen:

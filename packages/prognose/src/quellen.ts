@@ -41,7 +41,8 @@ export interface Importfehler { zeile: number; inhalt: string; text: string }
 export function leseTabelle(text: string, opts: { grenzen?: [number, number]; heute?: string } = {}): { punkte: Punkt[]; fehler: Importfehler[] } {
   const heute = opts.heute ?? new Date().toISOString().slice(0, 10);
   const zeilen = text.split(/\r?\n/); const fehler: Importfehler[] = []; const out: Punkt[] = [];
-  const trennerVon = (z: string) => (z.includes(";") ? ";" : z.includes("\t") ? "\t" : ",");
+  // Trenner je Zeile: Semikolon, Tabulator, Leerzeichen zwischen Datum und Wert, sonst Komma
+  const trennerVon = (z: string): string | RegExp => (z.includes(";") ? ";" : z.includes("\t") ? "\t" : /^\S+\s+\S+$/.test(z.trim()) ? /\s+/ : ",");
   const ersteZeile = zeilen.findIndex(z => z.trim());
   const kopf = ersteZeile >= 0 ? zeilen[ersteZeile]!.split(trennerVon(zeilen[ersteZeile]!)).map(x => x.replace(/"/g, "").trim()) : [];
   const iT = kopf.indexOf("TIME_PERIOD"), iV = kopf.indexOf("OBS_VALUE"); const ezb = iT >= 0 && iV >= 0;
@@ -57,7 +58,14 @@ export function leseTabelle(text: string, opts: { grenzen?: [number, number]; he
     if (!ezb && tr === "," && f.length === 3 && /^-?\d+$/.test(f[1]!) && /^\d+$/.test(f[2]!)) return fail("Mehrdeutig: Komma als Trennzeichen und als Dezimalzeichen. Bitte Semikolon oder Tabulator als Trenner verwenden.");
     const wRoh = ezb ? f[iV] : f[1];
     if (wRoh === "." || wRoh === "" || wRoh == null) return; // fehlender Wert (FRED schreibt „.“): still überspringen
-    const w = zahl(wRoh); if (w == null) return fail(`„${wRoh}“ ist keine Zahl.`);
+    // „1.085“ kann 1085 oder 1,085 heißen: mit Grenzen entscheiden, sonst nachfragen
+    let w: number | null;
+    if (/^-?\d{1,3}\.\d{3}$/.test(wRoh.trim())) {
+      const tausend = Number(wRoh.replace(".", "")), dezimal = Number(wRoh); const g = opts.grenzen;
+      const inT = !!g && tausend >= g[0] && tausend <= g[1], inD = !!g && dezimal >= g[0] && dezimal <= g[1];
+      if (inT !== inD) w = inT ? tausend : dezimal; else return fail(`„${wRoh}“ ist mehrdeutig (${tausend.toLocaleString("de-DE")} oder ${dezimal.toLocaleString("de-DE")}). Bitte mit Komma als Dezimalzeichen oder ohne Tausenderpunkt schreiben.`);
+    } else w = zahl(wRoh);
+    if (w == null) return fail(`„${wRoh}“ ist keine Zahl.`);
     if (opts.grenzen && (w < opts.grenzen[0] || w > opts.grenzen[1])) return fail(`Wert ${w.toLocaleString("de-DE")} liegt außerhalb des plausiblen Bereichs (${opts.grenzen[0].toLocaleString("de-DE")} bis ${opts.grenzen[1].toLocaleString("de-DE")}).`);
     out.push({ d, w });
   });
@@ -71,7 +79,7 @@ function gueltig(j: number, m: number, t: number) { const x = new Date(Date.UTC(
 const iso = (j: number, m: number, t: number) => `${j}-${String(m).padStart(2, "0")}-${String(t).padStart(2, "0")}`;
 function datumFormatOk(s: string) { return /^\d{4}-\d{1,2}(-\d{1,2})?$|^\d{1,2}\.\d{1,2}\.\d{4}$/.test(s); }
 function datum(s: string): string | null {
-  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ].*)?$/); if (m) { const [j, mo, t] = [Number(m[1]), Number(m[2]), Number(m[3])]; return gueltig(j, mo, t) ? iso(j, mo, t) : null; }
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:T[\d:.Z+-]*)?$/); if (m) { const [j, mo, t] = [Number(m[1]), Number(m[2]), Number(m[3])]; return gueltig(j, mo, t) ? iso(j, mo, t) : null; }
   m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/); if (m) { const [t, mo, j] = [Number(m[1]), Number(m[2]), Number(m[3])]; return gueltig(j, mo, t) ? iso(j, mo, t) : null; }
   m = s.match(/^(\d{4})-(\d{1,2})$/); if (m) { const [j, mo] = [Number(m[1]), Number(m[2])]; return mo >= 1 && mo <= 12 ? iso(j, mo, 1) : null; }
   m = s.match(/^(\d{4})-?Q([1-4])$/i); if (m) return iso(Number(m[1]), (Number(m[2]) - 1) * 3 + 1, 1);
