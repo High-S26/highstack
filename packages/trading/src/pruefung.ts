@@ -22,6 +22,7 @@ export const GRENZEN = {
 const SYMBOL = /^[A-Z][A-Z0-9.]{0,9}$/;
 const BROKER: BrokerArt[] = ["simulation", "alpaca-paper", "alpaca-live", "manuell", "ibkr"];
 
+const NAMEN: Record<string, string> = { startkapital: "Startkapital", tagesziel: "Tagesziel", tagesverlust: "Verlustlimit", risikoProTrade: "Risiko je Trade", maxPosition: "Höchstens je Position", maxTradesTag: "Trades je Tag", maxPositionen: "Positionen gleichzeitig", schlussVorEnde: "Schluss vor Handelsende" };
 export interface Pruefergebnis { e: AgentEinstellungen; fehler: { feld: string; text: string }[] }
 
 const eur = (v: number) => `${v.toLocaleString("de-DE")} €`;
@@ -34,7 +35,7 @@ export function pruefeEinstellungen(roh: unknown, opts: { basis?: AgentEinstellu
   const f = (feld: string, text: string) => fehler.push({ feld, text });
   const zahl = (k: string, ganz = false): number => {
     const v = k in r ? r[k] : (basis as unknown as Record<string, unknown>)[k];
-    if (typeof v !== "number" || !Number.isFinite(v)) { f(k, "Bitte eine Zahl angeben."); return NaN; }
+    if (typeof v !== "number" || !Number.isFinite(v)) { f(k, `${NAMEN[k] ?? k}: bitte eine Zahl angeben.`); return NaN; }
     return ganz ? Math.round(v) : v;
   };
   const im = (k: keyof typeof GRENZEN, v: number, name: string, fmt: (x: number) => string = x => x.toLocaleString("de-DE")) => {
@@ -65,6 +66,7 @@ export function pruefeEinstellungen(roh: unknown, opts: { basis?: AgentEinstellu
     werte[k] = v; im(k, v, name);
   }
 
+  if ("symbole" in r && !Array.isArray(r.symbole)) f("symbole", "Werte bitte als Liste angeben, z. B. [\"AAPL\", \"MSFT\"].");
   const rohSymbole = Array.isArray(r.symbole) ? r.symbole : basis.symbole;
   const symbole = [...new Set(rohSymbole.filter((x): x is string => typeof x === "string").map(x => x.trim().toUpperCase()).filter(Boolean))];
   const falsch = symbole.filter(x => !SYMBOL.test(x));

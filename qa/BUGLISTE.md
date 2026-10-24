@@ -49,23 +49,23 @@
 
 | ID | Befund | Grad |
 |---|---|---|
-| INV-020 | Haltedauer 0 legt den ganzen Bereich Investments lahm | Blocker |
-| INV-003 | Auslesen kehrt Verneinungen um (kein Erbbaurecht, unvermietet, kein Stellplatz) | Hoch |
-| INV-004 | Stellplatz bekommt fremde Beträge (Kaufpreis, Hausgeld) | Hoch |
-| INV-007 | Zielpreise „zum Angebot“ ohne Stellplatz, Playbook mit | Hoch |
-| INV-019 | Steuern ignorieren eigene Positionen | Hoch |
-| INV-018 | Ermitteln ohne KI: falsche Stadt durch Teilwort, Quelle „Modellwissen“ | Hoch |
-| TRD-014 | Cockpit rundet Kurse, Stopp, Ziel auf ganze Euro | Hoch |
+| ✅ INV-020 | Haltedauer 0 legt den ganzen Bereich Investments lahm | Blocker |
+| ✅ INV-003 | Auslesen kehrt Verneinungen um (kein Erbbaurecht, unvermietet, kein Stellplatz) | Hoch |
+| ✅ INV-004 | Stellplatz bekommt fremde Beträge (Kaufpreis, Hausgeld) | Hoch |
+| ✅ INV-007 | Zielpreise „zum Angebot“ ohne Stellplatz, Playbook mit | Hoch |
+| ✅ INV-019 | Steuern ignorieren eigene Positionen | Hoch |
+| ✅ INV-018 | Ermitteln ohne KI: falsche Stadt durch Teilwort, Quelle „Modellwissen“ | Hoch |
+| ✅ TRD-014 | Cockpit rundet Kurse, Stopp, Ziel auf ganze Euro | Hoch |
 | ✅ TRD-004 | Dauerlauf bei Broker-Ausfall alle 5 s, Protokoll wächst unbegrenzt | Hoch |
-| TRD-020 | Verlustlimit und Stopps nur am Minutenschluss geprüft | Mittel |
-| TRD-016 | Stückzahl „70.895“ liest sich als siebzigtausend (Bruchstücke im de-Format) | Mittel |
-| TRD-015 | Währung durchgängig €, obwohl US-Werte in USD | Mittel |
-| TRD-019 | Protokoll reicht zum Nachrechnen nicht | Mittel |
-| INV-021 | API speichert unsinnige Objektdaten, Bewertung trotzdem „Watch 64“ | Mittel |
-| INV-026 | Portfolio: Kaufpreise ohne Stellplätze, EK im Bestand falsch benannt | Mittel |
-| INV-001 | Risikoneigung ändert an den Rechnungen nichts | Mittel |
-| INV-002 | Zahlenfelder nehmen negative und absurde Werte an | Mittel |
-| INV-005, INV-006 | Kaufpreis-Schreibweisen nicht erkannt; Ort aus der Makleradresse | Mittel |
+| ✅ TRD-020 | Verlustlimit und Stopps nur am Minutenschluss geprüft | Mittel |
+| ✅ TRD-016 | Stückzahl „70.895“ liest sich als siebzigtausend (Bruchstücke im de-Format) | Mittel |
+| ✅ TRD-015 | Währung durchgängig €, obwohl US-Werte in USD | Mittel |
+| ✅ TRD-019 | Protokoll reicht zum Nachrechnen nicht | Mittel |
+| ✅ INV-021 | API speichert unsinnige Objektdaten, Bewertung trotzdem „Watch 64“ | Mittel |
+| ✅ INV-026 | Portfolio: Kaufpreise ohne Stellplätze, EK im Bestand falsch benannt | Mittel |
+| ✅ INV-001 | Risikoneigung ändert an den Rechnungen nichts | Mittel |
+| ✅ INV-002 | Zahlenfelder nehmen negative und absurde Werte an | Mittel |
+| ✅ INV-005, INV-006 | Kaufpreis-Schreibweisen nicht erkannt; Ort aus der Makleradresse | Mittel |
 
 **Ansatz:**
 - **Grenzen der Zahlenfelder:** Eine Feldbeschreibung mit Grenzen (min/max) gilt für die Oberfläche und für die API.
@@ -97,17 +97,17 @@ Neue Befunde: 21. Davon sind 4 hoch, 8 mittel, 8 niedrig, 1 ist ein Hinweis. Der
 
 | ID | Befund | Grad |
 |---|---|---|
-| INV-037 | Konjunktur-Import übernimmt falsche Werte ohne Warnung (Komma-Trenner, ungültige Daten), Folge: Anschlusszins 71,40 % | Hoch |
-| INV-038 | Veraltete Bundrendite gilt als „aktuelle Marktdaten“ | Hoch |
-| TRD-030 | Marktumfeld verkleinert Positionen nicht, wenn die Höchstposition begrenzt; das Cockpit verspricht trotzdem 38 % | Hoch |
-| TRD-026 | Vorschlag lässt sich bestätigen, obwohl der Kurs schon unter dem Stopp liegt; offene Vorschläge blockieren das Tageslimit (hochgestuft) | Hoch |
-| TRD-034 | Veraltete Marktdaten steuern die Positionsgröße, ohne Altersgrenze und ohne Datum | Mittel |
-| TRD-031 | Neuer Termin wirkt erst nach bis zu 10 Minuten | Mittel |
-| INV-039 | Rückblick wird nicht gespeichert: „Überprüfung“ und Gewichte bleiben leer | Mittel |
-| INV-040 | „Lauf jetzt“ legt nach neuen Daten am selben Tag keine Prognosen an | Mittel |
-| INV-034 | Upload mehrerer Dateien: eine ungültige verwirft die gültigen, verwaiste Dateien bleiben liegen | Mittel |
-| TRD-028 | „Bitte eine Zahl angeben.“ nennt das Feld nicht; `symbole` als Text wird still ersetzt | Mittel |
-| TRD-032, TRD-033 | Marktumfeld im Cockpit: Fehler beim Umschalten unbemerkt, Anzeige wird nicht aktualisiert | Mittel |
+| ✅ INV-037 | Konjunktur-Import übernimmt falsche Werte ohne Warnung (Komma-Trenner, ungültige Daten), Folge: Anschlusszins 71,40 % | Hoch |
+| ✅ INV-038 | Veraltete Bundrendite gilt als „aktuelle Marktdaten“ | Hoch |
+| ✅ TRD-030 | Marktumfeld verkleinert Positionen nicht, wenn die Höchstposition begrenzt; das Cockpit verspricht trotzdem 38 % | Hoch |
+| ✅ TRD-026 | Vorschlag lässt sich bestätigen, obwohl der Kurs schon unter dem Stopp liegt; offene Vorschläge blockieren das Tageslimit (hochgestuft) | Hoch |
+| ✅ TRD-034 | Veraltete Marktdaten steuern die Positionsgröße, ohne Altersgrenze und ohne Datum | Mittel |
+| ✅ TRD-031 | Neuer Termin wirkt erst nach bis zu 10 Minuten | Mittel |
+| ✅ INV-039 | Rückblick wird nicht gespeichert: „Überprüfung“ und Gewichte bleiben leer | Mittel |
+| ✅ INV-040 | „Lauf jetzt“ legt nach neuen Daten am selben Tag keine Prognosen an | Mittel |
+| ✅ INV-034 | Upload mehrerer Dateien: eine ungültige verwirft die gültigen, verwaiste Dateien bleiben liegen | Mittel |
+| ✅ TRD-028 | „Bitte eine Zahl angeben.“ nennt das Feld nicht; `symbole` als Text wird still ersetzt | Mittel |
+| ✅ TRD-032, TRD-033 | Marktumfeld im Cockpit: Fehler beim Umschalten unbemerkt, Anzeige wird nicht aktualisiert | Mittel |
 
 ### Kommt in Welle 3
 

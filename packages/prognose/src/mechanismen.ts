@@ -1,4 +1,4 @@
-import { bis, gleitend, lies, plusTage, rsi, tageZwischen, wertAm } from "./indikatoren";
+import { bis, gleitend, lies, plusTage, rsi, tageZwischen } from "./indikatoren";
 import type { Lagebild, Mechanismus, Punkt, Wirkung, Ziel } from "./types";
 
 /**
@@ -84,7 +84,7 @@ export const MECHANISMEN: Mechanismus[] = [
     id: "sahm", name: "Sahm-Regel (Arbeitsmarkt)", gewicht: 0.8, braucht: ["arbeitslos-us"],
     theorie: "Steigt der 3-Monats-Schnitt der Arbeitslosenquote um 0,5 Punkte über sein Tief der letzten 12 Monate, hat die Rezession historisch begonnen (Claudia Sahm).",
     wirkung(l) {
-      const p = bis(l.reihen["arbeitslos-us"], l.stichtag, 7); if (p.length < 15) return [];
+      const p = bis(l.reihen["arbeitslos-us"], l.stichtag, 7); if (p.length < 15 || lies(l.reihen, "arbeitslos-us", l.stichtag) == null) return [];
       const schnitt = (i: number) => (p[i]!.w + p[i - 1]!.w + p[i - 2]!.w) / 3;
       const n = p.length - 1; const jetzt = schnitt(n); let tief = Infinity;
       for (let i = n - 12; i < n; i++) if (i >= 2) tief = Math.min(tief, schnitt(i));
@@ -166,4 +166,4 @@ export const MECHANISMEN: Mechanismus[] = [
 
 export const mechanismus = (id: string) => MECHANISMEN.find(m => m.id === id);
 /** Welche Ketten mangels Daten nicht rechnen können */
-export const fehlendeDaten = (l: Lagebild) => MECHANISMEN.filter(m => m.braucht.length && m.braucht.every(id => wertAm(l.reihen[id], l.stichtag) == null)).map(m => ({ mechanismus: m.id, name: m.name, braucht: m.braucht }));
+export const fehlendeDaten = (l: Lagebild) => MECHANISMEN.filter(m => m.braucht.length && m.braucht.every(id => lies(l.reihen, id, l.stichtag) == null)).map(m => ({ mechanismus: m.id, name: m.name, braucht: m.braucht }));

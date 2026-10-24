@@ -1,4 +1,4 @@
-import { bis, gleitend, lies, plusTage, schwankungJeTag, wertAm } from "./indikatoren";
+import { bis, gleitend, lies, plusTage, punktAktuell, schwankungJeTag, tageZwischen } from "./indikatoren";
 import { fehlendeDaten, MECHANISMEN } from "./mechanismen";
 import type { Lagebild, Prognose, Regime, Risikolage, Wirkung, Ziel } from "./types";
 
@@ -55,7 +55,9 @@ export function prognosen(l: Lagebild, gewichte: Record<string, number> = {}, id
   for (const z of Object.keys(HORIZONTE) as Ziel[]) if (z !== "einzelwert") gruppen.set(z, { ziel: z });
   for (const x of alle) if (x.ziel === "einzelwert" && x.symbol) gruppen.set(`einzelwert:${x.symbol}`, { ziel: "einzelwert", symbol: x.symbol });
   for (const { ziel, symbol } of gruppen.values()) {
-    const reihe = reiheFuer(ziel, symbol); const p = bis(l.reihen[reihe], l.stichtag); const ausgang = wertAm(l.reihen[reihe], l.stichtag);
+    const reihe = reiheFuer(ziel, symbol); const p = bis(l.reihen[reihe], l.stichtag);
+    // Ausgangswert muss aktuell sein; Kursreihen von Einzelwerten höchstens 10 Tage alt
+    const ausgang = reihe.startsWith("kurs:") ? (p.at(-1) && tageZwischen(p.at(-1)!.d, l.stichtag) <= 10 ? p.at(-1)!.w : null) : lies(l.reihen, reihe, l.stichtag);
     if (ausgang == null) continue;
     const eigene = alle.filter(x => x.ziel === ziel && x.symbol === symbol);
     const sigma = schwankungJeTag(p);
@@ -90,15 +92,17 @@ export function regime(l: Lagebild): { regime: Regime; text: string; wachstum: n
 /** Risikolage für die Positionsgröße im Trading */
 export function risikolage(l: Lagebild): { lage: Risikolage; faktor: number; gruende: string[] } {
   let s = 0; const g: string[] = [];
-  const p = bis(l.reihen["sp500"], l.stichtag); const ma = gleitend(p, 200); const k = p.at(-1)?.w;
-  if (ma && k) { if (k > ma) { s += 1; g.push("S&P 500 über der 200-Tage-Linie"); } else { s -= 1; g.push("S&P 500 unter der 200-Tage-Linie"); } }
-  const v = lies(l.reihen, "vix", l.stichtag);
-  if (v != null) { if (v < 20) { s += 1; g.push(`VIX ruhig (${v.toFixed(1)})`); } else if (v > 30) { s -= 2; g.push(`VIX hoch (${v.toFixed(1)})`); } else { s -= 1; g.push(`VIX erhöht (${v.toFixed(1)})`); } }
+  const de = (v: number, n = 1) => v.toLocaleString("de-DE", { minimumFractionDigits: n, maximumFractionDigits: n });
+  const stand = (d: string) => `Stand ${d.slice(8, 10)}.${d.slice(5, 7)}.`;
+  const p = bis(l.reihen["sp500"], l.stichtag); const ma = gleitend(p, 200); const letzt = p.at(-1);
+  if (ma && letzt && tageZwischen(letzt.d, l.stichtag) <= 10) { if (letzt.w > ma) { s += 1; g.push(`S&P 500 über der 200-Tage-Linie (${stand(letzt.d)})`); } else { s -= 1; g.push(`S&P 500 unter der 200-Tage-Linie (${stand(letzt.d)})`); } }
+  const vp = punktAktuell(l.reihen, "vix", l.stichtag);
+  if (vp) { const v = vp.w; const t = `${de(v)}, ${stand(vp.d)}`; if (v < 20) { s += 1; g.push(`VIX ruhig (${t})`); } else if (v > 30) { s -= 2; g.push(`VIX hoch (${t})`); } else { s -= 1; g.push(`VIX erhöht (${t})`); } }
   const h = lies(l.reihen, "hy-spread", l.stichtag), h0 = lies(l.reihen, "hy-spread", l.stichtag, 90);
   if (h != null && h0 != null) { if (h - h0 > 0.75) { s -= 1; g.push("Kreditaufschläge steigen"); } else if (h - h0 < -0.5) { s += 0.5; g.push("Kreditaufschläge sinken"); } }
   const wichtig = l.ereignisse.filter(e => e.wichtig && !e.symbol && e.datum >= l.stichtag && e.datum <= plusTage(l.stichtag, 1));
   if (wichtig.length) g.push(`Termin: ${wichtig.map(e => e.titel).join(", ")}`);
-  if (!g.length) return { lage: "neutral", faktor: 1, gruende: ["Keine Marktdaten hinterlegt; Positionsgröße unverändert"] };
+  if (!g.length) return { lage: "neutral", faktor: 1, gruende: ["Keine aktuellen Marktdaten; Positionsgröße unverändert"] };
   const lage: Risikolage = s >= 1 ? "risk-on" : s <= -2 ? "risk-off" : "neutral";
   const faktor = (lage === "risk-on" ? 1 : lage === "neutral" ? 0.75 : 0.5) * (wichtig.length ? 0.5 : 1);
   return { lage, faktor, gruende: g };

@@ -26,3 +26,41 @@ describe("Hausgeld aus Exposé", () => {
     expect(hg("Hausgeld auf Anfrage. Baujahr 1998, Miete 820 €").hausgeldGesamt).toBeUndefined();
   });
 });
+
+describe("Bugfix Welle 2: Auslesen", () => {
+  it("beachtet Verneinungen (INV-003)", () => {
+    const a = musterErkennung("Schöne Wohnung in 50667 Köln. Kaufpreis: 199.000 €. Kein Erbbaurecht. Eine Sonderumlage ist nicht geplant.").felder;
+    expect(a.erbbaurecht).toBe(false); expect(a.sonderumlage).toBe(false);
+    expect(musterErkennung("Die Wohnung ist unvermietet. Kaufpreis: 199.000 €").felder.leer).toBe(true);
+    expect(musterErkennung("Die Wohnung ist vermietet, die Miete ist nicht indexiert. Kaufpreis: 199.000 €").felder.leer).toBe(false);
+    expect(musterErkennung("Ein Stellplatz ist nicht vorhanden. Kaufpreis: 199.000 €").felder.stellplaetze).toBeUndefined();
+    expect(musterErkennung("Das Objekt liegt im Erbbaurecht. Kaufpreis: 199.000 €").felder.erbbaurecht).toBe(true);
+  });
+  it("nimmt für den Stellplatz keine fremden Beträge (INV-004)", () => {
+    const a = musterErkennung("QA Apartment mit Stellplatz in Köln Sülz\nKaufpreis: 129.000 €\nWohnfläche: 34 m²\nKaltmiete: 520 €").felder;
+    expect(a.stellplaetze?.[0]?.kaufpreis ?? null).toBeNull();
+    const b = musterErkennung("Wohnung in 50733 Köln. Kaufpreis: 210.000 €. Stellplatz: Außenstellplatz inklusive. Hausgeld monatlich 260 €, davon nicht umlagefähig 95 €.").felder;
+    expect(b.stellplaetze?.[0]?.miete ?? null).toBeNull(); expect(b.stellplaetze?.[0]?.preis).toBe("inklusive");
+    const c = musterErkennung("Wohnung mit Tiefgarage in 40211 Düsseldorf\nKaufpreis: 240.000 €\nDer Tiefgaragenstellplatz kann zzgl. 18.000 € erworben werden.").felder;
+    expect(c.stellplaetze?.[0]).toMatchObject({ art: "tiefgarage", preis: "separat", kaufpreis: 18000 });
+    const d = musterErkennung("Wohnung in 40211 Düsseldorf. Kaufpreis 240.000 €. Der Stellplatz ist nicht im Kaufpreis enthalten und kostet 15.000 €.").felder;
+    expect(d.stellplaetze?.[0]?.kaufpreis).toBe(15000);
+  });
+  it("erkennt übliche Kaufpreis-Schreibweisen (INV-005)", () => {
+    expect(musterErkennung("Kaufpreis: 289.000,- €").felder.kaufpreis).toBe(289000);
+    expect(musterErkennung("Kaufpreis: EUR 289.000").felder.kaufpreis).toBe(289000);
+  });
+  it("nimmt Ort und Titel nicht aus dem Briefkopf des Maklers (INV-006)", () => {
+    const a = musterErkennung("Immobilien Muster GmbH, Königsallee 1, 40212 Düsseldorf\nQA Wohnung in 50667 Köln Altstadt\nKaufpreis: 250.000 €").felder;
+    expect(a.ort).toBe("Köln"); expect(a.titel).toBe("QA Wohnung in 50667 Köln Altstadt");
+  });
+});
+
+describe("Grobe Orientierung ohne KI (INV-018)", () => {
+  it("erkennt die Stadt nur aus dem Ort und als ganzes Wort", async () => {
+    const { orientierung } = await import("../lib/marktwerte");
+    expect(orientierung({ ort: "Köln", titel: "Wohnung Hamburger Straße", wohnflaeche: null, baujahr: null, energieklasse: null }).grundlage).toContain("Köln");
+    expect(orientierung({ ort: "Kassel", titel: "Für Interessenten: Wohnung", wohnflaeche: null, baujahr: null, energieklasse: null }).grundlage).toContain("Keine Stadt");
+    expect(orientierung({ ort: "Köln", titel: "x", wohnflaeche: null, baujahr: null, energieklasse: null }).marktmieteQm.von).toBe(Math.round(8.5 * 10) / 10);
+  });
+});

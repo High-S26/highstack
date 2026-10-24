@@ -164,6 +164,8 @@ export function positionImJahr(x: Position, t: number, s: Pick<Szenario, "mietst
 /** Jahresplan über die Haltedauer mit Anschlussfinanzierung nach der Zinsbindung. */
 export function simuliere(p: Params, o: Objekt, mieteMonat: number | null, s: Szenario) {
   if (!o.kaufpreis || !fin(mieteMonat)) return null;
+  // Haltedauer mindestens 1 Jahr, höchstens 60 (ungültige Profilwerte dürfen die Rechnung nicht abbrechen)
+  s = { ...s, haltedauer: Math.min(60, Math.max(1, Math.round(fin(s.haltedauer) ? s.haltedauer : 10))) };
   const kp = o.kaufpreis * (1 + s.kaufpreisAenderung);
   const nk = nebenkostenSatz(p);
   const invest = kp * (1 + nk);
@@ -229,7 +231,10 @@ export function steuern(sim: Simulation, p: Params, o: Objekt) {
   const basis = sim.gesamtinvestition * o.gebaeudeanteil;
   const KST = 0.15825, ABG = 0.26375;
   let afaSumme = 0;
-  const jahre = sim.jahre.map(j => { const afa = Math.max(0, Math.min(basis * satz, basis - afaSumme)); afaSumme += afa; return { ...j, afa, einkuenfte: j.miete - j.kosten - j.zins - afa }; });
+  // Ausgaben beim Kauf (z. B. Küche, Ausstattung) werden vereinfacht über 10 Jahre abgeschrieben; laufende Positionen
+  // (Zusatzmieten, Instandhaltung) sind Einnahmen bzw. Werbungskosten im jeweiligen Jahr
+  const kaufAusgabe = Math.max(0, -sim.beimKauf); const kaufAfa = kaufAusgabe / 10;
+  const jahre = sim.jahre.map(j => { const afa = Math.max(0, Math.min(basis * satz, basis - afaSumme)); afaSumme += afa; const afaK = j.jahr <= 10 ? kaufAfa : 0; return { ...j, afa: afa + afaK, einkuenfte: j.miete - j.kosten + j.positionen - j.zins - afa - afaK }; });
   const ende = jahre[jahre.length - 1]!;
   const gewinn = ende.wert - (sim.gesamtinvestition - afaSumme);
   const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
@@ -237,11 +242,11 @@ export function steuern(sim: Simulation, p: Params, o: Objekt) {
   const stP = jahre.map(j => j.einkuenfte * p.grenzsteuersatz);
   const verkaufP = H < 10 ? Math.max(0, gewinn) * p.grenzsteuersatz : 0;
   const cfP = jahre.map((j, i) => j.cashflow - stP[i]!);
-  const flowsP = [-sim.ekEinsatz, ...cfP]; flowsP[flowsP.length - 1]! += ende.wert - ende.restschuld - verkaufP;
+  const flowsP = [-sim.ekEinsatz + sim.beimKauf, ...cfP]; flowsP[flowsP.length - 1]! += ende.wert - ende.restschuld - verkaufP;
   let vortrag = 0; const stG: number[] = [], cfG: number[] = [];
   jahre.forEach(j => { const e = j.einkuenfte - p.gmbhKostenJahr; let st = 0; if (e < 0) vortrag += -e; else { const v = Math.min(vortrag, e); vortrag -= v; st = (e - v) * KST; } stG.push(st); cfG.push(j.cashflow - p.gmbhKostenJahr - st); });
   const verkaufG = Math.max(0, gewinn - vortrag) * KST;
-  const flowsG = [-(sim.ekEinsatz + p.gmbhGruendung), ...cfG]; flowsG[flowsG.length - 1]! += ende.wert - ende.restschuld - verkaufG;
+  const flowsG = [-(sim.ekEinsatz + p.gmbhGruendung) + sim.beimKauf, ...cfG]; flowsG[flowsG.length - 1]! += ende.wert - ende.restschuld - verkaufG;
   const ausschuettung = Math.max(0, sum(flowsG)) * ABG;
   const flowsGA = flowsG.slice(); flowsGA[flowsGA.length - 1]! -= ausschuettung;
   const res = (st: number[], verkauf: number, cf: number[], flows: number[], aus: number) => ({ steuernLaufend: sum(st), steuerVerkauf: verkauf, steuerAusschuettung: aus, cashflowJahr1Monat: cf[0]! / 12, cashflowSchnittMonat: sum(cf) / cf.length / 12, zuwachsNachSteuern: sum(flows), irr: irr(flows) });

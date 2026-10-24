@@ -1,4 +1,5 @@
 import type { Broker } from "./broker";
+import { geld, geldPm, kurs as kf, stueck, zahl } from "./format";
 import { STRATEGIEN } from "./strategien";
 import type { Abschluss, AgentEinstellungen, Agentzustand, Gefuehrt, Logeintrag, OrderAntrag, Signal, StrategieTyp, StrategieWerte, Umfeld, Vorschlag } from "./types";
 
@@ -9,7 +10,10 @@ import type { Abschluss, AgentEinstellungen, Agentzustand, Gefuehrt, Logeintrag,
  */
 export const leererZustand = (): Agentzustand => ({ aktiv: false, tag: null, verlauf: [], gefuehrt: [], vorschlaege: [], log: [], letzterTakt: null });
 const vid = () => `v${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
-const eur = (v: number) => `${v.toLocaleString("de-DE", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+/** Einstiegs-Vorschläge gelten so viele Takte (Minuten); danach ist das Signal veraltet */
+export const VORSCHLAG_GUELTIG = 15;
+/** Geschätzte Kosten je Seite (Spanne), für Verlustlimit und Mindest-Chance */
+const SPANNE = 0.0005;
 
 export function protokoll(z: Agentzustand, art: Logeintrag["art"], text: string, zeit: string) {
   z.log.unshift({ zeit, art, text }); if (z.log.length > 400) z.log.length = 400;
@@ -59,7 +63,7 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
   const log = (art: Logeintrag["art"], text: string) => protokoll(z, art, text, zeit);
 
   if (!uhr.offen) {
-    if (z.tag && z.tag.status === "laeuft") { z.tag.ende = (await b.konto()).equity; z.tag.status = "beendet"; log("info", `Handelstag beendet: ${eur(z.tag.ende - z.tag.start)} €`); }
+    if (z.tag && z.tag.status === "laeuft") { z.tag.ende = (await b.konto()).equity; z.tag.status = "beendet"; log("info", `Handelstag beendet: ${geldPm(z.tag.ende - z.tag.start, (await b.konto()).waehrung)}`); }
     erg.status = "Markt geschlossen"; return erg;
   }
   // Neuer Handelstag
@@ -67,34 +71,39 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
     if (z.tag) { if (z.tag.ende == null) z.tag.ende = (await b.konto()).equity; z.verlauf.unshift(z.tag); z.verlauf = z.verlauf.slice(0, 250); }
     const k = await b.konto(); z.tag = { datum: uhr.datum, start: k.equity, ende: null, trades: 0, status: "laeuft" };
     z.vorschlaege.forEach(v => { if (v.status === "offen") v.status = "verfallen"; });
-    log("info", `Neuer Handelstag, Konto ${eur(k.equity)} €`);
+    log("info", `Neuer Handelstag, Konto ${geld(k.equity, k.waehrung)}`);
   }
   const tag = z.tag!;
   const [konto, positionen] = await Promise.all([b.konto(), b.positionen()]);
   // geführte Positionen mit dem Bestand abgleichen
   z.gefuehrt = z.gefuehrt.filter(g => positionen.some(p => p.symbol === g.symbol && Math.sign(p.qty) === (g.richtung === "long" ? 1 : -1)));
+  const w = konto.waehrung;
   const tagesGV = konto.equity - tag.start;
+  // Kosten, um alles zu schließen (Spanne): das Verlustlimit greift schon, bevor diese Kosten es überschreiten würden
+  const schliessKosten = positionen.reduce((a, p) => a + Math.abs(p.wert) * SPANNE, 0);
 
   const allesSchliessen = async (grund: string, status: typeof tag.status) => {
     verfalleEinstiege(z, grund);
     if (positionen.length) {
       if (b.nurZettel) { for (const p of positionen) zettel({ symbol: p.symbol, seite: p.qty > 0 ? "verkauf" : "kauf", qty: Math.abs(p.qty), grund }, "ausstieg"); }
-      else { const r = await b.schliesseAlle(grund); erg.gehandelt += r.length; for (const g of z.gefuehrt) { const x = r.find(q => q.symbol === g.symbol); const k = x?.preis ?? positionen.find(p => p.symbol === g.symbol)?.kurs; if (k != null) abschluss(z, g, k, grund, zeit); } z.gefuehrt = []; }
+      else { const r = await b.schliesseAlle(grund); erg.gehandelt += r.length;
+        for (const x of r) log("order", `${x.seite === "kauf" ? "Kauf" : "Verkauf"} ${stueck(x.qty)} ${x.symbol}${x.preis != null ? ` zu ${kf(x.preis)}` : ` (${x.meldung ?? x.status})`}: ${grund}`);
+        for (const g of z.gefuehrt) { const x = r.find(q => q.symbol === g.symbol); const k = x?.preis ?? positionen.find(p => p.symbol === g.symbol)?.kurs; if (k != null) abschluss(z, g, k, grund, zeit); } z.gefuehrt = []; }
     }
     tag.status = status; log("schluss", `${grund}: alle Positionen ${b.nurZettel ? "zum Schließen vorgelegt" : "geschlossen"}`);
   };
   const zettel = (antrag: OrderAntrag, art: Vorschlag["art"], signal?: Signal) => {
     if (z.vorschlaege.some(v => v.status === "offen" && v.antrag.symbol === antrag.symbol && v.art === art)) return;
     z.vorschlaege.unshift({ id: vid(), zeit, antrag, signal, art, status: "offen" }); z.vorschlaege = z.vorschlaege.slice(0, 100); erg.vorgeschlagen++;
-    log("order", `Vorschlag: ${antrag.seite === "kauf" ? "Kauf" : "Verkauf"} ${antrag.qty} ${antrag.symbol} (${antrag.grund})`);
+    log("order", `Vorschlag: ${antrag.seite === "kauf" ? "Kauf" : "Verkauf"} ${stueck(antrag.qty)} ${antrag.symbol} (${antrag.grund})`);
   };
 
   if (tag.status !== "laeuft") {
     // Positionen, die nach dem Stopp noch offen sind, nicht über Nacht liegen lassen
     if (positionen.length && !b.nurZettel) await allesSchliessen("Nach Handelsstopp noch offene Positionen", tag.status);
     erg.status = { ziel: "Tagesziel erreicht, Pause bis morgen", limit: "Verlustlimit erreicht, Stopp für heute", notaus: "Not-Aus", beendet: "Tag beendet" }[tag.status] ?? tag.status; return erg; }
-  if (tagesGV >= e.tagesziel) { await allesSchliessen(`Tagesziel erreicht (+${eur(tagesGV)} €)`, "ziel"); erg.status = "Tagesziel erreicht"; return erg; }
-  if (tagesGV <= -e.tagesverlust) { await allesSchliessen(`Verlustlimit erreicht (${eur(tagesGV)} €)`, "limit"); erg.status = "Verlustlimit erreicht"; return erg; }
+  if (tagesGV - schliessKosten >= e.tagesziel) { await allesSchliessen(`Tagesziel erreicht (${geldPm(tagesGV, w)})`, "ziel"); erg.status = "Tagesziel erreicht"; return erg; }
+  if (tagesGV - schliessKosten <= -e.tagesverlust) { await allesSchliessen(`Verlustlimit erreicht (${geldPm(tagesGV, w)}, mit Schließkosten ${geldPm(tagesGV - schliessKosten, w)})`, "limit"); erg.status = "Verlustlimit erreicht"; return erg; }
   if (uhr.minutenBisSchluss <= e.schlussVorEnde) { await allesSchliessen(`${e.schlussVorEnde} Minuten vor Handelsschluss`, "beendet"); erg.status = "Schluss für heute"; return erg; }
 
   const bars = await b.bars([...new Set([...e.symbole, ...positionen.map(p => p.symbol)])]);
@@ -104,20 +113,29 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
     const r = await b.sende(antrag);
     if (r.status === "abgelehnt") { log("fehler", `${antrag.symbol}: Order abgelehnt (${r.meldung ?? ""})`); return; }
     erg.gehandelt++; tag.trades += art === "einstieg" ? 1 : 0;
-    log("order", `${antrag.seite === "kauf" ? "Kauf" : "Verkauf"} ${antrag.qty} ${antrag.symbol}${r.preis ? ` zu ${eur(r.preis)}` : ""}: ${antrag.grund}`);
+    log("order", `${antrag.seite === "kauf" ? "Kauf" : "Verkauf"} ${stueck(antrag.qty)} ${antrag.symbol}${r.preis ? ` zu ${kf(r.preis)}` : ""}: ${antrag.grund}`);
     if (art === "einstieg" && signal) z.gefuehrt.push({ symbol: signal.symbol, richtung: signal.richtung, qty: antrag.qty, einstieg: r.preis ?? signal.kurs, stopp: signal.stopp, ziel: signal.ziel, seit: zeit, grund: signal.grund, staerke: signal.staerke, strategie: e.strategie });
     if (art === "ausstieg") { const g = z.gefuehrt.find(x => x.symbol === antrag.symbol); const k = r.preis ?? bars[antrag.symbol]?.at(-1)?.c; if (g && k != null) abschluss(z, g, k, antrag.grund, zeit); z.gefuehrt = z.gefuehrt.filter(x => x.symbol !== antrag.symbol); }
   };
 
   // 1. Geführte Positionen: Stopp und Ziel
   for (const g of [...z.gefuehrt]) {
-    const k = bars[g.symbol]?.at(-1)?.c; if (k == null) continue;
+    const bar = bars[g.symbol]?.at(-1); if (!bar) continue;
     const long = g.richtung === "long";
-    const grund = long ? (k <= g.stopp ? `Stopp ${eur(g.stopp)} erreicht` : k >= g.ziel ? `Ziel ${eur(g.ziel)} erreicht` : null) : (k >= g.stopp ? `Stopp ${eur(g.stopp)} erreicht` : k <= g.ziel ? `Ziel ${eur(g.ziel)} erreicht` : null);
+    // Stopp und Ziel gegen Tief und Hoch der Minute prüfen, nicht nur gegen den Schlusskurs; der Stopp hat Vorrang
+    const grund = long ? (bar.l <= g.stopp ? `Stopp ${kf(g.stopp)} erreicht` : bar.h >= g.ziel ? `Ziel ${kf(g.ziel)} erreicht` : null) : (bar.h >= g.stopp ? `Stopp ${kf(g.stopp)} erreicht` : bar.l <= g.ziel ? `Ziel ${kf(g.ziel)} erreicht` : null);
     if (grund) { log("ausstieg", `${g.symbol}: ${grund}`); await ausfuehren({ symbol: g.symbol, seite: long ? "verkauf" : "kauf", qty: g.qty, grund }, "ausstieg"); }
   }
 
-  // 2. Neue Signale
+  // 2. Veraltete Einstiegs-Vorschläge verfallen lassen: zu alt, oder der Kurs ist schon jenseits von Stopp oder Ziel
+  for (const v of z.vorschlaege) {
+    if (v.status !== "offen" || v.art !== "einstieg") continue;
+    v.alter = (v.alter ?? 0) + 1; const k = bars[v.antrag.symbol]?.at(-1)?.c; const sg = v.signal;
+    const jenseits = sg && k != null && (sg.richtung === "long" ? k <= sg.stopp || k >= sg.ziel : k >= sg.stopp || k <= sg.ziel);
+    if (v.alter > VORSCHLAG_GUELTIG || jenseits) { v.status = "verfallen"; v.meldung = jenseits ? "Kurs schon jenseits von Stopp oder Ziel" : `nach ${VORSCHLAG_GUELTIG} Minuten veraltet`; log("info", `Vorschlag ${v.antrag.symbol} verfallen (${v.meldung})`); }
+  }
+
+  // 3. Neue Signale
   const offen = new Set([...positionen.map(p => p.symbol), ...z.gefuehrt.map(g => g.symbol), ...z.vorschlaege.filter(v => v.status === "offen").map(v => v.antrag.symbol)]);
   const offeneEinstiege = z.vorschlaege.filter(v => v.status === "offen" && v.art === "einstieg").length;
   if (tag.trades + offeneEinstiege >= e.maxTradesTag) { erg.status = "Handelslimit für heute erreicht"; return erg; }
@@ -131,10 +149,15 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
   const frei = Math.max(0, Math.min(e.maxPositionen - offen.size, e.maxTradesTag - tag.trades - offeneEinstiege));
   for (const s of signale.slice(0, frei)) {
     if (tag.trades + z.vorschlaege.filter(v => v.status === "offen" && v.art === "einstieg").length >= e.maxTradesTag) break;
-    log("signal", `${s.symbol} ${s.richtung === "long" ? "Long" : "Short"}: ${s.grund}. Stopp ${eur(s.stopp)}, Ziel ${eur(s.ziel)}`);
+    log("signal", `${s.symbol} ${s.richtung === "long" ? "Long" : "Short"}: ${s.grund}. Stopp ${kf(s.stopp)}, Ziel ${kf(s.ziel)}`);
+    // Mindest-Chance: nach Kosten muss das Ziel mindestens so weit weg sein wie der Stopp
+    const chance = Math.abs(s.ziel - s.kurs) - 2 * SPANNE * s.kurs; const risiko = Math.abs(s.kurs - s.stopp) + 2 * SPANNE * s.kurs;
+    if (chance < risiko) { log("sperre", `${s.symbol}: Chance (${kf(Math.max(0, chance))}) nach Kosten kleiner als Risiko (${kf(risiko)})`); continue; }
     if (s.richtung === "short" && b.art === "manuell") { log("sperre", `${s.symbol}: Short über die App nicht vorgesehen`); continue; }
-    const q = stueckzahl({ ...e, risikoProTrade: e.risikoProTrade * faktor }, s, konto.equity, konto.cash, b.bruchstuecke);
-    if (q <= 0) { log("sperre", `${s.symbol}: Positionsgröße unter einer handelbaren Einheit bei ${eur(e.risikoProTrade * faktor * 100)} % Risiko`); continue; }
+    // Marktumfeld verkleinert die fertige Stückzahl, egal ob Risiko oder Höchstposition sie begrenzt
+    const voll = stueckzahl(e, s, konto.equity, konto.cash, b.bruchstuecke);
+    const q = faktor >= 1 ? voll : b.bruchstuecke && s.richtung === "long" ? Math.floor(voll * faktor * 1000) / 1000 : Math.floor(voll * faktor);
+    if (q <= 0) { log("sperre", `${s.symbol}: Positionsgröße unter einer handelbaren Einheit bei ${zahl(e.risikoProTrade * 100)} % Risiko${faktor < 1 ? ` und ${zahl(faktor * 100, 0)} % Marktumfeld` : ""}`); continue; }
     await ausfuehren({ symbol: s.symbol, seite: s.richtung === "long" ? "kauf" : "verkauf", qty: q, grund: s.grund }, "einstieg", s);
   }
   erg.status = signale.length ? `${signale.length} Signal(e)` : "keine Signale";
@@ -154,11 +177,13 @@ export async function notaus(z: Agentzustand, b: Broker | null, grund = "Not-Aus
   z.aktiv = false; if (z.tag && z.tag.status === "laeuft") z.tag.status = "notaus"; verfalleEinstiege(z, grund);
   const uhr = b ? await b.uhr().catch(() => null) : null; const zeit = uhr?.zeit ?? new Date().toISOString();
   let text: string; let geschlossen = false;
-  if (!b) text = `${grund}: Agent angehalten. Positionen konnten nicht geschlossen werden (${brokerFehler ?? "Broker nicht verfügbar"}); bitte direkt beim Broker prüfen.`;
+  if (!b && !z.gefuehrt.length && !z.tag) text = `${grund}: Agent angehalten. Er hatte noch nicht gehandelt, es sind keine Positionen bekannt.`;
+  else if (!b) text = `${grund}: Agent angehalten. Positionen konnten nicht geschlossen werden (${brokerFehler ?? "Broker nicht verfügbar"}); bitte direkt beim Broker prüfen.`;
   else if (b.nurZettel) text = `${grund}: Agent angehalten; bitte offene Positionen in der App schließen.`;
   else {
     const r = await b.schliesseAlle(grund).catch(err => { protokoll(z, "fehler", `Schließen fehlgeschlagen: ${(err as Error).message}`, zeit); return null; });
     if (r) {
+      for (const x of r) protokoll(z, "order", `${x.seite === "kauf" ? "Kauf" : "Verkauf"} ${stueck(x.qty)} ${x.symbol}${x.preis != null ? ` zu ${kf(x.preis)}` : ` (${x.meldung ?? x.status})`}: ${grund}`, zeit);
       for (const g of z.gefuehrt) { const x = r.find(q => q.symbol === g.symbol); if (x?.preis != null) abschluss(z, g, x.preis, grund, zeit); }
       z.gefuehrt = []; geschlossen = true; text = `${grund}: Agent angehalten, ${r.length ? `${r.length} Position(en) geschlossen` : "keine Positionen offen"}.`;
     } else text = `${grund}: Agent angehalten. Schließen beim Broker fehlgeschlagen; Positionen bitte direkt beim Broker prüfen.`;

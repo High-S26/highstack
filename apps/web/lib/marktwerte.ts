@@ -13,11 +13,15 @@ const STAEDTE: [string, number, number, number][] = [
   ["neuss", 9, 3300, 600], ["hannover", 8.5, 3200, 600], ["bremen", 7.5, 2600, 400], ["dresden", 7, 2700, 450],
   ["leipzig", 6.8, 2600, 400], ["essen", 7.2, 2200, 380], ["dortmund", 7.2, 2300, 350], ["duisburg", 6.5, 1700, 280],
 ];
-const rund = (v: number, s: number) => Math.round(v / s) * s;
+const rund = (v: number, s: number) => Math.round(Math.round(v / s) * s * 100) / 100;
+/** Stadt nur aus dem Ort, als ganzes Wort („Hamburger Straße“ ist nicht Hamburg, „Interessenten“ nicht Essen); längster Treffer gewinnt */
+export function stadtAus(ort: string | undefined) {
+  const o = (ort ?? "").toLowerCase();
+  return STAEDTE.filter(([n]) => new RegExp(`(^|[^a-zäöüß])${n}($|[^a-zäöüß])`).test(o)).sort((a, b) => b[0].length - a[0].length)[0] ?? null;
+}
 
 export function orientierung(o: Pick<Objekt, "ort" | "titel" | "baujahr" | "wohnflaeche" | "energieklasse">): Marktwerte {
-  const text = `${o.ort} ${o.titel}`.toLowerCase();
-  const stadt = STAEDTE.find(([n]) => text.includes(n));
+  const stadt = stadtAus(o.ort);
   let [miete, kauf, boden] = stadt ? stadt.slice(1) as [number, number, number] : [8, 2800, 300];
   const bj = o.baujahr ?? null;
   if (bj && bj >= 2015) { miete *= 1.18; kauf *= 1.25; } else if (bj && bj >= 2000) { miete *= 1.08; kauf *= 1.1; } else if (bj && bj < 1950) { kauf *= 0.95; }
@@ -28,7 +32,7 @@ export function orientierung(o: Pick<Objekt, "ort" | "titel" | "baujahr" | "wohn
   return {
     marktmieteQm: sp(miete, 0.1), vergleichspreisQm: sp(kauf, 50), bodenrichtwert: sp(boden, 10),
     grundlage: stadt ? `Grobe Orientierung für ${stadt[0][0].toUpperCase()}${stadt[0].slice(1)} nach typischem Mietspiegel- und Preisniveau, angepasst an Baujahr, Größe und Energieklasse. Ohne Stadtteil.` : "Keine Stadt erkannt: bundesweiter Durchschnitt, sehr grob.",
-    stand: "Modellwissen, Stand etwa 2025",
+    stand: "Feste Grobtabelle von highstack (ohne KI), Niveau etwa 2025",
     sicherheit: stadt ? "mittel" : "niedrig",
     hinweise: ["Qualifizierten Mietspiegel der Stadt prüfen", "Kaufpreise: Grundstücksmarktbericht des Gutachterausschusses", "Bodenrichtwert: BORIS des Landes"],
   };

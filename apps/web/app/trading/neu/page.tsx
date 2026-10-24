@@ -18,8 +18,9 @@ export default function NeuerAgent() {
   const [vorlage, setVorlage] = useState("vorsichtig"); const [zugang, setZugang] = useState({ keyId: "", secret: "" }); const [legt, setLegt] = useState(false);
   const set = (p: Partial<AgentEinstellungen>) => setE(x => ({ ...x, ...p }));
   const abbrechen = useAbbrechen("/trading", schritt > 1);
-  const nimmVorlage = (id: string, k = e.startkapital) => { setVorlage(id); set(VORLAGEN.find(v => v.id === id)!.werte(k)); };
+  const nimmVorlage = (id: string, k = e.startkapital) => { setVorlage(id); const w = VORLAGEN.find(v => v.id === id)!.werte(k); set({ ...w, ...(e.broker === "manuell" ? { richtung: "long" as const } : {}) }); };
   const h = hinweise(e);
+  const WZ = e.broker.startsWith("alpaca") ? "$" : "€"; const de = (v: number) => v.toLocaleString("de-DE", { maximumFractionDigits: 2 });
   // Gleiche Prüfung wie auf dem Server; Fehler je Schritt zeigen und Weiter sperren
   const pf = pruefeEinstellungen(e).fehler;
   const FELDER2 = ["name", "startkapital", "tagesziel", "tagesverlust", "risikoProTrade", "maxPosition", "maxTradesTag", "maxPositionen", "schlussVorEnde"];
@@ -56,14 +57,14 @@ export default function NeuerAgent() {
           <h1>Ziel und Grenzen</h1>
           <p className="lead">Das Tagesziel ist eine Ausstiegsregel: Ist es erreicht, schließt der Agent alles und hört für heute auf. Ebenso beim Verlustlimit.</p>
           <div className="fields">
-            <Zahl label="Startkapital" einheit="€" min={G.startkapital[0]} max={G.startkapital[1]} wert={e.startkapital} onChange={v => { const k = v ?? 500; set({ startkapital: k }); nimmVorlage(vorlage, k); }} />
+            <Zahl label="Startkapital" einheit={WZ} min={G.startkapital[0]} max={G.startkapital[1]} wert={e.startkapital} onChange={v => { const k = v ?? 500; const w = VORLAGEN.find(x => x.id === vorlage)!.werte(k); set({ startkapital: k, tagesziel: w.tagesziel!, tagesverlust: w.tagesverlust! }); }} />
             <Text label="Name" wert={e.name} onChange={v => set({ name: v })} />
           </div>
           <span className="flabel">Vorschlag übernehmen</span>
           <div className="wiz-wahl" role="radiogroup" aria-label="Vorschläge">{VORLAGEN.map(v => <button key={v.id} type="button" role="radio" aria-checked={vorlage === v.id} className="wiz-karte" onClick={() => nimmVorlage(v.id)}><b>{v.name}</b><span>{v.text}</span></button>)}</div>
           <div className="fields">
-            <Zahl label="Tagesziel (dann Schluss)" einheit="€" min={1} max={e.startkapital} wert={e.tagesziel} onChange={v => set({ tagesziel: v ?? 0 })} />
-            <Zahl label="Verlustlimit je Tag (dann Stopp)" einheit="€" min={1} max={Math.round(e.startkapital / 2)} wert={e.tagesverlust} onChange={v => set({ tagesverlust: v ?? 0 })} />
+            <Zahl label="Tagesziel (dann Schluss)" einheit={WZ} min={1} max={e.startkapital} wert={e.tagesziel} onChange={v => set({ tagesziel: v ?? 0 })} />
+            <Zahl label="Verlustlimit je Tag (dann Stopp)" einheit={WZ} info="Geprüft wird jede Minute einschließlich der Kosten zum Schließen. Bei schnellen Kurssprüngen kann der tatsächliche Verlust das Limit trotzdem überschreiten." min={1} max={Math.round(e.startkapital / 2)} wert={e.tagesverlust} onChange={v => set({ tagesverlust: v ?? 0 })} />
             <Zahl label="Risiko je Trade" prozent min={G.risikoProTrade[0] * 100} max={G.risikoProTrade[1] * 100} wert={e.risikoProTrade} onChange={v => set({ risikoProTrade: v ?? 0.005 })} info="Abstand vom Einstieg bis zum Stopp mal Stückzahl, in Prozent des Kontos. Bestimmt die Positionsgröße." />
             <Zahl label="Höchstens je Position" prozent min={G.maxPosition[0] * 100} max={G.maxPosition[1] * 100} wert={e.maxPosition} onChange={v => set({ maxPosition: v ?? 0.2 })} />
             <Zahl label="Trades je Tag höchstens" min={G.maxTradesTag[0]} max={G.maxTradesTag[1]} wert={e.maxTradesTag} onChange={v => set({ maxTradesTag: v ?? 3 })} />
@@ -99,7 +100,7 @@ export default function NeuerAgent() {
           </div>
           <label className="chk"><input type="checkbox" checked={e.marktlage !== false} onChange={x => set({ marktlage: x.target.checked })} /> Marktumfeld berücksichtigen: bei Stress an den Märkten oder vor wichtigen Terminen (Zinsentscheid, Inflationsdaten) kleinere Positionen</label>
           <div className="tr-zus"><dl>
-            {([["Broker", BROKER_WAHL.find(b => b.art === e.broker)!.titel + (e.brokerApp ? ` (${e.brokerApp})` : "")], ["Startkapital", `${e.startkapital.toLocaleString("de-DE")} €`], ["Tagesziel / Verlustlimit", `+${e.tagesziel} € / −${e.tagesverlust} €`], ["Risiko je Trade", `${(e.risikoProTrade * 100).toLocaleString("de-DE")} %`], ["Strategie", STRATEGIEN[e.strategie].name], ["Werte", e.symbole.join(", ")], ["Richtung", e.richtung === "long" ? "nur Long" : "Long und Short"], ["Schluss", `${e.schlussVorEnde} Min. vor Handelsende alles schließen`]] as const).map(([l, v]) => <div key={l}><dt>{l}</dt><dd>{v}</dd></div>)}
+            {([["Broker", BROKER_WAHL.find(b => b.art === e.broker)!.titel + (e.brokerApp ? ` (${e.brokerApp})` : "")], ["Startkapital", `${de(e.startkapital)} ${WZ}`], ["Tagesziel / Verlustlimit", `+${de(e.tagesziel)} ${WZ} / −${de(e.tagesverlust)} ${WZ}`], ["Risiko je Trade", `${(e.risikoProTrade * 100).toLocaleString("de-DE")} %`], ["Strategie", STRATEGIEN[e.strategie].name], ["Werte", e.symbole.join(", ")], ["Richtung", e.richtung === "long" ? "nur Long" : "Long und Short"], ["Schluss", `${e.schlussVorEnde} Min. vor Handelsende alles schließen`]] as const).map(([l, v]) => <div key={l}><dt>{l}</dt><dd>{v}</dd></div>)}
           </dl></div>
           {h.filter(x => x.art === "crit").map(x => <p key={x.text} className="hint">{x.text}</p>)}
           <p className="note">Information und Werkzeug, keine Anlageberatung. Sie entscheiden über Einsatz und Grenzen; Verluste sind möglich.</p>

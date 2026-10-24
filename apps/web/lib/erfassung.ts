@@ -52,11 +52,36 @@ export function betragNach(text: string, bezeichnung: RegExp, weite = 90): numbe
   return null;
 }
 
+// ---------- Sätze und Verneinungen ----------
+const ABK = /\b(inkl|ca|mtl|monatl|zzgl|bzw|lt|gem|ggf|Nr|Str|Tel|z\.\s?B|u\.\s?a|d\.\s?h)\./gi;
+/** Text in Sätze bzw. Zeilen teilen (Abkürzungen beenden keinen Satz) */
+export function saetze(t: string): string[] {
+  return t.replace(ABK, m => m.replace(/\./g, "\u2024")).split(/(?<=[.!?])\s+|\n+/).map(x => x.replace(/\u2024/g, ".").trim()).filter(Boolean);
+}
+const VERNEINUNG = /\b(kein|keine|keinen|keinem|keiner|nicht|ohne|weder|nein)\b/i;
+/** Erwähnungen eines Merkmals: bejaht, verneint oder gar nicht (Verneinung im selben Satz) */
+/** Verneinung in der Nähe des Worts (bis 30 Zeichen davor oder danach), nicht irgendwo im Satz */
+export function verneintBei(satz: string, wort: RegExp): boolean {
+  const m = new RegExp(wort.source, wort.flags.replace("g", "")).exec(satz); if (!m) return false;
+  // davor: bis 25 Zeichen, aber nicht über ein Komma hinweg; danach: bis 15 Zeichen bis zum nächsten Komma
+  const vor = satz.slice(Math.max(0, m.index - 25), m.index).split(/[,;:]/).at(-1) ?? "";
+  const nach = satz.slice(m.index + m[0].length, m.index + m[0].length + 15).split(/[,;:]/)[0] ?? "";
+  return VERNEINUNG.test(vor) || VERNEINUNG.test(nach);
+}
+export function merkmal(t: string, wort: RegExp): "ja" | "nein" | null {
+  const s = saetze(t).filter(x => wort.test(x)); if (!s.length) return null;
+  return s.some(x => !verneintBei(x, wort)) ? "ja" : "nein";
+}
+/** Stellplatz verneint: „kein Stellplatz“, „ohne Garage“, „Stellplatz nicht vorhanden“ (nicht: „nicht im Preis enthalten“) */
+const stellplatzVerneint = (x: string) => /\b(kein\w*|ohne)\s+(\w+\s+)?(Tiefgaragen)?(Stellpl|Garage|Parkpl|Carport|Tiefgarage)/i.test(x) || /(Stellpl\w*|Garage|Parkpl\w*|Carport|Tiefgarage)[^.]{0,40}\bnicht\s+(vorhanden|verfügbar|dabei)/i.test(x);
+const KONTAKT = /GmbH|\bAG\b|\bKG\b|Immobilien(?!\w*wohnung)|Makler|Tel\.?|Telefon|Fax|E-?Mail|www\.|https?:|Büro|Ansprechpartner|Impressum/i;
+
 /** Ohne KI: typische Angaben aus Exposés per Muster erkennen */
 export function musterErkennung(text: string, titel?: string): Erfassung {
   const t = text.replace(/ /g, " ");
   const f: Partial<Objekt> = {};
-  const kp = zahl(finde(t, [/Kaufpreis[^\d€]{0,30}([\d.,]{4,})\s*(?:€|EUR|Euro)/i, /([\d.]{6,})\s*(?:€|EUR)\s*Kaufpreis/i, /Preis[^\d€]{0,15}([\d.,]{5,})\s*(?:€|EUR)/i]));
+  // Kaufpreis: zuerst über die robuste Betragserkennung („289.000,- €“, „EUR 289.000“), sonst die alten Muster
+  const kp = betragNach(t, /Kaufpreis/) ?? zahl(finde(t, [/([\d.]{6,})\s*(?:€|EUR)\s*Kaufpreis/i, /Preis[^\d€]{0,15}([\d.,]{5,})\s*(?:€|EUR)/i]));
   if (kp && kp > 10000) f.kaufpreis = Math.round(kp);
   const qm = zahl(finde(t, [/Wohnfl(?:ä|ae)che[^\d]{0,20}([\d.,]+)\s*m/i, /Nutzfl(?:ä|ae)che[^\d]{0,20}([\d.,]+)\s*m/i, /([\d.,]+)\s*m²\s*Wohnfl/i, /ca\.\s*([\d.,]+)\s*m²/i]));
   if (qm && qm > 10 && qm < 20000) f.wohnflaeche = Math.round(qm * 10) / 10;
@@ -69,33 +94,53 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
   else if (nu && nu < 3000) f.hausgeldNichtUmlagefaehig = nu;
   const bj = finde(t, [/Baujahr[^\d]{0,10}(1[89]\d\d|20\d\d)/i]); if (bj) f.baujahr = Number(bj);
   const ek = finde(t, [/Energieeffizienzklasse[^A-H]{0,10}([A-H]\+?)\b/i, /Effizienzklasse[^A-H]{0,10}([A-H]\+?)\b/i]); if (ek) f.energieklasse = ek.toUpperCase();
-  const ort = t.match(/\b(\d{5})\s+([A-ZÄÖÜ][a-zäöüß]+(?:[- ][A-ZÄÖÜ][a-zäöüß]+)?)/); if (ort) f.ort = ort[2];
+  // Ort: Postleitzahl mit Ort, aber nicht aus Briefkopf oder Kontaktdaten des Maklers
+  const zeilen = t.split("\n"); let bester: { ort: string; punkte: number; pos: number } | null = null;
+  zeilen.forEach((z, n) => { for (const m of z.matchAll(/\b(\d{5})\s+([A-ZÄÖÜ][a-zäöüß]+(?:-[A-ZÄÖÜ][a-zäöüß]+|\s(?:am|an der|im|ob der|bei)\s[A-ZÄÖÜ][a-zäöüß]+)?)/g)) {
+    const punkte = (KONTAKT.test(z) ? -3 : 0) + (/\b(in|Lage|Objekt|Wohnung|Haus)\b/i.test(z.slice(0, m.index)) ? 2 : 0);
+    if (!bester || punkte > bester.punkte) bester = { ort: m[2]!, punkte, pos: n };
+  } });
+  if (bester && (bester as { punkte: number }).punkte > -3) f.ort = (bester as { ort: string }).ort;
   const asset: Assetklasse = /Mehrfamilienhaus|Zinshaus|Wohn- und Geschäftshaus/i.test(t) ? "MFH" : /Einfamilienhaus|Doppelhaush|Reihenhaus|Zweifamilienhaus/i.test(t) ? "EFH/ZFH" : /Gewerbe|Büro|Ladenlokal|Praxis/i.test(t) && !/Wohnung/i.test(t) ? "Gewerbe" : "ETW";
   f.asset = asset;
-  if (/bezugsfrei|leerstehend|sofort frei/i.test(t)) f.leer = true; else if (/vermietet/i.test(t)) f.leer = false;
-  if (/Erbbaurecht/i.test(t)) f.erbbaurecht = true;
-  if (/Sonderumlage/i.test(t)) f.sonderumlage = true;
-  const sp = stellplatzAusText(t); if (sp.length) { f.stellplaetze = sp; f.gefragt = { stellplatz: "ja", "sp-art": "ja" }; }
+  // Vermietung, Erbbaurecht, Sonderumlage: Verneinungen im selben Satz beachten („unvermietet“, „kein Erbbaurecht“)
+  const vermietet = merkmal(t.replace(/\bunvermietet\b/gi, "nicht vermietet"), /\bvermietet\b/i);
+  if (/bezugsfrei|leerstehend|sofort frei|\bunvermietet\b/i.test(t) || vermietet === "nein") f.leer = true; else if (vermietet === "ja") f.leer = false;
+  const erb = merkmal(t, /Erbbaurecht/i); if (erb) f.erbbaurecht = erb === "ja";
+  const su = merkmal(t, /Sonderumlage/i); if (su) f.sonderumlage = su === "ja";
+  const sp = stellplatzAusText(t, [f.kaufpreis, hg, nu, f.miete].filter((x): x is number => !!x));
+  if (sp.length) { f.stellplaetze = sp; f.gefragt = { stellplatz: "ja", "sp-art": "ja" }; }
+  else if (saetze(t).some(stellplatzVerneint)) f.gefragt = { stellplatz: "nein" };
   const zimmer = finde(t, [/(\d(?:[.,]5)?)\s*-?\s*Zimmer/i]);
-  const tit = (titel ?? t.split("\n").find(z => z.trim().length > 12 && z.trim().length < 120))?.replace(/\s*[|–-]\s*(ImmoScout24|Immowelt|Kleinanzeigen|immonet).*$/i, "").replace(/^(Exposé|Expose|Objekt|Angebot)\s*[:\-–]\s*/i, "").trim();
+  const kandidaten = t.split("\n").map(z => z.trim()).filter(z => z.length > 12 && z.length < 120 && !KONTAKT.test(z) && !/^\d{5}\s/.test(z));
+  const tit = (titel ?? kandidaten.find(z => /Wohnung|Haus|Apartment|Appartement|Zimmer|ETW|Penthouse|Loft|Maisonette|m²/i.test(z)) ?? kandidaten[0])?.replace(/\s*[|–-]\s*(ImmoScout24|Immowelt|Kleinanzeigen|immonet).*$/i, "").replace(/^(Exposé|Expose|Objekt|Angebot)\s*[:\-–]\s*/i, "").trim();
   f.titel = tit || [zimmer ? `${zimmer}-Zi.-${asset}` : asset, f.ort].filter(Boolean).join(", ");
   const gefunden = (Object.keys(f) as (keyof Objekt)[]).filter(k => !["asset", "titel", "gefragt", "hausgeldGesamt"].includes(k));
   return { felder: f, gefunden, quelle: gefunden.length ? "muster" : "keine", text };
 }
 
 const SP_ART: [RegExp, Stellplatz["art"]][] = [[/Duplex/i, "duplex"], [/Tiefgarage|TG-(?:Stell)?platz/i, "tiefgarage"], [/Carport/i, "carport"], [/\bGarage\b/i, "garage"], [/(?:Au(?:ß|ss)en|Frei)?[Ss]tellplatz|Parkplatz/i, "aussen"]];
-/** Stellplatz aus Inseratstext: Art, eigener Preis („zzgl.“), Rechtsform, Miete */
-export function stellplatzAusText(t: string): Stellplatz[] {
-  const i = t.search(/Tiefgarage|Stellplatz|Stellpl(?:ä|ae)tze|Garage|Carport|Parkplatz|Duplex/i); if (i < 0) return [];
-  if (/kein(?:e|en)?\s+(?:Tiefgaragen)?(?:Stellplatz|Garage|Parkplatz)/i.test(t.slice(Math.max(0, i - 12), i + 30))) return [];
-  const um = t.slice(Math.max(0, i - 80), i + 220);
-  const art = SP_ART.find(([r]) => r.test(um))?.[1] ?? "aussen";
-  const nach = t.slice(i, i + 160); const betrag = nach.match(/([\d.]{4,}(?:,\d+)?)\s*(?:€|EUR|Euro)/i); const preisZahl = betrag ? zahl(betrag[1]) : null;
-  const separat = /zzgl\.?|zuzüglich|optional|separat|kann (?:dazu|zusätzlich) erworben/i.test(um) || (preisZahl != null && preisZahl >= 3000 && !/inkl\.?|inklusive/i.test(um));
-  const mieteM = nach.match(/(?:vermietet|Miete|monatlich)[^\d€]{0,25}([\d.,]{2,5})\s*(?:€|EUR)/i); const miete = mieteM ? zahl(mieteM[1]) : null;
-  return [{ id: `sp-${Math.random().toString(36).slice(2, 8)}`, art, preis: separat ? "separat" : "inklusive", kaufpreis: separat && preisZahl && preisZahl >= 3000 && preisZahl < 150000 ? Math.round(preisZahl) : null,
+/**
+ * Stellplatz aus Inseratstext: Art, eigener Preis („zzgl.“), Rechtsform, Miete.
+ * Beträge zählen nur aus demselben Satz wie das Stellplatzwort; Beträge, die schon Kaufpreis, Hausgeld oder Miete
+ * der Wohnung sind, werden nie als Stellplatzpreis oder -miete übernommen. Verneinte Erwähnungen zählen nicht.
+ */
+export function stellplatzAusText(t: string, ausschliessen: number[] = []): Stellplatz[] {
+  const WORT = /Tiefgarage|Stellplatz|Stellpl(?:ä|ae)tze|Garage|Carport|Parkplatz|Duplex|TG-(?:Stell)?platz/i;
+  const saetzeMit = saetze(t).filter(x => WORT.test(x) && !stellplatzVerneint(x));
+  if (!saetzeMit.length) return [];
+  const betraege = (x: string) => [...x.matchAll(/(?:€|EUR|Euro)?\s*(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)(?:\s*,-)?\s*(?:€|EUR|Euro)/gi)].map(m => zahl(m[1])).filter((v): v is number => v != null && !ausschliessen.some(a => Math.abs(a - v) < 0.5));
+  // bevorzugt der Satz mit eigenem Preis, sonst die erste Erwähnung
+  const mitPreis = saetzeMit.find(x => /zzgl\.?|zuzüglich|Kaufpreis|Preis|separat|optional|erworben/i.test(x) && betraege(x).some(v => v >= 3000 && v < 150000));
+  const satz = mitPreis ?? saetzeMit[0]!;
+  const art = SP_ART.find(([r]) => r.test(satz))?.[1] ?? SP_ART.find(([r]) => saetzeMit.some(x => r.test(x)))?.[1] ?? "aussen";
+  const preisZahl = mitPreis ? betraege(mitPreis).find(v => v >= 3000 && v < 150000) ?? null : null;
+  const separat = !!preisZahl || (/zzgl\.?|zuzüglich|optional|separat|kann (?:dazu|zusätzlich) erworben/i.test(satz) && !/inkl\.?|inklusive/i.test(satz));
+  const mieteSatz = saetzeMit.find(x => /vermietet|Miete/i.test(x) && !/Haus|Wohngeld|Hausgeld/i.test(x));
+  const miete = mieteSatz ? betraege(mieteSatz).find(v => v > 5 && v < 400) ?? null : null;
+  return [{ id: `sp-${Math.random().toString(36).slice(2, 8)}`, art, preis: separat ? "separat" : "inklusive", kaufpreis: preisZahl ? Math.round(preisZahl) : null,
     recht: /Teileigentum|eigene[ms]? Grundbuch/i.test(t) ? "teileigentum" : /Sondernutzung/i.test(t) ? "sondernutzung" : "unbekannt",
-    nutzung: miete && miete < 400 ? "fremd" : "mieter", miete: miete && miete < 400 ? miete : null, hausgeld: null, erwerben: true }];
+    nutzung: miete ? "fremd" : "mieter", miete, hausgeld: null, erwerben: true }];
 }
 
 /** Ausgabe des Daten-Analysten in Objektfelder übersetzen */

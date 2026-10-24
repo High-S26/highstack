@@ -29,13 +29,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (d.status === "offen" || d.status === "angefordert") d.status = "erhalten";
   };
   const ergebnis: { datei: string; schluessel: string; titel: string; zeichen: number; sicher: boolean; grundriss?: number[] }[] = [];
+  // Erst alle Dateien prüfen; gültige werden übernommen, abgewiesene einzeln gemeldet (nichts geht still verloren)
+  const abgelehnt: { datei: string; grund: string }[] = []; const gueltig: { f: File; bytes: Uint8Array; typ: NonNullable<ReturnType<typeof typAusInhalt>> }[] = [];
   for (const f of form.getAll("dateien")) {
     if (!(f instanceof File)) continue;
-    if (f.size > 20 * 1024 * 1024) return Response.json({ fehler: `${f.name}: größer als 20 MB` }, { status: 413 });
+    if (f.size > 20 * 1024 * 1024) { abgelehnt.push({ datei: f.name, grund: "größer als 20 MB" }); continue; }
     const bytes = new Uint8Array(await f.arrayBuffer());
     // Typ aus dem Inhalt, nicht aus Endung oder Browser-Angabe
     const typ = typAusInhalt(bytes);
-    if (!typ) return Response.json({ fehler: `${f.name}: nur PDF oder Bilder (PNG, JPG, WebP); der Inhalt passt zu keinem davon` }, { status: 415 });
+    if (!typ) { abgelehnt.push({ datei: f.name, grund: "nur PDF oder Bilder (PNG, JPG, WebP); der Inhalt passt zu keinem davon" }); continue; }
+    gueltig.push({ f, bytes, typ });
+  }
+  if (!gueltig.length) return Response.json({ fehler: abgelehnt.map(x => `${x.datei}: ${x.grund}`).join("; ") || "Keine Datei erhalten", abgelehnt }, { status: abgelehnt.some(x => x.grund.startsWith("größer")) ? 413 : 415 });
+  for (const { f, bytes, typ } of gueltig) {
     const pdf = typ === "application/pdf";
     let seiten: string[] = [];
     if (pdf) { try { const doc = await getDocumentProxy(bytes.slice()); seiten = (await extractText(doc, { mergePages: false })).text as string[]; } catch { seiten = []; } }
@@ -52,7 +58,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
   o.geaendert = Date.now();
   await s.speichereObjekt(t, o);
-  return Response.json({ ergebnis, dokumente: o.dokumente });
+  return Response.json({ ergebnis, abgelehnt, dokumente: o.dokumente });
 }
 
 /** Datei entfernen: aus allen Punkten (auch verlinkte Grundriss-Seiten) und aus dem Speicher */

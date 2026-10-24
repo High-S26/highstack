@@ -11,6 +11,8 @@ const Beschriftung = ({ htmlFor, label, info }: { htmlFor?: string; label: React
 /** Deutsche Zahl lesen: „245.000“, „3,8“, „1.250,50“ */
 export function leseZahl(t: string): number | null {
   const x = t.replace(/\s|€|%|m²/g, "").trim(); if (!x) return null;
+  // Nur Ziffern, Punkt, Komma und Minus; keine Exponenten („1e6“), kein „Infinity“
+  if (!/^-?[\d.,]+$/.test(x) || !/\d/.test(x)) return null;
   const norm = x.includes(",") ? x.replace(/\./g, "").replace(",", ".") : /^\d{1,3}(\.\d{3})+$/.test(x) ? x.replace(/\./g, "") : x;
   const v = Number(norm); return Number.isFinite(v) ? v : null;
 }
@@ -23,7 +25,12 @@ export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, l
   const [fokus, setFokus] = useState(false); const [roh, setRoh] = useState("");
   const gruppe = !(typeof label === "string" && /Baujahr|Jahr$/.test(label));
   const anzeige = fokus ? roh : intern == null ? "" : zeige(intern, gruppe);
-  const v = leseZahl(roh); const fehler = fokus && roh.trim() !== "" && v == null ? "Bitte eine Zahl eingeben" : intern != null && ((min != null && intern < min) || (max != null && intern > max)) ? `Erlaubt: ${min ?? "…"} bis ${max ?? "…"}` : null;
+  // Beträge, Flächen und Jahre sind nie negativ; Beträge höchstens 1 Mrd.
+  const betragArtig = !prozent && !!einheit && /€|m²|Jahre|Min\.|\$/.test(einheit);
+  const lo = min ?? (betragArtig ? 0 : undefined); const hi = max ?? (betragArtig && /€|\$/.test(einheit!) ? 1e9 : undefined);
+  const ausserhalb = (n: number) => (lo != null && n < lo) || (hi != null && n > hi);
+  const v = leseZahl(roh); const vIntern = v == null ? null : v;
+  const fehler = fokus && roh.trim() !== "" && v == null ? "Bitte eine Zahl eingeben" : fokus && vIntern != null && ausserhalb(vIntern) ? `Erlaubt: ${lo != null ? zeige(lo) : "…"} bis ${hi != null ? zeige(hi) : "…"}` : !fokus && intern != null && ausserhalb(intern) ? `Erlaubt: ${lo != null ? zeige(lo) : "…"} bis ${hi != null ? zeige(hi) : "…"}` : null;
   const suffix = prozent ? "%" : einheit;
   return (
     <div className={`fld${voll ? " full" : ""}${fehler ? " err" : ""}`}>
@@ -32,7 +39,7 @@ export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, l
         <input id={id} type="text" inputMode="decimal" autoComplete="off" value={anzeige} aria-describedby={hinweis || fehler ? `${id}-h` : undefined} aria-invalid={!!fehler}
           onFocus={e => { setRoh(intern == null ? "" : zeige(intern, gruppe)); setFokus(true); requestAnimationFrame(() => e.target.select()); }}
           onBlur={() => setFokus(false)}
-          onChange={e => { const t = e.target.value; setRoh(t); if (t.trim() === "") { onChange(leerErlaubt === false ? 0 : null); return; } const n = leseZahl(t); if (n != null) onChange(prozent ? n / 100 : n); }} />
+          onChange={e => { const t = e.target.value; setRoh(t); if (t.trim() === "") { onChange(leerErlaubt === false ? 0 : null); return; } const n = leseZahl(t); if (n != null && !ausserhalb(n)) onChange(prozent ? n / 100 : n); }} />
         {suffix && <span className="sfx" aria-hidden="true">{suffix}</span>}
       </div>
       {(fehler || hinweis) && <div id={`${id}-h`} className={fehler ? "hint bad" : "hint"}>{fehler ?? hinweis}</div>}

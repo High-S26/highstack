@@ -1,4 +1,5 @@
 "use client";
+import { RISIKO_VORGABEN } from "@/lib/vorgaben";
 import { params, spielraum, type Anlageprofil, type Assetklasse, type Investorenprofil } from "@highstack/engine";
 import { eur, num, pct, STRUKTUR } from "@/lib/format";
 import { useApp } from "./App";
@@ -45,7 +46,8 @@ export function Investorformular() {
         <Zahl label="Sollzins" prozent wert={inv.sollzins} onChange={v => set("sollzins", v ?? 0)} schritt={0.05} />
         <Zahl label="Anfangstilgung" prozent wert={inv.tilgung} onChange={v => set("tilgung", v ?? 0)} schritt={0.1} />
         <Zahl label="Zinsbindung" einheit="Jahre" wert={inv.zinsbindung} onChange={v => set("zinsbindung", v ?? 10)} />
-        <Auswahl label="Risikoneigung" wert={inv.risiko} optionen={[["vorsichtig", "Vorsichtig"], ["ausgewogen", "Ausgewogen"], ["offensiv", "Offensiv"]]} onChange={v => set("risiko", v)} />
+        <Auswahl label="Risikoneigung" wert={inv.risiko} optionen={[["vorsichtig", "Vorsichtig"], ["ausgewogen", "Ausgewogen"], ["offensiv", "Offensiv"]]} onChange={v => setzeProfil({ ...profil!, investor: { ...inv, risiko: v, tilgung: RISIKO_VORGABEN[v].tilgung, minDscr: RISIKO_VORGABEN[v].minDscr } })} />
+        <p className="note full">{RISIKO_VORGABEN[inv.risiko].text}. Tilgung und DSCR können Sie danach frei anpassen.</p>
       </div>
       <details><summary>Nebenkosten und Bankannahmen</summary>
         <div className="fields">
@@ -80,11 +82,11 @@ export function Anlageprofilformular({ apId, kompakt }: { apId: string; kompakt?
         <Zahl label="Kaufpreis bis" einheit="€" hinweis={`Finanzierbar wären ${eur(finanzierbar)}`} wert={ap.preisMax} onChange={v => set({ preisMax: v })} schritt={5000} />
         <Zahl label="Min. Bruttorendite" prozent wert={ap.minBruttorendite} onChange={v => set({ minBruttorendite: v ?? 0 })} schritt={0.1} />
         <Zahl label="Max. Kaufpreisfaktor" wert={ap.maxFaktor} onChange={v => set({ maxFaktor: v })} schritt={0.5} />
-        <Zahl label="Min. Cashflow" einheit="€/Monat" wert={ap.minCashflow} onChange={v => set({ minCashflow: v ?? 0 })} schritt={10} />
+        <Zahl label="Min. Cashflow" einheit="€/Monat" min={-10000} max={100000} wert={ap.minCashflow} onChange={v => set({ minCashflow: v ?? 0 })} schritt={10} />
       </div>
       <details><summary>Haltedauer, Gewichtung, K.O.-Kriterien</summary>
         <div className="fields">
-          <Zahl label="Haltedauer" einheit="Jahre" wert={ap.haltedauer} onChange={v => set({ haltedauer: v ?? 10 })} />
+          <Zahl label="Haltedauer" einheit="Jahre" min={1} max={60} wert={ap.haltedauer} onChange={v => set({ haltedauer: v == null ? 10 : Math.min(60, Math.max(1, Math.round(v))) })} />
           <span />
           <Zahl label="Gewicht Rendite" wert={ap.gewichte.rendite} onChange={v => set({ gewichte: { ...ap.gewichte, rendite: v ?? 0 } })} schritt={5} />
           <Zahl label="Gewicht Preis & Lage" wert={ap.gewichte.lage} onChange={v => set({ gewichte: { ...ap.gewichte, lage: v ?? 0 } })} schritt={5} />

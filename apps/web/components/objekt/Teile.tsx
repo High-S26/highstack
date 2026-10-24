@@ -218,10 +218,11 @@ function Verlauf({ a }: { a: Analyse }) {
 
 export function Durchspielen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; setze: Setze }) {
   const s = a.szenario; const p = a.params; const m = a.simulation;
+  // Zielpreise rechnen mit dem Gesamtpreis inkl. mitgekaufter Stellplätze, also auch dagegen vergleichen
+  const angebot = mitStellplaetzen(o.objekt).kaufpreis;
   const [metrik, setMetrik] = useState<"cf" | "irr" | "nv">("cf");
   const setzeWert = (k: keyof Szenario, v: number) => setze({ szenario: { ...o.szenario, [k]: v } });
   const vorlage = (n: keyof typeof VORLAGEN) => setze({ szenario: { ...o.szenario, ...VORLAGEN[n] } });
-  const angebot = m ? (() => { const st = standardSzenario(p); return { ...st }; })() : null; void angebot;
   const get = (x: Simulation | null) => !x ? null : metrik === "cf" ? x.cashflowJahr1Monat : metrik === "irr" ? x.irr : x.nettovermoegenEnde;
   const fmt = (v: number | null) => v == null ? "–" : metrik === "irr" ? pct(v) : metrik === "cf" ? eur(v) : teur(v);
   const basis = get(m);
@@ -236,7 +237,7 @@ export function Durchspielen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; 
         <div className="simgrid">
           <div className="sliders">{REGLER.map(r => <Reglerzeile key={r.key} r={r} a={a} wert={s[r.key] as number} setze={v => setzeWert(r.key, v)} maxEk={Math.max(p.eigenkapital * 1.5, m?.gesamtinvestition ?? 0)} />)}</div>
           <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
-            {m ? <div className="res">{([["Cashflow Jahr 1 / Monat", eur(m.cashflowJahr1Monat)], ["Ø Cashflow / Monat", eur(m.cashflowSchnittMonat)], ["Zuzahlung gesamt", m.cashflowSumme < 0 ? eur(-m.cashflowSumme) : "keine"], ["Nettovermögen am Ende", teur(m.nettovermoegenEnde)], ["Eigenkapitalrendite vor Steuern", pct(m.irr)], ["DSCR Jahr 1", num(m.dscrJahr1)]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong>{v}</strong></div>)}</div> : <div className="empty">Für das Durchspielen fehlen Kaufpreis oder Miete.</div>}
+            {m ? <div className="res">{([["Cashflow Jahr 1 / Monat", eur(m.cashflowJahr1Monat)], ["Ø Cashflow / Monat", eur(m.cashflowSchnittMonat)], ["Zuzahlung gesamt", m.cashflowSumme + Math.min(0, m.beimKauf) < 0 ? eur(-(m.cashflowSumme + Math.min(0, m.beimKauf))) : "keine"], ["Nettovermögen am Ende", teur(m.nettovermoegenEnde)], ["Eigenkapitalrendite vor Steuern", pct(m.irr)], ["DSCR Jahr 1", num(m.dscrJahr1)]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong>{v}</strong></div>)}</div> : <div className="empty">Für das Durchspielen fehlen Kaufpreis oder Miete.</div>}
             <Verlauf a={a} />
             <div className="legend"><span><i style={{ background: "var(--accent)" }} />Ihre Einstellung</span><span><i style={{ background: "var(--s-k)" }} />Konservativ</span><span><i style={{ background: "var(--s-o)" }} />Optimistisch</span></div>
           </div>
@@ -258,7 +259,7 @@ export function Durchspielen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; 
           <tr><td>… Sollzins höchstens</td><td className="num">{m.darlehen > 0 ? pct(netM * 12 / m.darlehen - s.tilgung, 2) : "–"}</td><td className="note">{pct(s.sollzins, 2)}</td></tr>
           <tr><td>… Eigenkapital mindestens</td><td className="num">{eur(Math.max(0, m.gesamtinvestition - netM * 12 / (s.sollzins + s.tilgung)))}</td><td className="note">{eur(s.eigenkapital)}</td></tr>
         </tbody></table></div>
-        <div className="tiles">{([["Kaufpreis für Cashflow ± 0", a.zielpreise.cashflowNull], [`Kaufpreis für ${pct(p.anlageprofil.minBruttorendite)} Rendite`, a.zielpreise.mindestrendite], [`Kaufpreis für Faktor ${num(p.anlageprofil.maxFaktor, 0)}`, a.zielpreise.maxFaktor], [`Kaufpreis für DSCR ${num(p.minDscr)}`, a.zielpreise.dscr]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong>{eur(v)}</strong>{v != null && o.objekt.kaufpreis ? <span className="note">{vorzeichen(v / o.objekt.kaufpreis - 1, x => pct(x, 0))} zum Angebot</span> : null}</div>)}</div>
+        <div className="tiles">{([["Kaufpreis für Cashflow ± 0", a.zielpreise.cashflowNull], [`Kaufpreis für ${pct(p.anlageprofil.minBruttorendite)} Rendite`, a.zielpreise.mindestrendite], [`Kaufpreis für Faktor ${num(p.anlageprofil.maxFaktor, 0)}`, a.zielpreise.maxFaktor], [`Kaufpreis für DSCR ${num(p.minDscr)}`, a.zielpreise.dscr]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong>{eur(v)}</strong>{v != null && angebot ? <span className="note">{vorzeichen(v / angebot - 1, x => pct(x, 0))} zum Angebot{angebot !== o.objekt.kaufpreis ? " inkl. Stellplatz" : ""}</span> : null}</div>)}</div>
       </section>}
     </>
   );

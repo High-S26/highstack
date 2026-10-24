@@ -141,3 +141,23 @@ describe("Prognose", () => {
     expect(e.find(x => x.key === "anschlusszinsAufschlag")!.cf).toBeLessThan(0);
   });
 });
+
+describe("Bugfix Welle 2", () => {
+  it("Haltedauer 0 bricht die Rechnung nicht ab (INV-020)", () => {
+    const s = { ...standardSzenario(p), haltedauer: 0 };
+    const m = simuliere(p, OBJ, OBJ.miete, s)!;
+    expect(m.jahre.length).toBe(1);
+  });
+  it("Steuern berücksichtigen Küche beim Kauf und laufende Positionen (INV-019)", async () => {
+    const { steuern } = await import("../src");
+    const s = standardSzenario(p);
+    const ohne = steuern(simuliere(p, OBJ, OBJ.miete, s)!, p, OBJ);
+    const kueche = { ...s, positionen: [{ id: "k", name: "Küche", art: "ausgabe" as const, betrag: 6000, takt: "einmalig" as const, abJahr: 0 }] };
+    const mit = steuern(simuliere(p, OBJ, OBJ.miete, kueche)!, p, OBJ);
+    expect(mit.privat.irr!).toBeLessThan(ohne.privat.irr!);
+    expect(mit.privat.zuwachsNachSteuern).toBeLessThan(ohne.privat.zuwachsNachSteuern);
+    const zusatz = { ...s, positionen: [{ id: "z", name: "Stellplatz", art: "einnahme" as const, betrag: 80, takt: "monatlich" as const, abJahr: 1 }] };
+    const z = steuern(simuliere(p, OBJ, OBJ.miete, zusatz)!, p, OBJ);
+    expect(z.privat.steuernLaufend).toBeGreaterThan(ohne.privat.steuernLaufend);
+  });
+});

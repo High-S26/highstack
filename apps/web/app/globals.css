@@ -968,3 +968,4 @@ label.chk input{width:auto;flex:none;margin:0}
 /* Trading: Umfeld und Trefferbilanz */
 .tr-umfeld{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;font-size:13px;padding:10px 14px;border-radius:12px;background:var(--sunk);border-left:3px solid var(--good)}
 .tr-umfeld.neutral{border-left-color:var(--gold, var(--warn))}.tr-umfeld.risk-off{border-left-color:var(--crit)}
+.kj-vorschau{margin:8px 0}.kj-rb{margin-top:12px;display:grid;gap:8px}

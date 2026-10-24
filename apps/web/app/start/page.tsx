@@ -7,7 +7,7 @@ import { Auswahl, BUNDESLAENDER, Marken, Text, Zahl } from "@/components/Felder"
 import { Finanzierungsrahmen } from "@/components/Profilteile";
 import { api } from "@/lib/client";
 import { eur, pct } from "@/lib/format";
-import { nachStrategie } from "@/lib/vorgaben";
+import { nachStrategie, RISIKO_VORGABEN } from "@/lib/vorgaben";
 import { WizFuss, WizKopf } from "@/components/Assistent";
 
 const SCHRITTE = ["Kapital", "Erwerb", "Finanzierung", "Suche", "Rahmen"] as const;
@@ -87,7 +87,7 @@ export default function Start() {
               <Zahl label="Anfangstilgung" prozent wert={inv.tilgung} onChange={v => setI({ tilgung: v ?? 0 })} />
               <Zahl label="Zinsbindung" einheit="Jahre" wert={inv.zinsbindung} onChange={v => setI({ zinsbindung: v ?? 10 })} />
             </div>
-            <div className="wiz-wahl" role="radiogroup" aria-label="Risikoneigung">{RISIKO.map(([v, l, s]) => <button key={v} type="button" role="radio" aria-checked={inv.risiko === v} className="wiz-karte" onClick={() => setI({ risiko: v })}><b>{l}</b><span>{s}</span></button>)}</div>
+            <div className="wiz-wahl" role="radiogroup" aria-label="Risikoneigung">{RISIKO.map(([v, l, s]) => <button key={v} type="button" role="radio" aria-checked={inv.risiko === v} className="wiz-karte" onClick={() => setI({ risiko: v, tilgung: RISIKO_VORGABEN[v].tilgung, minDscr: RISIKO_VORGABEN[v].minDscr })}><b>{l}</b><span>{s}</span><span className="note">{RISIKO_VORGABEN[v].text}</span></button>)}</div>
           </>}
           {schritt === 4 && <>
             <h1>Was suchen Sie?</h1>

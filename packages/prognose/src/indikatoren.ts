@@ -5,25 +5,25 @@ import type { Indikator, Punkt, Reihen } from "./types";
  * Einkaufsmanagerindizes, ifo, DAX und Bauzinsen pflegt der Admin (Lizenz der Anbieter beachten).
  */
 export const INDIKATOREN: Indikator[] = [
-  { id: "sp500", name: "S&P 500", einheit: "Punkte", kategorie: "markt", frequenz: "taeglich", vorlauf: "frueh", verzug: 0, quelle: { art: "fred", serie: "SP500", text: "FRED SP500" }, text: "Breiter US-Aktienindex; Maßstab für Aktien USA." },
-  { id: "dax", name: "DAX", einheit: "Punkte", kategorie: "markt", frequenz: "taeglich", vorlauf: "frueh", verzug: 0, quelle: { art: "manuell", text: "Schlusskurse, z. B. Deutsche Börse" }, text: "Deutscher Leitindex; Maßstab für Aktien Europa." },
-  { id: "vix", name: "VIX", einheit: "Punkte", kategorie: "stimmung", frequenz: "taeglich", vorlauf: "gleich", verzug: 0, quelle: { art: "fred", serie: "VIXCLS", text: "FRED VIXCLS" }, text: "Erwartete Schwankung des S&P 500 („Angstbarometer“)." },
-  { id: "us10j", name: "US-Staatsanleihe 10 Jahre", einheit: "%", kategorie: "zins", frequenz: "taeglich", vorlauf: "gleich", verzug: 0, quelle: { art: "fred", serie: "DGS10", text: "FRED DGS10" }, text: "Langfristiger Marktzins USA." },
-  { id: "kurve", name: "Zinskurve 10J − 2J (USA)", einheit: "%-Pkt.", kategorie: "zins", frequenz: "taeglich", vorlauf: "frueh", verzug: 0, quelle: { art: "fred", serie: "T10Y2Y", text: "FRED T10Y2Y" }, text: "Negativ = invertiert; ging den meisten US-Rezessionen voraus." },
-  { id: "leitzins-us", name: "Leitzins USA (Fed Funds)", einheit: "%", kategorie: "zins", frequenz: "taeglich", vorlauf: "spaet", verzug: 1, quelle: { art: "fred", serie: "DFF", text: "FRED DFF" }, text: "Effektiver Tagesgeldsatz der Fed." },
-  { id: "leitzins-ezb", name: "EZB-Einlagesatz", einheit: "%", kategorie: "zins", frequenz: "taeglich", vorlauf: "spaet", verzug: 0, quelle: { art: "fred", serie: "ECBDFR", text: "FRED ECBDFR" }, text: "Leitzins der Eurozone (Einlagefazilität)." },
-  { id: "bund10j", name: "Bundesanleihe 10 Jahre", einheit: "%", kategorie: "zins", frequenz: "monatlich", vorlauf: "gleich", verzug: 5, quelle: { art: "fred", serie: "IRLTLT01DEM156N", text: "FRED/OECD IRLTLT01DEM156N" }, text: "Langfristiger Zins Deutschland; Basis für Bauzinsen und Immobilienrenditen." },
-  { id: "bauzins", name: "Bauzins 10 Jahre fest", einheit: "%", kategorie: "immobilien", frequenz: "monatlich", vorlauf: "gleich", verzug: 35, quelle: { art: "manuell", text: "Bundesbank MFI-Zinsstatistik" }, text: "Effektivzins für Wohnungsbaukredite." },
-  { id: "hy-spread", name: "Risikoaufschlag Hochzinsanleihen", einheit: "%-Pkt.", kategorie: "kredit", frequenz: "taeglich", vorlauf: "frueh", verzug: 1, quelle: { art: "fred", serie: "BAMLH0A0HYM2", text: "FRED ICE BofA HY OAS" }, text: "Steigt, wenn Kreditgeber Ausfälle fürchten." },
-  { id: "inflation-us", name: "Inflation USA (VPI, Vorjahr)", einheit: "%", kategorie: "inflation", frequenz: "monatlich", vorlauf: "spaet", verzug: 14, quelle: { art: "fred", serie: "CPIAUCSL", text: "FRED CPIAUCSL" }, umrechnung: "vorjahr", text: "Verbraucherpreise USA gegenüber Vorjahr." },
-  { id: "inflation-ez", name: "Inflation Eurozone (HVPI, Vorjahr)", einheit: "%", kategorie: "inflation", frequenz: "monatlich", vorlauf: "spaet", verzug: 17, quelle: { art: "ezb", serie: "ICP/M.U2.N.000000.4.ANR", text: "EZB-Datenportal HVPI" }, text: "Maßstab der EZB; Treiber für Mieten (Indexmieten) und Kosten." },
-  { id: "arbeitslos-us", name: "Arbeitslosenquote USA", einheit: "%", kategorie: "arbeit", frequenz: "monatlich", vorlauf: "spaet", verzug: 7, quelle: { art: "fred", serie: "UNRATE", text: "FRED UNRATE" }, text: "Grundlage der Sahm-Regel." },
-  { id: "pmi-us", name: "Einkaufsmanagerindex USA (Industrie)", einheit: "Punkte", kategorie: "wachstum", frequenz: "monatlich", vorlauf: "frueh", verzug: 1, quelle: { art: "manuell", text: "ISM / S&P Global" }, text: "Über 50 Wachstum, unter 50 Schrumpfung." },
-  { id: "pmi-ez", name: "Einkaufsmanagerindex Eurozone", einheit: "Punkte", kategorie: "wachstum", frequenz: "monatlich", vorlauf: "frueh", verzug: 1, quelle: { art: "manuell", text: "HCOB / S&P Global" }, text: "Über 50 Wachstum, unter 50 Schrumpfung." },
-  { id: "ifo", name: "ifo Geschäftsklima", einheit: "Index", kategorie: "stimmung", frequenz: "monatlich", vorlauf: "frueh", verzug: 0, quelle: { art: "manuell", text: "ifo Institut" }, text: "Stimmung der deutschen Wirtschaft." },
-  { id: "eurusd", name: "Euro in US-Dollar", einheit: "USD", kategorie: "waehrung", frequenz: "taeglich", vorlauf: "gleich", verzug: 1, quelle: { art: "fred", serie: "DEXUSEU", text: "FRED DEXUSEU" }, text: "Wechselkurs; wichtig für US-Werte in Euro." },
-  { id: "oel", name: "Ölpreis Brent", einheit: "USD", kategorie: "rohstoff", frequenz: "taeglich", vorlauf: "frueh", verzug: 1, quelle: { art: "fred", serie: "DCOILBRENTEU", text: "FRED DCOILBRENTEU" }, text: "Energiepreise wirken auf Inflation und Margen." },
-  { id: "immo-preis", name: "Wohnimmobilienpreise Deutschland", einheit: "Index", kategorie: "immobilien", frequenz: "quartal", vorlauf: "spaet", verzug: 45, quelle: { art: "manuell", text: "vdp, Europace oder Destatis Häuserpreisindex" }, text: "Wertentwicklung Wohnen; Maßstab für Immobilienprognosen." },
+  { id: "sp500", name: "S&P 500", einheit: "Punkte", kategorie: "markt", frequenz: "taeglich", vorlauf: "frueh", verzug: 0, quelle: { art: "fred", serie: "SP500", text: "FRED SP500" }, grenzen: [100, 50000], text: "Breiter US-Aktienindex; Maßstab für Aktien USA." },
+  { id: "dax", name: "DAX", einheit: "Punkte", kategorie: "markt", frequenz: "taeglich", vorlauf: "frueh", verzug: 0, quelle: { art: "manuell", text: "Schlusskurse, z. B. Deutsche Börse" }, grenzen: [1000, 100000], text: "Deutscher Leitindex; Maßstab für Aktien Europa." },
+  { id: "vix", name: "VIX", einheit: "Punkte", kategorie: "stimmung", frequenz: "taeglich", vorlauf: "gleich", verzug: 0, quelle: { art: "fred", serie: "VIXCLS", text: "FRED VIXCLS" }, grenzen: [5, 150], text: "Erwartete Schwankung des S&P 500 („Angstbarometer“)." },
+  { id: "us10j", name: "US-Staatsanleihe 10 Jahre", einheit: "%", kategorie: "zins", frequenz: "taeglich", vorlauf: "gleich", verzug: 0, quelle: { art: "fred", serie: "DGS10", text: "FRED DGS10" }, grenzen: [-2, 20], text: "Langfristiger Marktzins USA." },
+  { id: "kurve", name: "Zinskurve 10J − 2J (USA)", einheit: "%-Pkt.", kategorie: "zins", frequenz: "taeglich", vorlauf: "frueh", verzug: 0, quelle: { art: "fred", serie: "T10Y2Y", text: "FRED T10Y2Y" }, grenzen: [-5, 5], text: "Negativ = invertiert; ging den meisten US-Rezessionen voraus." },
+  { id: "leitzins-us", name: "Leitzins USA (Fed Funds)", einheit: "%", kategorie: "zins", frequenz: "taeglich", vorlauf: "spaet", verzug: 1, quelle: { art: "fred", serie: "DFF", text: "FRED DFF" }, grenzen: [-1, 25], text: "Effektiver Tagesgeldsatz der Fed." },
+  { id: "leitzins-ezb", name: "EZB-Einlagesatz", einheit: "%", kategorie: "zins", frequenz: "taeglich", vorlauf: "spaet", verzug: 0, quelle: { art: "fred", serie: "ECBDFR", text: "FRED ECBDFR" }, grenzen: [-2, 20], text: "Leitzins der Eurozone (Einlagefazilität)." },
+  { id: "bund10j", name: "Bundesanleihe 10 Jahre", einheit: "%", kategorie: "zins", frequenz: "monatlich", vorlauf: "gleich", verzug: 5, quelle: { art: "fred", serie: "IRLTLT01DEM156N", text: "FRED/OECD IRLTLT01DEM156N" }, grenzen: [-2, 15], text: "Langfristiger Zins Deutschland; Basis für Bauzinsen und Immobilienrenditen." },
+  { id: "bauzins", name: "Bauzins 10 Jahre fest", einheit: "%", kategorie: "immobilien", frequenz: "monatlich", vorlauf: "gleich", verzug: 35, quelle: { art: "manuell", text: "Bundesbank MFI-Zinsstatistik" }, grenzen: [0, 20], text: "Effektivzins für Wohnungsbaukredite." },
+  { id: "hy-spread", name: "Risikoaufschlag Hochzinsanleihen", einheit: "%-Pkt.", kategorie: "kredit", frequenz: "taeglich", vorlauf: "frueh", verzug: 1, quelle: { art: "fred", serie: "BAMLH0A0HYM2", text: "FRED ICE BofA HY OAS" }, grenzen: [0.5, 30], text: "Steigt, wenn Kreditgeber Ausfälle fürchten." },
+  { id: "inflation-us", name: "Inflation USA (VPI, Vorjahr)", einheit: "%", kategorie: "inflation", frequenz: "monatlich", vorlauf: "spaet", verzug: 14, quelle: { art: "fred", serie: "CPIAUCSL", text: "FRED CPIAUCSL" }, umrechnung: "vorjahr", grenzen: [-5, 30], text: "Verbraucherpreise USA gegenüber Vorjahr." },
+  { id: "inflation-ez", name: "Inflation Eurozone (HVPI, Vorjahr)", einheit: "%", kategorie: "inflation", frequenz: "monatlich", vorlauf: "spaet", verzug: 17, quelle: { art: "ezb", serie: "ICP/M.U2.N.000000.4.ANR", text: "EZB-Datenportal HVPI" }, grenzen: [-5, 30], text: "Maßstab der EZB; Treiber für Mieten (Indexmieten) und Kosten." },
+  { id: "arbeitslos-us", name: "Arbeitslosenquote USA", einheit: "%", kategorie: "arbeit", frequenz: "monatlich", vorlauf: "spaet", verzug: 7, quelle: { art: "fred", serie: "UNRATE", text: "FRED UNRATE" }, grenzen: [0, 30], text: "Grundlage der Sahm-Regel." },
+  { id: "pmi-us", name: "Einkaufsmanagerindex USA (Industrie)", einheit: "Punkte", kategorie: "wachstum", frequenz: "monatlich", vorlauf: "frueh", verzug: 1, quelle: { art: "manuell", text: "ISM / S&P Global" }, grenzen: [20, 80], text: "Über 50 Wachstum, unter 50 Schrumpfung." },
+  { id: "pmi-ez", name: "Einkaufsmanagerindex Eurozone", einheit: "Punkte", kategorie: "wachstum", frequenz: "monatlich", vorlauf: "frueh", verzug: 1, quelle: { art: "manuell", text: "HCOB / S&P Global" }, grenzen: [20, 80], text: "Über 50 Wachstum, unter 50 Schrumpfung." },
+  { id: "ifo", name: "ifo Geschäftsklima", einheit: "Index", kategorie: "stimmung", frequenz: "monatlich", vorlauf: "frueh", verzug: 0, quelle: { art: "manuell", text: "ifo Institut" }, grenzen: [50, 150], text: "Stimmung der deutschen Wirtschaft." },
+  { id: "eurusd", name: "Euro in US-Dollar", einheit: "USD", kategorie: "waehrung", frequenz: "taeglich", vorlauf: "gleich", verzug: 1, quelle: { art: "fred", serie: "DEXUSEU", text: "FRED DEXUSEU" }, grenzen: [0.5, 2.5], text: "Wechselkurs; wichtig für US-Werte in Euro." },
+  { id: "oel", name: "Ölpreis Brent", einheit: "USD", kategorie: "rohstoff", frequenz: "taeglich", vorlauf: "frueh", verzug: 1, quelle: { art: "fred", serie: "DCOILBRENTEU", text: "FRED DCOILBRENTEU" }, grenzen: [5, 500], text: "Energiepreise wirken auf Inflation und Margen." },
+  { id: "immo-preis", name: "Wohnimmobilienpreise Deutschland", einheit: "Index", kategorie: "immobilien", frequenz: "quartal", vorlauf: "spaet", verzug: 45, quelle: { art: "manuell", text: "vdp, Europace oder Destatis Häuserpreisindex" }, grenzen: [10, 1000], text: "Wertentwicklung Wohnen; Maßstab für Immobilienprognosen." },
 ];
 export const indikator = (id: string) => INDIKATOREN.find(i => i.id === id);
 
@@ -52,9 +52,22 @@ export function wertNach(p: Punkt[] | undefined, datum: string, toleranz = 10): 
   const x = (p ?? []).find(q => q.d >= datum); return x && tageZwischen(datum, x.d) <= toleranz ? x : null;
 }
 
-/** Wert des Indikators zum Stichtag, mit dessen Veröffentlichungsverzug */
+/** Höchstalter eines Werts je Frequenz (Tage nach dem Stichtag des Werts, zusätzlich zum Veröffentlichungsverzug) */
+export const MAX_ALTER: Record<Indikator["frequenz"], number> = { taeglich: 10, woechentlich: 21, monatlich: 75, quartal: 200 };
+
+/** Letzter veröffentlichter Punkt zum Stichtag, null wenn keiner da oder er zu alt ist */
+export function punktAktuell(r: Reihen, id: string, stichtag: string, vorTagen = 0): Punkt | null {
+  const p = r[id]; if (!p?.length) return null; const ind = indikator(id); const verzug = ind?.verzug ?? 0;
+  const tag = plusTage(stichtag, -vorTagen); const grenze = plusTage(tag, -verzug);
+  let lo = 0, hi = p.length - 1, x = -1;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (p[m]!.d <= grenze) { x = m; lo = m + 1; } else hi = m - 1; }
+  if (x < 0) return null;
+  const max = (ind ? MAX_ALTER[ind.frequenz] : 30) + verzug;
+  return tageZwischen(p[x]!.d, tag) > max ? null : p[x]!;
+}
+/** Wert des Indikators zum Stichtag: mit Veröffentlichungsverzug, und nur, wenn er nicht veraltet ist */
 export function lies(r: Reihen, id: string, stichtag: string, vorTagen = 0): number | null {
-  return wertAm(r[id], plusTage(stichtag, -vorTagen), indikator(id)?.verzug ?? 0);
+  return punktAktuell(r, id, stichtag, vorTagen)?.w ?? null;
 }
 
 export function gleitend(p: Punkt[], n: number): number | null { if (p.length < n) return null; let s = 0; for (const x of p.slice(-n)) s += x.w; return s / n; }

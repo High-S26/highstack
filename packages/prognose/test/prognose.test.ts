@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bewerte, bilanz, bis, gewichteAus, leseCsv, lage, plusTage, prognosen, risikolage, rueckblick, wertAm, type Punkt, type Reihen } from "../src";
+import { bewerte, bilanz, bis, gewichteAus, leseCsv, leseTabelle, lies, lage, plusTage, prognosen, risikolage, rueckblick, wertAm, type Punkt, type Reihen } from "../src";
 
 /** Werktägliche Reihe mit Trend und reproduzierbarem Rauschen */
 function reihe(start: string, tage: number, f: (i: number) => number): Punkt[] {
@@ -79,3 +79,23 @@ describe("Überprüfung", () => {
     expect(gewichteAus({ ...b, jeMechanismus: [{ id: "trend", name: "", n: 100, treffer: 80, quote: 0.8 }] }).trend).toBeGreaterThan(0.5);
   });
 });
+describe("Bugfix Welle 2: Import und Datenalter", () => {
+  it("weist mehrdeutige Kommas, ungültige und zukünftige Daten sowie unplausible Werte zeilengenau ab", () => {
+    const r = leseTabelle("Datum;Wert\n2026-08-01,2,15\n2026-13-45;2,1\n2030-01-01;2,0\n2026-09-01;71,4\n2026-10-01;2,70\n2026-07-01;2,5;Kommentar 9", { grenzen: [-2, 15], heute: "2026-10-24" });
+    expect(r.punkte).toEqual([{ d: "2026-07-01", w: 2.5 }, { d: "2026-10-01", w: 2.7 }]);
+    expect(r.fehler.map(f => f.zeile)).toEqual([2, 3, 4, 5]);
+    expect(r.fehler[0]!.text).toContain("Mehrdeutig"); expect(r.fehler[1]!.text).toContain("Ungültiges Datum"); expect(r.fehler[2]!.text).toContain("Zukunft"); expect(r.fehler[3]!.text).toContain("außerhalb");
+  });
+  it("versteht FRED-CSV mit fehlenden Werten und Tabulator", () => {
+    expect(leseTabelle("observation_date,DGS10\n2026-10-01,4.12\n2026-10-02,.", { heute: "2026-10-24" })).toEqual({ punkte: [{ d: "2026-10-01", w: 4.12 }], fehler: [] });
+    expect(leseTabelle("2026-10-01\t48,7").punkte).toEqual([{ d: "2026-10-01", w: 48.7 }]);
+  });
+  it("veraltete Werte zählen nicht als aktuell", () => {
+    const r = { bund10j: [{ d: "2015-06-01", w: 0.8 }], vix: [{ d: "2025-11-20", w: 35 }] };
+    expect(lies(r, "bund10j", "2026-10-24")).toBeNull();
+    expect(lies(r, "vix", "2026-10-24")).toBeNull();
+    expect(lies({ bund10j: [{ d: "2026-09-01", w: 2.7 }] }, "bund10j", "2026-10-24")).toBe(2.7);
+    expect(risikolage({ stichtag: "2026-10-24", reihen: r, ereignisse: [] }).faktor).toBe(1);
+  });
+});
+

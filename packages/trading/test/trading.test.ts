@@ -103,9 +103,38 @@ describe("Bugfix Welle 1", () => {
     expect(Object.keys(z.sim!.positionen)).toEqual([]);
   });
   it("Not-Aus hält auch ohne Broker an und sagt ehrlich, dass nichts geschlossen wurde", async () => {
-    const z = leererZustand(); z.aktiv = true;
+    const z = leererZustand(); z.aktiv = true; z.tag = { datum: "2026-10-26", start: 1000, ende: null, trades: 1, status: "laeuft" };
     const r = await notaus(z, null, "Not-Aus", "Zugang fehlt");
     expect(z.aktiv).toBe(false); expect(r.geschlossen).toBe(false); expect(r.text).toContain("nicht geschlossen");
+    const nie = leererZustand(); expect((await notaus(nie, null, "Not-Aus", "Zugang fehlt")).text).toContain("keine Positionen bekannt");
+  });
+});
+describe("Bugfix Welle 2", () => {
+  it("Marktumfeld verkleinert auch Positionen, die die Höchstposition begrenzt", async () => {
+    const lauf = async (faktor?: number) => {
+      const e = { ...neueEinstellungen(10000), modus: "auto" as const, richtung: "long-short" as const, strategie: "anomalie" as const, risikoProTrade: 0.05, maxPosition: 0.1, maxTradesTag: 3, tagesziel: 1e6, tagesverlust: 5000 };
+      const z = leererZustand(); z.simUhr = { datum: "2026-10-26", minute: 0 }; const b = simBroker(z, e.startkapital);
+      for (let i = 0; i < 392; i++) { await takt(e, z, b, new Date(), faktor == null ? undefined : { faktor, text: "t" }); simWeiter(z); }
+      const l = z.abschluesse ?? []; return l.reduce((a, x) => a + x.qty * x.einstieg, 0) / Math.max(1, l.length);
+    };
+    const voll = await lauf(); const halb = await lauf(0.5);
+    expect(voll).toBeGreaterThan(0); expect(halb).toBeLessThan(voll * 0.6);
+  });
+  it("Einstiegs-Vorschläge verfallen nach 15 Minuten und blockieren das Limit nicht", async () => {
+    const e = { ...neueEinstellungen(10000), modus: "vorschlag" as const, richtung: "long-short" as const, strategie: "anomalie" as const, maxTradesTag: 2, tagesziel: 1e6, tagesverlust: 5000 };
+    const z = leererZustand(); z.simUhr = { datum: "2026-10-26", minute: 0 }; const b = simBroker(z, e.startkapital);
+    for (let i = 0; i < 392; i++) { await takt(e, z, b); simWeiter(z); }
+    const verfallen = z.vorschlaege.filter(v => v.art === "einstieg" && v.status === "verfallen");
+    expect(verfallen.length).toBeGreaterThan(2);
+    expect(z.vorschlaege.every(v => v.status !== "offen" || (v.alter ?? 0) <= 15)).toBe(true);
+  });
+  it("Protokoll im deutschen Format: Stückzahlen mit Komma, Kurse mit zwei Stellen", async () => {
+    const e = { ...neueEinstellungen(10000), modus: "auto" as const, strategie: "anomalie" as const, tagesziel: 1e6, tagesverlust: 5000 };
+    const z = leererZustand(); z.simUhr = { datum: "2026-10-26", minute: 0 }; const b = simBroker(z, e.startkapital);
+    for (let i = 0; i < 392; i++) { await takt(e, z, b); simWeiter(z); }
+    const orders = z.log.filter(l => l.art === "order").map(l => l.text);
+    expect(orders.length).toBeGreaterThan(0);
+    for (const t of orders) expect(t).toMatch(/^(Kauf|Verkauf) \d+(,\d{1,3})? [A-Z]+ zu \d{1,3}(\.\d{3})*,\d{2}/);
   });
 });
 

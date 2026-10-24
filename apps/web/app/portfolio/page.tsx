@@ -1,4 +1,5 @@
 "use client";
+import { mitStellplaetzen } from "@highstack/engine";
 import Link from "next/link";
 import { useState } from "react";
 import { useApp } from "@/components/App";
@@ -45,7 +46,7 @@ export default function Portfolio() {
       <nav className="zyklus" aria-label="Investment-Zyklus">{zyklus.map(([l, n, href], i) => <Link key={l} href={href} className={i >= 3 ? "z-on" : ""}><b>{n}</b><span>{l}</span></Link>)}</nav>
       <div className="seg seg-tabs" role="tablist">{BEREICHE.map(([k, l]) => <label key={k} className="segi"><input type="radio" name="bereich" checked={bereich === k} onChange={() => setBereich(k)} /><span>{l}</span></label>)}</div>
       {bereich === "bestand" && <>
-        <Kacheln eintraege={[["Objekte", bestand.length], ["Kaufpreise gesamt", teur(bestand.reduce((s, o) => s + (o.objekt.kaufpreis ?? 0), 0))], ["Cashflow im Monat", eur(a.reduce((s, x) => s + (x.bewertung.kennzahlen.cashflowMonat ?? 0), 0))], ["Eigenkapital im Bestand", teur(a.reduce((s, x) => s + (x.simulation?.nettovermoegenStart ?? 0), 0))]]} />
+        <Kacheln eintraege={[["Objekte", bestand.length], ["Kaufpreise gesamt", teur(bestand.reduce((s, o) => s + (mitStellplaetzen(o.objekt).kaufpreis ?? 0), 0))], ["Cashflow im Monat", eur(a.reduce((s, x) => s + (x.bewertung.kennzahlen.cashflowMonat ?? 0), 0))], ["Eingesetztes Eigenkapital", teur(a.reduce((s, x) => s + (x.simulation ? x.simulation.ekEinsatz - Math.min(0, x.simulation.beimKauf) : 0), 0))]]} />
         <section className="panel"><h2>Objekte im Bestand</h2><Objektliste objekte={bestand} leer={<><b>Noch kein Bestand</b><span>Gekaufte Objekte stellen Sie am Objekt auf „Bestand“. Dann erscheinen sie hier mit Cashflow und Fristen.</span></>} /></section>
       </>}
       {bereich === "weg" && <section className="panel"><div className="ph"><h2>WEG & Verwaltung</h2><span className="tag">{etw.length ? `${etw.length} Eigentumswohnungen im Bestand` : "für Eigentumswohnungen und Mietverwaltung"}</span></div><p className="lead">Der WEG-Verwalter-Experte begleitet heute schon die Prüfung. Im Bestand übernimmt er Versammlung, Abrechnung und Schriftverkehr, und eine Koordination für Hausmeister und Handwerker kommt dazu.</p></section>}

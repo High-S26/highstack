@@ -1,10 +1,9 @@
 "use client";
-import { STRATEGIEN, trefferbilanz, type Konto, type Position } from "@highstack/trading";
+import { geld, kurs as kf, STRATEGIEN, trefferbilanz, type Konto, type Position } from "@highstack/trading";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/App";
-import { eur } from "@/lib/format";
 import type { Agentansicht } from "@/lib/trading";
 import { BROKER_NAMEN } from "@/lib/tradingTexte";
 
@@ -19,8 +18,8 @@ export default function Cockpit({ params }: { params: { id: string } }) {
   const lade = useCallback(() => fetch(`/api/trading/${params.id}`).then(r => r.json()).then(d => d.fehler ? meldung(d.fehler) : setA(d)), [params.id, meldung]);
   useEffect(() => { lade(); const t = setInterval(lade, 5000); return () => clearInterval(t); }, [lade]);
   const [umfeld, setUmfeld] = useState<{ lage: string; faktor: number; gruende: string[] } | null>(null);
-  useEffect(() => { fetch("/api/trading/umfeld").then(r => r.ok ? r.json() : null).then(setUmfeld).catch(() => null); }, []);
-  const setzeMarktlage = async (an: boolean) => { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ marktlage: an }) }); if (r.ok) { meldung(an ? "Marktumfeld wird berücksichtigt" : "Marktumfeld wird ignoriert"); lade(); } };
+  useEffect(() => { const hole = () => fetch("/api/trading/umfeld").then(r => r.ok ? r.json() : null).then(setUmfeld).catch(() => null); hole(); const t = setInterval(hole, 30_000); return () => clearInterval(t); }, []);
+  const setzeMarktlage = async (an: boolean) => { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ marktlage: an }) }); if (r.ok) { meldung(an ? "Marktumfeld wird berücksichtigt" : "Marktumfeld wird ignoriert"); lade(); } else { const d = await r.json().catch(() => ({})); meldung(`Nicht gespeichert: ${d.fehler ?? `Fehler ${r.status}`}`); } };
   const aktion = async (b: object, text?: string) => {
     setLaeuft(JSON.stringify(b));
     try { const r = await fetch(`/api/trading/${params.id}/aktion`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }); const d = await r.json(); if (!r.ok) throw new Error(d.fehler); if (d.meldung || text) meldung(d.meldung ?? text); await lade(); }
@@ -31,6 +30,8 @@ export default function Cockpit({ params }: { params: { id: string } }) {
   const tagesGV = t && k ? k.equity - t.start : 0;
   const offen = z.vorschlaege.filter(v => v.status === "offen");
   const sim = e.broker === "simulation"; const manuell = e.broker === "manuell";
+  // Kontowährung kommt vom Broker (Alpaca: US-Dollar), Kurse immer mit zwei Nachkommastellen
+  const W = k?.waehrung ?? (e.broker.startsWith("alpaca") ? "USD" : "EUR"); const g$ = (v: number) => geld(v, W);
   const bil = trefferbilanz(z.abschluesse ?? []); const g = bil.gesamt;
   const zahl = (v: number | null, d = 2) => v == null ? "–" : v.toLocaleString("de-DE", { maximumFractionDigits: d, minimumFractionDigits: d });
   const balken = (wert: number, max: number) => `${Math.min(100, Math.max(0, (wert / max) * 100))}%`;
@@ -45,10 +46,10 @@ export default function Cockpit({ params }: { params: { id: string } }) {
       </div>
       {a.live.fehler && <p className="hint">{a.live.fehler}</p>}
       {sim && <div className="testband">Simulation mit künstlichen Kursen: läuft der Agent, vergeht alle 5 Sekunden eine Handelsminute. {z.aktiv ? <button type="button" className="linkbtn" disabled={!!laeuft} onClick={() => aktion({ aktion: "tag" }, "Handelstag durchgespielt")}>{laeuft?.includes("tag") ? "spielt …" : "Rest des Tages sofort durchspielen"}</button> : <span>Zum Durchspielen den Agenten starten.</span>} · <button type="button" className="linkbtn" onClick={async () => { if (await frage({ titel: "Simulation zurücksetzen?", text: "Kontostand, Verlauf und Protokoll der Simulation werden gelöscht.", ja: "Zurücksetzen", gefahr: true })) aktion({ aktion: "zuruecksetzen" }, "Zurückgesetzt"); }}>zurücksetzen</button></div>}
-      <div className="tiles">{([["Konto", k ? `${eur(k.equity)}` : "–"], ["heute", t ? `${tagesGV >= 0 ? "+" : ""}${eur(tagesGV)}` : "–"], ["Trades heute", t ? `${t.trades} / ${e.maxTradesTag}` : "–"], ["seit Start", k ? `${k.equity - e.startkapital >= 0 ? "+" : ""}${eur(k.equity - e.startkapital)}` : "–"]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong className={l !== "Konto" && l !== "Trades heute" && v.startsWith("-") ? "dn" : ""}>{v}</strong></div>)}</div>
+      <div className="tiles">{([["Konto", k ? `${g$(k.equity)}` : "–"], ["heute", t ? `${tagesGV >= 0 ? "+" : ""}${g$(tagesGV)}` : "–"], ["Trades heute", t ? `${t.trades} / ${e.maxTradesTag}` : "–"], ["seit Start", k ? `${k.equity - e.startkapital >= 0 ? "+" : ""}${g$(k.equity - e.startkapital)}` : "–"]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong className={l !== "Konto" && l !== "Trades heute" && v.startsWith("-") ? "dn" : ""}>{v}</strong></div>)}</div>
       {t && <section className="panel tr-grenzen">
         <div className="ph"><h2>Heute</h2><span className="tag">{({ laeuft: "läuft", ziel: "Tagesziel erreicht", limit: "Verlustlimit erreicht", notaus: "Not-Aus", beendet: "beendet" } as Record<string, string>)[t.status]}</span></div>
-        <div className="tr-balken"><span>Verlustlimit −{eur(e.tagesverlust)}</span><div className="tr-spur"><i className="neg" style={{ width: balken(-tagesGV, e.tagesverlust) }} /></div><div className="tr-spur"><i style={{ width: balken(tagesGV, e.tagesziel) }} /></div><span>Tagesziel +{eur(e.tagesziel)}</span></div>
+        <div className="tr-balken"><span>Verlustlimit −{g$(e.tagesverlust)}</span><div className="tr-spur"><i className="neg" style={{ width: balken(-tagesGV, e.tagesverlust) }} /></div><div className="tr-spur"><i style={{ width: balken(tagesGV, e.tagesziel) }} /></div><span>Tagesziel +{g$(e.tagesziel)}</span></div>
       </section>}
       {umfeld && <div className={`tr-umfeld ${e.marktlage === false ? "" : umfeld.lage}`}>
         <b>Marktumfeld: {({ "risk-on": "Risikobereitschaft", neutral: "neutral", "risk-off": "Vorsicht" } as Record<string, string>)[umfeld.lage]}</b>
@@ -62,7 +63,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
         <div className="tr-vorschlaege">{offen.map(v => (
           <div key={v.id} className={`tr-v ${v.antrag.seite}`}>
             <div><b>{v.antrag.seite === "kauf" ? "Kauf" : "Verkauf"} {v.antrag.qty} × {v.antrag.symbol}</b><span className="note">{v.zeit} · {v.art === "ausstieg" ? "Ausstieg" : "Einstieg"}</span></div>
-            <p>{v.antrag.grund}{v.signal && <> · Stopp {eur(v.signal.stopp)}, Ziel {eur(v.signal.ziel)}, Kurs {eur(v.signal.kurs)}</>}</p>
+            <p>{v.antrag.grund}{v.signal && <> · Stopp {kf(v.signal.stopp)}, Ziel {kf(v.signal.ziel)}, Kurs {kf(v.signal.kurs)}</>}</p>
             <div className="row">
               {manuell && <input aria-label="Ausführungskurs" inputMode="decimal" placeholder="Kurs" value={preise[v.id] ?? ""} onChange={x => setPreise(p => ({ ...p, [v.id]: x.target.value }))} style={{ width: 110 }} />}
               <button type="button" className="btn sm" disabled={!!laeuft || (manuell && !Number(preise[v.id]?.replace(",", ".")))} onClick={() => aktion({ aktion: "vorschlag", id: v.id, ok: true, preis: manuell ? Number(preise[v.id]!.replace(",", ".")) : undefined }, "Ausgeführt")}>{manuell ? "Ausgeführt" : "Ausführen"}</button>
@@ -73,13 +74,13 @@ export default function Cockpit({ params }: { params: { id: string } }) {
       <div className="two">
         <section className="panel"><h2>Positionen</h2>
           {a.live.positionen.length ? <div className="tbl"><table><thead><tr><th>Wert</th><th className="num">Stück</th><th className="num">Einstand</th><th className="num">Kurs</th><th className="num">G/V</th><th>Stopp / Ziel</th></tr></thead><tbody>
-            {a.live.positionen.map(p => { const g = z.gefuehrt.find(x => x.symbol === p.symbol); return <tr key={p.symbol}><td><b>{p.symbol}</b>{p.qty < 0 && <span className="tag"> short</span>}</td><td className="num">{p.qty.toLocaleString("de-DE")}</td><td className="num">{eur(p.einstand)}</td><td className="num">{eur(p.kurs)}</td><td className={`num ${p.gv < 0 ? "dn" : "up"}`}>{eur(p.gv)}</td><td>{g ? `${eur(g.stopp)} / ${eur(g.ziel)}` : "–"}</td></tr>; })}
+            {a.live.positionen.map(p => { const g = z.gefuehrt.find(x => x.symbol === p.symbol); return <tr key={p.symbol}><td><b>{p.symbol}</b>{p.qty < 0 && <span className="tag"> short</span>}</td><td className="num">{p.qty.toLocaleString("de-DE")}</td><td className="num">{kf(p.einstand)}</td><td className="num">{kf(p.kurs)}</td><td className={`num ${p.gv < 0 ? "dn" : "up"}`}>{g$(p.gv)}</td><td>{g ? `${kf(g.stopp)} / ${kf(g.ziel)}` : "–"}</td></tr>; })}
           </tbody></table></div> : <p className="note">Keine offenen Positionen.</p>}
           <p className="note">Strategie: {STRATEGIEN[e.strategie].name} · {e.symbole.join(", ")} · {e.richtung === "long" ? "nur Long" : "Long und Short"} · Risiko {(e.risikoProTrade * 100).toLocaleString("de-DE")} % je Trade</p>
         </section>
         <section className="panel"><h2>Verlauf</h2>
           {z.verlauf.length ? <div className="tbl"><table><thead><tr><th>Tag</th><th className="num">Ergebnis</th><th className="num">Trades</th><th>Ende</th></tr></thead><tbody>
-            {z.verlauf.slice(0, 12).map(d => <tr key={d.datum}><td>{new Date(d.datum).toLocaleDateString("de-DE")}</td><td className={`num ${(d.ende ?? d.start) - d.start < 0 ? "dn" : "up"}`}>{eur((d.ende ?? d.start) - d.start)}</td><td className="num">{d.trades}</td><td>{({ ziel: "Ziel", limit: "Limit", notaus: "Not-Aus", beendet: "Schluss", laeuft: "–" } as Record<string, string>)[d.status]}</td></tr>)}
+            {z.verlauf.slice(0, 12).map(d => <tr key={d.datum}><td>{new Date(d.datum).toLocaleDateString("de-DE")}</td><td className={`num ${(d.ende ?? d.start) - d.start < 0 ? "dn" : "up"}`}>{g$((d.ende ?? d.start) - d.start)}</td><td className="num">{d.trades}</td><td>{({ ziel: "Ziel", limit: "Limit", notaus: "Not-Aus", beendet: "Schluss", laeuft: "–" } as Record<string, string>)[d.status]}</td></tr>)}
           </tbody></table></div> : <p className="note">Noch kein abgeschlossener Handelstag.</p>}
         </section>
       </div>
@@ -87,10 +88,10 @@ export default function Cockpit({ params }: { params: { id: string } }) {
         <div className="ph"><h2>Treffsicherheit der Signale</h2><span className="tag">{g.n} abgeschlossene Trades</span></div>
         <p className="note">Jedes Signal ist eine Prognose mit Stopp und Ziel. Hier steht, was daraus wurde. R ist das Ergebnis in Vielfachen des eingegangenen Risikos: +2 R heißt, das Ziel brachte das Doppelte dessen, was der Stopp gekostet hätte.</p>
         {g.n ? <>
-          <div className="sys">{([["Trefferquote", g.trefferquote == null ? "–" : `${Math.round(g.trefferquote * 100)} %`], ["Ø Ergebnis je Trade", `${zahl(g.mittelR)} R`], ["Gewinnfaktor", zahl(g.gewinnfaktor)], ["Summe", eur(g.ergebnis)], ["Ziel / Stopp / Schluss", `${g.zielErreicht} / ${g.stoppErreicht} / ${g.n - g.zielErreicht - g.stoppErreicht}`]] as const).map(([l, v]) => <div key={l} className={(l === "Ø Ergebnis je Trade" && (g.mittelR ?? 0) < 0) || (l === "Summe" && g.ergebnis < 0) ? "warn" : ""}><span>{l}</span><b>{v}</b></div>)}</div>
+          <div className="sys">{([["Trefferquote", g.trefferquote == null ? "–" : `${Math.round(g.trefferquote * 100)} %`], ["Ø Ergebnis je Trade", `${zahl(g.mittelR)} R`], ["Gewinnfaktor", zahl(g.gewinnfaktor)], ["Summe", g$(g.ergebnis)], ["Ziel / Stopp / Schluss", `${g.zielErreicht} / ${g.stoppErreicht} / ${g.n - g.zielErreicht - g.stoppErreicht}`]] as const).map(([l, v]) => <div key={l} className={(l === "Ø Ergebnis je Trade" && (g.mittelR ?? 0) < 0) || (l === "Summe" && g.ergebnis < 0) ? "warn" : ""}><span>{l}</span><b>{v}</b></div>)}</div>
           {bil.jeStaerke.length > 1 && <div className="tbl"><table><thead><tr><th>Signalstärke</th><th className="num">Trades</th><th className="num">Treffer</th><th className="num">Ø R</th></tr></thead><tbody>{bil.jeStaerke.map(x => <tr key={x.von}><td>{x.bis === Infinity ? `ab ${x.von.toLocaleString("de-DE")}` : `${x.von.toLocaleString("de-DE")} bis ${x.bis.toLocaleString("de-DE")}`}</td><td className="num">{x.n}</td><td className="num">{x.trefferquote == null ? "–" : `${Math.round(x.trefferquote * 100)} %`}</td><td className="num">{zahl(x.mittelR)}</td></tr>)}</tbody></table></div>}
           {g.n < 30 && <p className="note">Unter 30 Trades ist das noch Zufall. Aussagekräftig wird es ab etwa 100.</p>}
-          <details><summary>Letzte Trades</summary><div className="tbl"><table><thead><tr><th>Wert</th><th className="num">Einstieg → Ausstieg</th><th className="num">Ergebnis</th><th>Ausstieg</th></tr></thead><tbody>{(z.abschluesse ?? []).slice(0, 15).map((x, i) => <tr key={i}><td><b>{x.symbol}</b> {x.richtung === "short" ? "short" : "long"}</td><td className="num">{eur(x.einstieg)} → {eur(x.ausstieg)}</td><td className={`num ${x.gv < 0 ? "dn" : "up"}`}>{eur(x.gv)} · {zahl(x.r)} R</td><td>{x.ausstiegGrund}</td></tr>)}</tbody></table></div></details>
+          <details><summary>Letzte Trades</summary><div className="tbl"><table><thead><tr><th>Wert</th><th className="num">Einstieg → Ausstieg</th><th className="num">Ergebnis</th><th>Ausstieg</th></tr></thead><tbody>{(z.abschluesse ?? []).slice(0, 15).map((x, i) => <tr key={i}><td><b>{x.symbol}</b> {x.richtung === "short" ? "short" : "long"}</td><td className="num">{kf(x.einstieg)} → {kf(x.ausstieg)}</td><td className={`num ${x.gv < 0 ? "dn" : "up"}`}>{g$(x.gv)} · {zahl(x.r)} R</td><td>{x.ausstiegGrund}</td></tr>)}</tbody></table></div></details>
         </> : <p className="note">Noch kein abgeschlossener Trade.</p>}
       </section>
       <section className="panel">

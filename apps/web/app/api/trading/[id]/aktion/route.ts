@@ -1,4 +1,4 @@
-import { abschluss, bucheManuell, notaus, protokoll, type Broker } from "@highstack/trading";
+import { abschluss, bucheManuell, kurs as kf, notaus, protokoll, stueck, VORSCHLAG_GUELTIG, type Broker } from "@highstack/trading";
 import { mandant, speicher } from "@/lib/speicher";
 import { agent, ansicht, brokerFuer, erlaubteBroker, exklusiv, speichere, taktFuer } from "@/lib/trading";
 import { verschluessele } from "@/lib/geheim";
@@ -58,10 +58,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           let qty = v.antrag.qty;
           if (b.qty != null) {
             if (typeof b.qty !== "number" || !Number.isFinite(b.qty) || b.qty <= 0) throw new Error("Stückzahl muss größer als 0 sein.");
-            if (b.qty > v.antrag.qty + 1e-9) throw new Error(`Höchstens die vorgeschlagene Stückzahl (${v.antrag.qty.toLocaleString("de-DE")}); sie folgt aus Ihrem Risiko je Trade.`);
+            if (b.qty > v.antrag.qty + 1e-9) throw new Error(`Höchstens die vorgeschlagene Stückzahl (${stueck(v.antrag.qty)}); sie folgt aus Ihrem Risiko je Trade.`);
             qty = b.qty;
           }
           const br = await brokerFuer(a);
+          // Signal noch gültig? Zu alt oder Kurs schon jenseits von Stopp oder Ziel: verfallen lassen statt ausführen
+          if (v.art === "einstieg" && v.signal) {
+            if ((v.alter ?? 0) > VORSCHLAG_GUELTIG) { v.status = "verfallen"; v.meldung = "veraltet"; throw new Error(`Der Vorschlag ist älter als ${VORSCHLAG_GUELTIG} Minuten und verfallen.`); }
+            const akt = (await br.bars([v.signal.symbol]).catch(() => ({} as Record<string, { c: number }[]>)))[v.signal.symbol]?.at(-1)?.c;
+            const sg = v.signal;
+            if (akt != null && (sg.richtung === "long" ? akt <= sg.stopp || akt >= sg.ziel : akt >= sg.stopp || akt <= sg.ziel)) { v.status = "verfallen"; v.meldung = "Kurs jenseits von Stopp oder Ziel"; throw new Error(`Der Kurs (${kf(akt)}) liegt schon jenseits von Stopp (${kf(sg.stopp)}) oder Ziel (${kf(sg.ziel)}). Der Vorschlag ist verfallen.`); }
+          }
           let preis: number | null = null;
           if (br.nurZettel) {
             if (typeof b.preis !== "number" || !Number.isFinite(b.preis) || b.preis <= 0) throw new Error("Bitte den Ausführungskurs aus der App eintragen.");
@@ -71,7 +78,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           v.status = "ausgefuehrt"; v.meldung = preis ? `zu ${preis}` : undefined;
           if (v.art === "einstieg" && v.signal) { z.gefuehrt.push({ symbol: v.signal.symbol, richtung: v.signal.richtung, qty, einstieg: preis ?? v.signal.kurs, stopp: v.signal.stopp, ziel: v.signal.ziel, seit: jetzt(), grund: v.signal.grund, staerke: v.signal.staerke, strategie: e.strategie }); if (z.tag) z.tag.trades++; }
           if (v.art === "ausstieg") { const g = z.gefuehrt.find(x => x.symbol === v.antrag.symbol); if (g && preis != null) abschluss(z, g, preis, v.antrag.grund, jetzt()); z.gefuehrt = z.gefuehrt.filter(x => x.symbol !== v.antrag.symbol); }
-          protokoll(z, "order", `Bestätigt: ${v.antrag.seite === "kauf" ? "Kauf" : "Verkauf"} ${qty.toLocaleString("de-DE", { maximumFractionDigits: 3 })} ${v.antrag.symbol}${preis ? ` zu ${preis.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}`, jetzt());
+          protokoll(z, "order", `Bestätigt: ${v.antrag.seite === "kauf" ? "Kauf" : "Verkauf"} ${stueck(qty)} ${v.antrag.symbol}${preis ? ` zu ${kf(preis)}` : ""}`, jetzt());
         }
       }
       else throw new Error("Unbekannte Aktion");

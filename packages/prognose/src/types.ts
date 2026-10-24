@@ -18,6 +18,8 @@ export interface Indikator {
   quelle: { art: "fred" | "ezb" | "manuell"; serie?: string; text: string };
   /** Umrechnung beim Abruf: Index in Veränderung zum Vorjahr */
   umrechnung?: "vorjahr";
+  /** Plausible Werte; Importe außerhalb werden abgewiesen */
+  grenzen: [number, number];
   text: string;
 }
 

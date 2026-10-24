@@ -60,7 +60,7 @@ export interface Abschluss { symbol: string; richtung: "long" | "short"; qty: nu
 /** Marktumfeld für einen Takt: Faktor auf das Risiko je Trade (0 = keine neuen Einstiege) */
 export interface Umfeld { faktor: number; text: string }
 
-export interface Vorschlag { id: string; zeit: string; antrag: OrderAntrag; signal?: Signal; art: "einstieg" | "ausstieg"; status: "offen" | "ausgefuehrt" | "abgelehnt" | "verfallen"; meldung?: string }
+export interface Vorschlag { id: string; zeit: string; antrag: OrderAntrag; signal?: Signal; art: "einstieg" | "ausstieg"; status: "offen" | "ausgefuehrt" | "abgelehnt" | "verfallen"; meldung?: string; /** Takte seit dem Vorschlag; Einstiege verfallen nach VORSCHLAG_GUELTIG Takten */ alter?: number }
 
 export interface Logeintrag { zeit: string; art: "signal" | "order" | "sperre" | "ausstieg" | "schluss" | "info" | "fehler"; text: string }
 

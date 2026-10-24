@@ -21,7 +21,7 @@ export function Unterlagen({ o, setze, onNeu }: { o: Objektdatensatz; setze: (p:
     if (!dateien.length) return; setLaeuft(schluessel ?? "alle"); setMeldung([`${dateien.length === 1 ? "Datei wird" : `${dateien.length} Dateien werden`} gelesen und eingeordnet …`]);
     try {
       const r = await api.hochladen(o.id, dateien, schluessel); onNeu({ ...o, dokumente: r.dokumente });
-      setMeldung(r.ergebnis.map(x => `${x.datei} → ${x.titel}${x.sicher ? "" : " (bitte prüfen)"}${x.grundriss ? ` · Grundriss auf Seite ${x.grundriss.join(", ")} erkannt` : ""}${x.zeichen || istBild("", x.datei) ? "" : " · kein Text lesbar"}`));
+      setMeldung(r.ergebnis.map(x => `${x.datei} → ${x.titel}${x.sicher ? "" : " (bitte prüfen)"}${x.grundriss ? ` · Grundriss auf Seite ${x.grundriss.join(", ")} erkannt` : ""}${x.zeichen || istBild("", x.datei) ? "" : " · kein Text lesbar"}`).concat((r.abgelehnt ?? []).map(x => `${x.datei}: nicht übernommen (${x.grund})`)));
     } catch (e) { setMeldung([(e as Error).message]); } finally { setLaeuft(null); }
   };
   const status = (k: string, s: Dokument["status"]) => setze({ dokumente: liste.map(({ hinweis: _h, ...d }) => d.schluessel === k ? { ...d, status: s } : d) });
@@ -64,7 +64,7 @@ export function Unterlagen({ o, setze, onNeu }: { o: Objektdatensatz; setze: (p:
         <div className="ph"><h2>Unterlagen</h2><span className="tag">Zuordnung automatisch, jederzeit änderbar</span></div>
         <div className={`drop${ueber ? " over" : ""}`} onDragOver={e => { e.preventDefault(); setUeber(true); }} onDragLeave={() => setUeber(false)} onDrop={e => { e.preventDefault(); setUeber(false); hoch([...e.dataTransfer.files]); }}>
           <b>Alles hier ablegen: Exposé, Pläne, Fotos, Protokolle …</b>
-          <span className="note">{laeuft === "alle" ? "Wird verarbeitet …" : "Wir erkennen die Art jeder Datei am Namen und Inhalt. Grundrisse im Exposé werden zusätzlich als Plan verlinkt. PDF, PNG, JPG bis 20 MB."}</span>
+          <span className="note">{laeuft === "alle" ? "Wird verarbeitet …" : "Wir erkennen die Art jeder Datei am Namen und Inhalt. Grundrisse im Exposé werden zusätzlich als Plan verlinkt. PDF, PNG, JPG oder WebP bis 20 MB."}</span>
           <label className="btn sm upl">Dateien auswählen<input type="file" multiple accept={ANNEHMEN} onChange={e => hoch([...(e.target.files ?? [])])} /></label>
         </div>
         {meldung.length > 0 && <ul className="hochgeladen" aria-live="polite">{meldung.map(m => <li key={m}>{m}</li>)}</ul>}
