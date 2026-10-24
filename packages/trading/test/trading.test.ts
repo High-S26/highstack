@@ -150,3 +150,17 @@ describe("Korrelationsgruppen", () => {
     expect(korrelation(a.slice(0, 10), b.slice(0, 10))).toBeNull();
   });
 });
+
+describe("Stopp-Ausführung in der Simulation", () => {
+  it("führt einen Stopp zum Stopp-Kurs aus, bei Kurslücke zum Eröffnungskurs", async () => {
+    const tag = (crash: { o: number; l: number; c: number }): Bar[] => Array.from({ length: 390 }, (_, i) => i === 50 ? { t: "", o: crash.o, h: crash.o, l: crash.l, c: crash.c, v: 1000 } : { t: "", o: 100, h: 100.1, l: 99.9, c: 100, v: 1000 });
+    for (const [crash, erwartet] of [[{ o: 100, l: 97, c: 97.5 }, 99 * 0.9995], [{ o: 96, l: 95, c: 95.5 }, 96 * 0.9995]] as const) {
+      const z = leererZustand(); z.simUhr = { datum: "2026-10-26", minute: 49 };
+      const b = simBroker(z, 10000, { quelle: () => tag(crash) });
+      await b.sende({ symbol: "X", seite: "kauf", qty: 10, grund: "t" });
+      z.simUhr.minute = 50;
+      const r = await b.sende({ symbol: "X", seite: "verkauf", qty: 10, grund: "Stopp", stoppKurs: 99 });
+      expect(r.preis).toBeCloseTo(Math.round(erwartet * 100) / 100, 2);
+    }
+  });
+});

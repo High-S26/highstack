@@ -22,7 +22,7 @@ const zeige = (v: number, gruppe = true) => v.toLocaleString("de-DE", { maximumF
 export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, leerErlaubt, min, max, info }: { info?: string; label: ReactNode; wert: number | null | undefined; onChange: (v: number | null) => void; prozent?: boolean; schritt?: number; einheit?: string; voll?: boolean; hinweis?: string; leerErlaubt?: boolean; min?: number; max?: number }) {
   const id = useId();
   const intern = wert == null ? null : prozent ? Math.round(wert * 100000) / 1000 : wert;
-  const [fokus, setFokus] = useState(false); const [roh, setRoh] = useState("");
+  const [fokus, setFokus] = useState(false); const [roh, setRoh] = useState(""); const [verworfen, setVerworfen] = useState<string | null>(null);
   const gruppe = !(typeof label === "string" && /Baujahr|Jahr$/.test(label));
   const anzeige = fokus ? roh : intern == null ? "" : zeige(intern, gruppe);
   // Beträge, Flächen und Jahre sind nie negativ; Beträge höchstens 1 Mrd.
@@ -33,16 +33,16 @@ export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, l
   const fehler = fokus && roh.trim() !== "" && v == null ? "Bitte eine Zahl eingeben" : fokus && vIntern != null && ausserhalb(vIntern) ? `Erlaubt: ${lo != null ? zeige(lo) : "…"} bis ${hi != null ? zeige(hi) : "…"}` : !fokus && intern != null && ausserhalb(intern) ? `Erlaubt: ${lo != null ? zeige(lo) : "…"} bis ${hi != null ? zeige(hi) : "…"}` : null;
   const suffix = prozent ? "%" : einheit;
   return (
-    <div className={`fld${voll ? " full" : ""}${fehler ? " err" : ""}`}>
+    <div className={`fld${voll ? " full" : ""}${fehler || verworfen ? " err" : ""}`}>
       <Beschriftung htmlFor={id} label={label} info={info} />
       <div className="adorn">
         <input id={id} type="text" inputMode="decimal" autoComplete="off" value={anzeige} aria-describedby={hinweis || fehler ? `${id}-h` : undefined} aria-invalid={!!fehler}
-          onFocus={e => { setRoh(intern == null ? "" : zeige(intern, gruppe)); setFokus(true); requestAnimationFrame(() => e.target.select()); }}
-          onBlur={() => setFokus(false)}
+          onFocus={e => { setRoh(intern == null ? "" : zeige(intern, gruppe)); setFokus(true); setVerworfen(null); requestAnimationFrame(() => e.target.select()); }}
+          onBlur={() => { setFokus(false); const n = leseZahl(roh); if (roh.trim() && (n == null || ausserhalb(n))) setVerworfen(`„${roh.trim()}“ nicht übernommen (${n == null ? "keine Zahl" : `erlaubt ${lo != null ? zeige(lo) : "…"} bis ${hi != null ? zeige(hi) : "…"}`}); es gilt weiter ${intern == null ? "kein Wert" : zeige(intern, gruppe)}.`); }}
           onChange={e => { const t = e.target.value; setRoh(t); if (t.trim() === "") { onChange(leerErlaubt === false ? 0 : null); return; } const n = leseZahl(t); if (n != null && !ausserhalb(n)) onChange(prozent ? n / 100 : n); }} />
         {suffix && <span className="sfx" aria-hidden="true">{suffix}</span>}
       </div>
-      {(fehler || hinweis) && <div id={`${id}-h`} className={fehler ? "hint bad" : "hint"}>{fehler ?? hinweis}</div>}
+      {(fehler || verworfen || hinweis) && <div id={`${id}-h`} className={fehler || verworfen ? "hint bad" : "hint"} role={verworfen ? "alert" : undefined}>{fehler ?? verworfen ?? hinweis}</div>}
     </div>
   );
 }

@@ -3,7 +3,7 @@ export interface Bar { t: string; o: number; h: number; l: number; c: number; v:
 
 export interface Konto { equity: number; cash: number; waehrung: string }
 export interface Position { symbol: string; qty: number; einstand: number; kurs: number; wert: number; gv: number }
-export interface OrderAntrag { symbol: string; seite: "kauf" | "verkauf"; qty: number; grund: string }
+export interface OrderAntrag { symbol: string; seite: "kauf" | "verkauf"; qty: number; grund: string; /** nur Simulation: Stopp-Kurs, zu dem ein Stopp-Ausstieg ausgeführt wird (bei Kurslücke der Eröffnungskurs) */ stoppKurs?: number }
 export interface Ausfuehrung { id: string; symbol: string; seite: "kauf" | "verkauf"; qty: number; preis: number | null; status: "ausgefuehrt" | "offen" | "abgelehnt"; meldung?: string; zeit: string }
 
 export type StrategieTyp = "ausbruch" | "mittelwert" | "anomalie" | "momentum" | "staerke";
@@ -66,7 +66,7 @@ export interface Abschluss { symbol: string; richtung: "long" | "short"; qty: nu
 /** Marktumfeld für einen Takt: Faktor auf das Risiko je Trade (0 = keine neuen Einstiege) */
 export interface Umfeld { faktor: number; text: string }
 
-export interface Vorschlag { id: string; zeit: string; antrag: OrderAntrag; signal?: Signal; art: "einstieg" | "ausstieg"; status: "offen" | "ausgefuehrt" | "abgelehnt" | "verfallen"; meldung?: string; /** Takte seit dem Vorschlag; Einstiege verfallen nach VORSCHLAG_GUELTIG Takten */ alter?: number }
+export interface Vorschlag { id: string; zeit: string; antrag: OrderAntrag; signal?: Signal; art: "einstieg" | "ausstieg"; status: "offen" | "ausgefuehrt" | "abgelehnt" | "verfallen"; meldung?: string; /** Takte seit dem Vorschlag (veraltet) */ alter?: number; /** Handelsminute der Entstehung; Einstiege verfallen nach VORSCHLAG_GUELTIG Minuten */ minute?: number }
 
 export interface Logeintrag { zeit: string; art: "signal" | "order" | "sperre" | "ausstieg" | "schluss" | "info" | "fehler"; text: string }
 

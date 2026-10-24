@@ -62,7 +62,9 @@ export function simBroker(z: Agentzustand, startkapital: number, opts: { quelle?
   const kurs = (s: string) => { const k = tag(s).at(-1)?.c; if (k == null) throw new Error(`Keine Kurse für ${s} am ${uhr.datum}`); return k; };
   const positionen = async (): Promise<Position[]> => Object.entries(z.sim!.positionen).filter(([, p]) => p.qty !== 0).map(([s, p]) => { const k = kurs(s); return { symbol: s, qty: p.qty, einstand: p.einstand, kurs: k, wert: p.qty * k, gv: (k - p.einstand) * p.qty }; });
   const sende = async (a: OrderAntrag): Promise<Ausfuehrung> => {
-    const k = rd(kurs(a.symbol) * (a.seite === "kauf" ? 1.0005 : 0.9995)); const delta = a.seite === "kauf" ? a.qty : -a.qty;
+    // Stopp-Ausstieg zum Stopp-Kurs (wie eine Stopp-Order), bei einer Kurslücke darüber hinaus zum Eröffnungskurs der Minute
+    const b0 = tag(a.symbol).at(-1)!; const roh = a.stoppKurs == null ? kurs(a.symbol) : a.seite === "verkauf" ? (b0.o < a.stoppKurs ? b0.o : Math.min(a.stoppKurs, b0.h)) : (b0.o > a.stoppKurs ? b0.o : Math.max(a.stoppKurs, b0.l));
+    const k = rd(roh * (a.seite === "kauf" ? 1.0005 : 0.9995)); const delta = a.seite === "kauf" ? a.qty : -a.qty;
     const p = z.sim!.positionen[a.symbol] ?? { qty: 0, einstand: 0 }; const neu = p.qty + delta;
     if (a.seite === "kauf" && p.qty >= 0 && a.qty * k > z.sim!.cash + 1e-6) return { id: id(), symbol: a.symbol, seite: a.seite, qty: a.qty, preis: null, status: "abgelehnt", meldung: "Nicht genug Guthaben", zeit: `Minute ${uhr.minute}` };
     z.sim!.cash -= delta * k;

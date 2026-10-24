@@ -1,5 +1,5 @@
 "use client";
-import { geld, kurs as kf, STRATEGIEN, trefferbilanz, type Konto, type Position } from "@highstack/trading";
+import { geld, kurs as kf, STRATEGIEN, stueck, trefferbilanz, type Konto, type Position } from "@highstack/trading";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -21,8 +21,8 @@ export default function Cockpit({ params }: { params: { id: string } }) {
   useEffect(() => { lade(); const t = setInterval(lade, 5000); return () => clearInterval(t); }, [lade]);
   const [umfeld, setUmfeld] = useState<{ lage: string; faktor: number; gruende: string[] } | null>(null);
   useEffect(() => { const hole = () => fetch("/api/trading/umfeld").then(r => r.ok ? r.json() : null).then(setUmfeld).catch(() => null); hole(); const t = setInterval(hole, 30_000); return () => clearInterval(t); }, []);
-  const setzeKontext = async (an: boolean) => { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ kontext: an }) }); if (r.ok) { meldung(an ? "Nachrichten und Insider werden als Filter genutzt" : "Nachrichten und Insider werden ignoriert"); lade(); } else { const d = await r.json().catch(() => ({})); meldung(`Nicht gespeichert: ${d.fehler ?? `Fehler ${r.status}`}`); } };
-  const setzeMarktlage = async (an: boolean) => { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ marktlage: an }) }); if (r.ok) { meldung(an ? "Marktumfeld wird berücksichtigt" : "Marktumfeld wird ignoriert"); lade(); } else { const d = await r.json().catch(() => ({})); meldung(`Nicht gespeichert: ${d.fehler ?? `Fehler ${r.status}`}`); } };
+  const setzeKontext = async (an: boolean) => { try { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ kontext: an }) }); if (r.ok) { meldung(an ? "Nachrichten und Insider werden als Filter genutzt" : "Nachrichten und Insider werden ignoriert"); lade(); } else { const d = await r.json().catch(() => ({})); meldung(`Nicht gespeichert: ${d.fehler ?? `Fehler ${r.status}`}`); } } catch { meldung("Nicht gespeichert: keine Verbindung zum Server"); } };
+  const setzeMarktlage = async (an: boolean) => { try { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ marktlage: an }) }); if (r.ok) { meldung(an ? "Marktumfeld wird berücksichtigt" : "Marktumfeld wird ignoriert"); lade(); } else { const d = await r.json().catch(() => ({})); meldung(`Nicht gespeichert: ${d.fehler ?? `Fehler ${r.status}`}`); } } catch { meldung("Nicht gespeichert: keine Verbindung zum Server"); } };
   const aktion = async (b: object, text?: string) => {
     setLaeuft(JSON.stringify(b));
     try { const r = await fetch(`/api/trading/${params.id}/aktion`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }); const d = await r.json(); if (!r.ok) throw new Error(d.fehler); if (d.meldung || text) meldung(d.meldung ?? text); await lade(); }
@@ -65,7 +65,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
         {manuell && <p className="note">In {e.brokerApp || "Ihrer App"} ausführen, dann den tatsächlichen Kurs eintragen und bestätigen.</p>}
         <div className="tr-vorschlaege">{offen.map(v => (
           <div key={v.id} className={`tr-v ${v.antrag.seite}`}>
-            <div><b>{v.antrag.seite === "kauf" ? "Kauf" : "Verkauf"} {v.antrag.qty} × {v.antrag.symbol}</b><span className="note">{v.zeit} · {v.art === "ausstieg" ? "Ausstieg" : "Einstieg"}</span></div>
+            <div><b>{v.antrag.seite === "kauf" ? "Kauf" : "Verkauf"} {stueck(v.antrag.qty)} × {v.antrag.symbol}</b><span className="note">{v.zeit} · {v.art === "ausstieg" ? "Ausstieg" : "Einstieg"}</span></div>
             <p>{v.antrag.grund}{v.signal && <> · Stopp {kf(v.signal.stopp)}, Ziel {kf(v.signal.ziel)}, Kurs {kf(v.signal.kurs)}</>}</p>
             <div className="row">
               {manuell && <input aria-label="Ausführungskurs" inputMode="decimal" placeholder="Kurs" value={preise[v.id] ?? ""} onChange={x => setPreise(p => ({ ...p, [v.id]: x.target.value }))} style={{ width: 110 }} />}

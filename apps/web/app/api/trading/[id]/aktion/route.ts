@@ -1,4 +1,4 @@
-import { abschluss, bucheManuell, kurs as kf, notaus, protokoll, stueck, VORSCHLAG_GUELTIG, type Broker } from "@highstack/trading";
+import { abschluss, bucheManuell, kurs as kf, notaus, protokoll, stueck, stueckzahl, VORSCHLAG_GUELTIG, type Broker } from "@highstack/trading";
 import { mandant, speicher } from "@/lib/speicher";
 import { agent, ansicht, brokerFuer, erlaubteBroker, exklusiv, speichere, taktFuer } from "@/lib/trading";
 import { verschluessele } from "@/lib/geheim";
@@ -68,6 +68,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             const akt = (await br.bars([v.signal.symbol]).catch(() => ({} as Record<string, { c: number }[]>)))[v.signal.symbol]?.at(-1)?.c;
             const sg = v.signal;
             if (akt != null && (sg.richtung === "long" ? akt <= sg.stopp || akt >= sg.ziel : akt >= sg.stopp || akt <= sg.ziel)) { v.status = "verfallen"; v.meldung = "Kurs jenseits von Stopp oder Ziel"; throw new Error(`Der Kurs (${kf(akt)}) liegt schon jenseits von Stopp (${kf(sg.stopp)}) oder Ziel (${kf(sg.ziel)}). Der Vorschlag ist verfallen.`); }
+            // Stückzahl zum aktuellen Kurs neu rechnen: liegt der Kurs näher am Stopp oder weiter weg, ändert sich das Risiko
+            if (akt != null) { const k = await br.konto(); const neu = stueckzahl(e, { ...sg, kurs: akt }, k.equity, k.cash, br.bruchstuecke); if (neu < v.antrag.qty) { v.antrag = { ...v.antrag, qty: neu }; if (neu <= 0) { v.status = "verfallen"; throw new Error("Zum aktuellen Kurs ergibt Ihr Risiko je Trade keine handelbare Stückzahl mehr. Der Vorschlag ist verfallen."); } } }
+            qty = Math.min(qty, v.antrag.qty);
           }
           let preis: number | null = null;
           if (br.nurZettel) {
@@ -78,7 +81,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           v.status = "ausgefuehrt"; v.meldung = preis ? `zu ${preis}` : undefined;
           if (v.art === "einstieg" && v.signal) { z.gefuehrt.push({ symbol: v.signal.symbol, richtung: v.signal.richtung, qty, einstieg: preis ?? v.signal.kurs, stopp: v.signal.stopp, ziel: v.signal.ziel, seit: jetzt(), grund: v.signal.grund, staerke: v.signal.staerke, strategie: e.strategie }); if (z.tag) z.tag.trades++; }
           if (v.art === "ausstieg") { const g = z.gefuehrt.find(x => x.symbol === v.antrag.symbol); if (g && preis != null) abschluss(z, g, preis, v.antrag.grund, jetzt()); z.gefuehrt = z.gefuehrt.filter(x => x.symbol !== v.antrag.symbol); }
-          protokoll(z, "order", `Bestätigt: ${v.antrag.seite === "kauf" ? "Kauf" : "Verkauf"} ${stueck(qty)} ${v.antrag.symbol}${preis ? ` zu ${kf(preis)}` : ""}`, jetzt());
+          protokoll(z, "order", `Bestätigt: ${v.antrag.seite === "kauf" ? "Kauf" : "Verkauf"} ${stueck(qty)} ${v.antrag.symbol}${preis ? ` zu ${kf(preis)}` : ""}`, (await br.uhr().catch(() => null))?.zeit ?? jetzt());
         }
       }
       else throw new Error("Unbekannte Aktion");

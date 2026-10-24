@@ -26,7 +26,7 @@ const BROKER: BrokerArt[] = ["simulation", "alpaca-paper", "alpaca-live", "manue
 const NAMEN: Record<string, string> = { startkapital: "Startkapital", tagesziel: "Tagesziel", tagesverlust: "Verlustlimit", risikoProTrade: "Risiko je Trade", maxPosition: "Höchstens je Position", maxTradesTag: "Trades je Tag", maxPositionen: "Positionen gleichzeitig", schlussVorEnde: "Schluss vor Handelsende" };
 export interface Pruefergebnis { e: AgentEinstellungen; fehler: { feld: string; text: string }[] }
 
-const eur = (v: number) => `${v.toLocaleString("de-DE")} €`;
+let waehrungZeichen = "€"; const eur = (v: number) => `${v.toLocaleString("de-DE")} ${waehrungZeichen}`;
 const pz = (v: number) => `${(v * 100).toLocaleString("de-DE", { maximumFractionDigits: 2 })} %`;
 
 export function pruefeEinstellungen(roh: unknown, opts: { basis?: AgentEinstellungen; erlaubteBroker?: BrokerArt[] } = {}): Pruefergebnis {
@@ -44,6 +44,7 @@ export function pruefeEinstellungen(roh: unknown, opts: { basis?: AgentEinstellu
   };
 
   const broker = (typeof r.broker === "string" ? r.broker : basis.broker) as BrokerArt;
+  waehrungZeichen = typeof broker === "string" && broker.startsWith("alpaca") ? "$" : "€";
   if (!BROKER.includes(broker)) f("broker", "Unbekannter Broker.");
   else if (opts.erlaubteBroker && !opts.erlaubteBroker.includes(broker)) f("broker", broker === "alpaca-live" ? "Handel mit echtem Geld ist auf diesem Server gesperrt." : "Dieser Broker ist noch nicht angebunden.");
 
@@ -83,6 +84,8 @@ export function pruefeEinstellungen(roh: unknown, opts: { basis?: AgentEinstellu
   let richtung = (r.richtung ?? basis.richtung) as AgentEinstellungen["richtung"]; if (richtung !== "long" && richtung !== "long-short") { f("richtung", "Richtung: long oder long-short."); richtung = "long"; }
   let modus = (r.modus ?? basis.modus) as AgentEinstellungen["modus"]; if (modus !== "vorschlag" && modus !== "auto") { f("modus", "Betriebsart: vorschlag oder auto."); modus = "vorschlag"; }
   if (broker === "manuell") { modus = "vorschlag"; richtung = "long"; }
+  if ("marktlage" in r && typeof r.marktlage !== "boolean") f("marktlage", "Marktumfeld: true oder false.");
+  if ("kontext" in r && typeof r.kontext !== "boolean") f("kontext", "Nachrichten und Insider: true oder false.");
   const marktlage = typeof r.marktlage === "boolean" ? r.marktlage : basis.marktlage ?? true;
   const kontext = typeof r.kontext === "boolean" ? r.kontext : basis.kontext ?? true;
 

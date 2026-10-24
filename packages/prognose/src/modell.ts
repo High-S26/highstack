@@ -109,7 +109,9 @@ export function risikolage(l: Lagebild): { lage: Risikolage; faktor: number; gru
   const wichtig = l.ereignisse.filter(e => e.wichtig && !e.symbol && e.datum >= l.stichtag && e.datum <= plusTage(l.stichtag, 1));
   if (wichtig.length) g.push(`Termin: ${wichtig.map(e => e.titel).join(", ")}`);
   if (!g.length) return { lage: "neutral", faktor: 1, gruende: ["Keine aktuellen Marktdaten; Positionsgröße unverändert"] };
-  const lage: Risikolage = s >= 1 ? "risk-on" : s <= -2 ? "risk-off" : "neutral";
+  // Fehlt der VIX oder ist er veraltet, gibt es keine Entwarnung: höchstens „neutral“
+  if (!vp) g.push("VIX fehlt oder ist veraltet");
+  let lage: Risikolage = s >= 1 ? "risk-on" : s <= -2 ? "risk-off" : "neutral"; if (!vp && lage === "risk-on") lage = "neutral";
   const faktor = (lage === "risk-on" ? 1 : lage === "neutral" ? 0.75 : 0.5) * (wichtig.length ? 0.5 : 1);
   return { lage, faktor, gruende: g };
 }
