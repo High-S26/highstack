@@ -52,6 +52,8 @@ export function betragNach(text: string, bezeichnung: RegExp, weite = 90): numbe
   return null;
 }
 
+const STADTNAMEN = ["Düsseldorf", "Köln", "Bonn", "Neuss", "Duisburg", "Essen", "Dortmund", "Bochum", "Wuppertal", "Krefeld", "Mönchengladbach", "Aachen", "Münster", "Hamburg", "Berlin", "München", "Frankfurt", "Stuttgart", "Leipzig", "Dresden", "Hannover", "Bremen", "Nürnberg", "Mainz", "Wiesbaden", "Ratingen", "Mettmann", "Leverkusen", "Solingen", "Gelsenkirchen", "Oberhausen", "Mülheim"];
+
 // ---------- Sätze und Verneinungen ----------
 const ABK = /\b(inkl|ca|mtl|monatl|zzgl|bzw|lt|gem|ggf|Nr|Str|Tel|z\.\s?B|u\.\s?a|d\.\s?h)\./gi;
 /** Text in Sätze bzw. Zeilen teilen (Abkürzungen beenden keinen Satz) */
@@ -101,6 +103,13 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
     if (!bester || punkte > bester.punkte) bester = { ort: m[2]!, punkte, pos: n };
   } });
   if (bester && (bester as { punkte: number }).punkte > -3) f.ort = (bester as { ort: string }).ort;
+  // ohne Postleitzahl: „in Düsseldorf-Mitte“, „von Düsseldorf“ bei bekannten Städten
+  if (!f.ort) {
+    const treffer = [...t.matchAll(new RegExp(`\\b(in|von|nach)\\s+(${STADTNAMEN.join("|")})(-[A-ZÄÖÜ][a-zäöüß]+)?\\b`, "gi"))];
+    // bevorzugt „in Stadt-Stadtteil“, dann „in Stadt“, dann „von Stadt“
+    const m = treffer.sort((a, b) => (b[3] ? 2 : 0) + (/^in$/i.test(b[1]!) ? 1 : 0) - ((a[3] ? 2 : 0) + (/^in$/i.test(a[1]!) ? 1 : 0)))[0];
+    if (m) f.ort = STADTNAMEN.find(n => n.toLowerCase() === m[2]!.toLowerCase())! + (m[3] ?? "");
+  }
   const asset: Assetklasse = /Mehrfamilienhaus|Zinshaus|Wohn- und Geschäftshaus/i.test(t) ? "MFH" : /Einfamilienhaus|Doppelhaush|Reihenhaus|Zweifamilienhaus/i.test(t) ? "EFH/ZFH" : /Gewerbe|Büro|Ladenlokal|Praxis/i.test(t) && !/Wohnung/i.test(t) ? "Gewerbe" : "ETW";
   f.asset = asset;
   // Vermietung, Erbbaurecht, Sonderumlage: Verneinungen im selben Satz beachten („unvermietet“, „kein Erbbaurecht“)

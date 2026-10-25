@@ -13,6 +13,8 @@ const nextConfig = {
   output: "standalone",
   env: { NEXT_PUBLIC_VERSION: version, NEXT_PUBLIC_COMMIT: commit, NEXT_PUBLIC_STAND: new Date().toISOString().slice(0, 10) },
   transpilePackages: ["@highstack/engine", "@highstack/agents", "@highstack/trading", "@highstack/prognose"],
-  experimental: { instrumentationHook: true, serverComponentsExternalPackages: ["postgres", "unpdf", "nodemailer"], outputFileTracingRoot: join(hier, "../..") },
+  experimental: { instrumentationHook: true, serverComponentsExternalPackages: ["postgres", "unpdf", "nodemailer", "tesseract.js", "sharp", "@tesseract.js-data/deu"], outputFileTracingRoot: join(hier, "../.."),
+    // Texterkennung lädt Sprachdaten und WebAssembly zur Laufzeit per Pfad: für den eigenständigen Server mitnehmen
+    outputFileTracingIncludes: { "/api/erfassen": ["../../node_modules/@tesseract.js-data/deu/4.0.0_best_int/**", "../../node_modules/tesseract.js-core/**", "../../node_modules/tesseract.js/**"], "/api/objekte/[id]/dokumente": ["../../node_modules/@tesseract.js-data/deu/4.0.0_best_int/**", "../../node_modules/tesseract.js-core/**", "../../node_modules/tesseract.js/**"] } },
 };
 export default nextConfig;

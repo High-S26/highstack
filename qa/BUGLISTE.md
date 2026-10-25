@@ -163,3 +163,10 @@ Der Forecast-Teil (Version 0.13) war nicht Gegenstand dieses Laufs. Im nächsten
   - Bundrendite als Swap-Näherung prüfen, wenn keine Marktberichte vorliegen.
 - **Echte Datenquellen:**
   - FRED und das EZB-Datenportal sind aus der Testumgebung gesperrt, deshalb nur auf dem eigenen Rechner oder dem Server prüfen.
+
+## 0.18.0: Fotos von Aushängen und Anzeigen
+- Neu: Bilder (JPG, PNG, WebP) werden per Texterkennung (Tesseract, Deutsch, lokal ohne externen Dienst) gelesen. Das Blatt wird vorher auf die helle Fläche zugeschnitten.
+- „Neues Objekt“ → „Exposé oder Foto“: Kaufpreis, Wohnfläche, Miete, Ort, vermietet/leer und Titel werden übernommen; ist ein KI-Schlüssel gesetzt, sieht der Datenanalyst das Bild zusätzlich.
+- Unterlagen: Fotos mit Anzeigenmerkmalen landen unter „Exposé & Inserat“ statt „Fotos“, der erkannte Text steht den Experten zur Verfügung.
+- HEIC (iPhone) wird mit Hinweis abgelehnt: bitte als JPG teilen.
+- Geprüft mit dem Aushang „Dachgeschosswohnung Düsseldorf-Mitte“ im Test, im Server und im eigenständigen Paket (ca. 5 s je Foto).

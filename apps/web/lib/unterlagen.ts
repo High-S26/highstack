@@ -34,7 +34,11 @@ export function istBild(mime: string, name = "") { return BILD.test(mime) || /\.
 export function erkenneArt(name: string, mime: string, text: string, erlaubt: Set<string>): { schluessel: string; sicher: boolean; grund: string } {
   if (istBild(mime, name)) {
     const plan = REGELN.grundriss!.name!.test(name);
-    return { schluessel: plan ? "grundriss" : "fotos", sicher: plan, grund: plan ? "Bild, Name deutet auf Grundriss" : "Bild" };
+    if (plan) return { schluessel: "grundriss", sicher: true, grund: "Bild, Name deutet auf Grundriss" };
+    // Foto einer Anzeige oder eines Aushangs: per Texterkennung gelesener Text mit typischen Angaben
+    const merkmale = [/Kaufpreis|Preis\s*:/i, /Wohnfl(ä|ae)che|\bm²/i, /Kaltmiete|vermietet|Zimmer|ZKDB/i, /Hausgeld|Baujahr|provisionsfrei|Kontakt/i].filter(r => r.test(text)).length;
+    if (merkmale >= 2 && erlaubt.has("expose")) return { schluessel: "expose", sicher: merkmale >= 3, grund: "Foto einer Anzeige, Text erkannt" };
+    return { schluessel: "fotos", sicher: false, grund: "Bild" };
   }
   const anfang = text.slice(0, 8000);
   const punkte = Object.entries(REGELN).filter(([k]) => erlaubt.has(k)).map(([k, r]) => {

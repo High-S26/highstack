@@ -4,6 +4,7 @@ import { id as neueId, unterlagenFuer } from "@/lib/vorgaben";
 import type { Dokument, Unterlagendatei } from "@/lib/typen";
 import { erkenneArt, grundrissSeiten, mitDateien, textAus } from "@/lib/unterlagen";
 import { typAusInhalt } from "@/lib/dateityp";
+import { textAusBild } from "@/lib/ocr";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
@@ -45,6 +46,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const pdf = typ === "application/pdf";
     let seiten: string[] = [];
     if (pdf) { try { const doc = await getDocumentProxy(bytes.slice()); seiten = (await extractText(doc, { mergePages: false })).text as string[]; } catch { seiten = []; } }
+    else if (gueltig.length <= 5) { try { const r = await textAusBild(bytes); if (r.konfidenz >= 50 && r.text.length > 40) seiten = [r.text]; } catch (e) { console.error("Texterkennung fehlgeschlagen:", e); } }
     const text = seiten.map((s2, i) => `[${f.name}, Seite ${i + 1}] ${s2}`).join("\n").slice(0, 120000);
     const mime = typ;
     const art = fest && erlaubt.has(fest) ? { schluessel: fest, sicher: true, grund: "von Ihnen zugeordnet" } : erkenneArt(f.name, mime, text, erlaubt);

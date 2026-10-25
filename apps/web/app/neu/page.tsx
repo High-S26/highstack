@@ -14,7 +14,7 @@ import { fragen, SP_ART } from "@/lib/concierge";
 
 type Quelle = "pdf" | "link" | "text" | "hand" | "concierge";
 const QUELLEN: { id: Quelle; titel: string; text: string; icon: string }[] = [
-  { id: "pdf", titel: "Exposé hochladen", text: "PDF vom Makler oder Portal. Wird ausgelesen und als Unterlage abgelegt.", icon: "M6 2.5h6l4 4v11H6zM12 2.5v4h4M8.5 11h5M8.5 14h5" },
+  { id: "pdf", titel: "Exposé oder Foto", text: "PDF vom Makler oder Portal, oder ein Foto der Anzeige (Aushang, Zeitung, Schaufenster). Wird ausgelesen und als Unterlage abgelegt.", icon: "M6 2.5h6l4 4v11H6zM12 2.5v4h4M8.5 11h5M8.5 14h5" },
   { id: "link", titel: "Link zum Inserat", text: "Adresse der Anzeige einfügen. Manche Portale sperren das Lesen, dann hilft Text oder PDF.", icon: "M8.5 11.5a3 3 0 0 0 4.2 0l2.8-2.8a3 3 0 0 0-4.2-4.2l-1 1M11.5 8.5a3 3 0 0 0-4.2 0l-2.8 2.8a3 3 0 0 0 4.2 4.2l1-1" },
   { id: "text", titel: "Text einfügen", text: "Anzeige, Suchagent-Mail oder Newsletter kopieren und einfügen.", icon: "M4 5h12M4 9h12M4 13h8" },
   { id: "concierge", titel: "Fragen lassen", text: "Kein Exposé zur Hand? Der Concierge fragt Schritt für Schritt und sagt, wo die Angaben stehen.", icon: "M10 3.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13M8 8a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.7M10 13.5v.1" },
@@ -101,8 +101,8 @@ export default function NeuesObjekt() {
             <b>{q.titel}</b><span>{q.text}</span>
           </button>))}</div>
         {quelle === "pdf" && <div className={`drop${ueber ? " over" : ""}`} onDragOver={e => { e.preventDefault(); setUeber(true); }} onDragLeave={() => setUeber(false)} onDrop={e => { e.preventDefault(); setUeber(false); const f = e.dataTransfer.files[0]; if (f) setDatei(f); }}>
-          <b>{datei ? datei.name : "Exposé hier ablegen"}</b><span className="note">{datei ? `${Math.round(datei.size / 1024)} KB · bereit zum Auslesen` : "PDF bis 20 MB"}</span>
-          <label className="btn sm ghost upl">{datei ? "Andere Datei" : "Datei auswählen"}<input ref={eingabe} type="file" accept="application/pdf" onChange={e => setDatei(e.target.files?.[0] ?? null)} /></label>
+          <b>{datei ? datei.name : "Exposé oder Foto hier ablegen"}</b><span className="note">{datei ? `${Math.round(datei.size / 1024)} KB · bereit zum Auslesen` : "PDF oder Foto (JPG, PNG) bis 20 MB"}</span>
+          <label className="btn sm ghost upl">{datei ? "Andere Datei" : "Datei auswählen"}<input ref={eingabe} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => setDatei(e.target.files?.[0] ?? null)} /></label>
         </div>}
         {quelle === "link" && <div className="fld"><label htmlFor="link">Link zur Anzeige</label><input id="link" type="url" inputMode="url" autoFocus value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" /></div>}
         {quelle === "text" && <div className="fld"><label htmlFor="txt">Text der Anzeige</label><textarea id="txt" autoFocus style={{ minHeight: 180 }} value={text} onChange={e => setText(e.target.value)} placeholder="Titel, Preis, Fläche, Miete, Hausgeld … einfach alles einfügen" /></div>}

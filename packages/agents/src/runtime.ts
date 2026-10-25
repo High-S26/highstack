@@ -17,6 +17,8 @@ export interface Laufoptionen {
   signal?: AbortSignal; onEreignis?: (e: Ereignis) => void; maxRunden?: number;
   /** Antwortlänge, z. B. für große Tabellen */
   maxTokens?: number;
+  /** Bilder zum Auftrag (z. B. Foto einer Anzeige), werden dem ersten Auftrag vorangestellt */
+  bilder?: { mime: "image/jpeg" | "image/png" | "image/webp"; base64: string }[];
   /** Wird hochgezählt: Aufrufe, Tokens, Dauer */
   verbrauch?: Verbrauch;
 }
@@ -43,7 +45,8 @@ export async function fuehreAus<T = unknown>(expertId: string, o: Laufoptionen, 
   const werkzeuge = ex.werkzeuge.map(w => WERKZEUGE[w]).filter(Boolean);
   const tools: Werkzeugdefinition[] = [...werkzeuge.map(w => ({ name: w!.name, description: w!.description, input_schema: w!.input_schema })), { name: "abgabe", description: "Gibt das fertige Ergebnis ab. Erst aufrufen, wenn alle nötigen Rechnungen erledigt sind.", input_schema: schema }];
   const system = `${ex.anweisung}\n\n${QUALITAET}\n\nKennzahlen, Zielpreise, Szenarien, Sensitivität und Steuern aller Strukturen stehen bereits im Kontext. Rechne sie nicht nach.${werkzeuge.length ? " Nutze Werkzeuge nur für zusätzliche Varianten oder Unterlagen, höchstens drei Aufrufe, und übernimm gerechnete Varianten mit der Annahme in die Kennzahlen." : ""}`;
-  const messages: Nachricht[] = [{ role: "user", content: `${auftrag ? auftrag + "\n\n" : ""}${kontextNachricht(o, a)}` }];
+  const text = `${auftrag ? auftrag + "\n\n" : ""}${kontextNachricht(o, a)}`;
+  const messages: Nachricht[] = [{ role: "user", content: o.bilder?.length ? [...o.bilder.map(b => ({ type: "image" as const, source: { type: "base64" as const, media_type: b.mime, data: b.base64 } })), { type: "text" as const, text }] : text }];
   const schritte: string[] = [];
   const schritt = (text: string) => { schritte.push(text); o.onEreignis?.({ typ: "schritt", experte: expertId, text }); };
   o.onEreignis?.({ typ: "start", experte: expertId });

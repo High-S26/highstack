@@ -15,11 +15,14 @@
     "@highstack/engine": "0.1.0",
     "@highstack/prognose": "0.1.0",
     "@highstack/trading": "0.1.0",
+    "@tesseract.js-data/deu": "^1.0.0",
     "next": "14.2.35",
     "nodemailer": "6.9.16",
     "postgres": "3.4.7",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "sharp": "^0.34.4",
+    "tesseract.js": "^7.0.0",
     "unpdf": "1.8.1"
   },
   "devDependencies": {
