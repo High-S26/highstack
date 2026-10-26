@@ -44,3 +44,12 @@ describe("Wirtschaftskalender intraday", () => {
     } finally { (STRATEGIEN.ausbruch as { fn: unknown }).fn = alt; }
   });
 });
+
+describe("Zahlen ohne Uhrzeit mit Zeitpunkt", () => {
+  it("„nach Börsenschluss“ wirkt wie Zahlen am Abend", async () => {
+    const { terminlage } = await import("../src");
+    const l = terminlage([{ datum: "2026-10-28", titel: "Quartalszahlen Microsoft", art: "zahlen", symbol: "MSFT", zeitpunkt: "nachboerslich", wichtig: true }], "2026-10-28", ["MSFT"]);
+    expect(l.werte.MSFT).toMatchObject({ faktor: 1, keinEinstiegAb: 330 });
+    expect(l.werte.MSFT!.text).toMatch(/nach Handelsschluss/);
+  });
+});

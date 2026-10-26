@@ -12,12 +12,14 @@
  * - Zahlen nach Handelsschluss: in der letzten Stunde keine neuen Einstiege in diesen Wert (der Agent schließt ohnehin
  *   vor Schluss; neue Einstiege kurz vor Zahlen sind Glücksspiel). Am Folgetag wie Zahlen vor Handelsbeginn.
  */
-export interface Kalendertermin { datum: string; zeit?: string; titel: string; art: string; symbol?: string; wichtig?: boolean; land?: string; prognose?: string; vorwert?: string }
+export interface Kalendertermin { datum: string; zeit?: string; zeitpunkt?: "vorboerslich" | "nachboerslich"; titel: string; art: string; symbol?: string; wichtig?: boolean; land?: string; prognose?: string; vorwert?: string }
 export interface Pause { von: number; bis: number; titel: string }
 export interface Werteregel { faktor: number; keinEinstiegAb?: number; text: string }
 export interface Idee { titel: string; text: string; symbol?: string; zeitDe?: string; zeitNy?: string }
 export interface Terminlage { datum: string; pausen: Pause[]; werte: Record<string, Werteregel>; ideen: Idee[]; heute: (Kalendertermin & { zeitNy?: string; nyMinute?: number })[] }
 
+/** Index-Schwergewichte: deren Zahlen bewegen den Gesamtmarkt */
+const SCHWERGEWICHTE = new Set(["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AVGO", "BRK.B", "JPM", "LLY", "V", "ORCL", "NFLX"]);
 export const TERMIN_PAUSE = { vorher: 10, nachher: 15, zinsNachher: 45, eroeffnung: 10, schlussStunde: 330 } as const;
 
 /** Offset einer Zeitzone zu UTC in Minuten an einem Zeitpunkt */
@@ -41,7 +43,9 @@ const uhr = (m: number) => { const x = 9 * 60 + 30 + m; return `${String(Math.fl
 export function terminlage(termine: Kalendertermin[], datum: string, symbole: string[]): Terminlage {
   const lage: Terminlage = { datum, pausen: [], werte: {}, ideen: [], heute: [] };
   const beobachtet = new Set(symbole.map(s => s.toUpperCase())); const gestern = vortag(datum);
-  const mitZeit = (t: Kalendertermin) => t.zeit ? nyMinute(t.datum, t.zeit) : null;
+  const mitZeit = (t: Kalendertermin) => t.zeit ? nyMinute(t.datum, t.zeit) : null; const weitere: string[] = [];
+  // gleicher marktweiter Termin aus zwei Quellen nur einmal (gleiche Art, Uhrzeit und Land)
+  termine = termine.filter((t, i) => !t.symbol && t.zeit && t.wichtig ? termine.findIndex(x => !x.symbol && x.wichtig && x.datum === t.datum && x.zeit === t.zeit && x.art === t.art && x.land === t.land) === i : true);
   for (const t of termine) {
     if (t.datum !== datum && t.datum !== gestern) continue;
     const z = mitZeit(t); const heute = t.datum === datum;
@@ -49,14 +53,17 @@ export function terminlage(termine: Kalendertermin[], datum: string, symbole: st
     const sym = t.symbol?.toUpperCase();
     // Unternehmenszahlen
     if (t.art === "zahlen" && sym) {
-      const nachSchluss = z ? z.minute >= 390 : null; const vorBeginn = z ? z.minute < 0 : null;
+      // ohne Uhrzeit hilft die Angabe „vor Handelsbeginn“ / „nach Handelsschluss“
+      const nachSchluss = z ? z.minute >= 390 : t.zeitpunkt === "nachboerslich" ? true : null; const vorBeginn = z ? z.minute < 0 : t.zeitpunkt === "vorboerslich" ? true : null;
+      const wann = t.zeit ? `${t.zeit} Uhr` : t.zeitpunkt === "nachboerslich" ? "nach Handelsschluss" : t.zeitpunkt === "vorboerslich" ? "vor Handelsbeginn" : "";
       if (heute) {
         if (beobachtet.has(sym)) {
-          if (vorBeginn) { lage.werte[sym] = { faktor: 0.5, text: `Zahlen vor Handelsbeginn (${t.zeit} Uhr): Kurslücke und hohe Schwankung, halbe Positionsgröße` }; lage.ideen.push({ titel: `${sym}: Zahlen vor Handelsbeginn`, text: "Kurslücke wahrscheinlich. Am aussagekräftigsten ist die Richtung der ersten 30 Minuten (Strategie „Momentum“); gegen eine große Lücke nicht vorschnell handeln.", symbol: sym, zeitDe: t.zeit, zeitNy: z?.zeitNy }); }
-          else if (nachSchluss) { lage.werte[sym] = { faktor: 1, keinEinstiegAb: TERMIN_PAUSE.schlussStunde, text: `Zahlen nach Handelsschluss (${t.zeit} Uhr): ab ${uhr(TERMIN_PAUSE.schlussStunde)} New York keine neuen Einstiege` }; lage.ideen.push({ titel: `${sym}: Zahlen nach Handelsschluss`, text: "Vorher oft abwartender Handel. Der Agent schließt vor Schluss; in der letzten Stunde keine neuen Einstiege in diesen Wert. Morgen ist mit einer Kurslücke zu rechnen.", symbol: sym, zeitDe: t.zeit, zeitNy: z?.zeitNy }); }
+          if (vorBeginn) { lage.werte[sym] = { faktor: 0.5, text: `Zahlen vor Handelsbeginn (${wann}): Kurslücke und hohe Schwankung, halbe Positionsgröße` }; lage.ideen.push({ titel: `${sym}: Zahlen vor Handelsbeginn`, text: "Kurslücke wahrscheinlich. Am aussagekräftigsten ist die Richtung der ersten 30 Minuten (Strategie „Momentum“); gegen eine große Lücke nicht vorschnell handeln.", symbol: sym, zeitDe: t.zeit, zeitNy: z?.zeitNy }); }
+          else if (nachSchluss) { lage.werte[sym] = { faktor: 1, keinEinstiegAb: TERMIN_PAUSE.schlussStunde, text: `Zahlen nach Handelsschluss (${wann}): ab ${uhr(TERMIN_PAUSE.schlussStunde)} New York keine neuen Einstiege` }; lage.ideen.push({ titel: `${sym}: Zahlen nach Handelsschluss`, text: "Vorher oft abwartender Handel. Der Agent schließt vor Schluss; in der letzten Stunde keine neuen Einstiege in diesen Wert. Morgen ist mit einer Kurslücke zu rechnen.", symbol: sym, zeitDe: t.zeit, zeitNy: z?.zeitNy }); }
           else if (z) { lage.pausen.push({ von: z.minute - TERMIN_PAUSE.vorher, bis: z.minute + TERMIN_PAUSE.nachher, titel: `${sym}: ${t.titel}` }); lage.werte[sym] = { faktor: 0.5, text: `Zahlen während der Handelszeit (${t.zeit} Uhr): halbe Positionsgröße, Pause um den Termin` }; }
           else { lage.werte[sym] = { faktor: 0.5, keinEinstiegAb: TERMIN_PAUSE.schlussStunde, text: "Zahlen heute, Uhrzeit unbekannt: halbe Positionsgröße, in der letzten Stunde keine neuen Einstiege" }; }
-        } else if (t.wichtig) lage.ideen.push({ titel: `${sym}: Zahlen heute`, text: `Großer Wert${nachSchluss ? " (nach Handelsschluss)" : vorBeginn ? " (vor Handelsbeginn)" : ""}: Bewegung kann Index und Branche mitziehen (z. B. QQQ, SPY, Branchenwerte).`, symbol: sym, zeitDe: t.zeit, zeitNy: z?.zeitNy });
+        } else if (SCHWERGEWICHTE.has(sym)) lage.ideen.push({ titel: `${sym}: Zahlen heute`, text: `Schwergewicht im Index${nachSchluss ? " (nach Handelsschluss)" : vorBeginn ? " (vor Handelsbeginn)" : ""}: die Reaktion kann Nasdaq, S&P 500 und Branchenwerte mitziehen (z. B. QQQ, SPY).`, symbol: sym, zeitDe: t.zeit, zeitNy: z?.zeitNy });
+        else if (t.wichtig) weitere.push(sym);
       } else if (beobachtet.has(sym) && (nachSchluss || !z)) {
         lage.werte[sym] = { faktor: 0.5, text: `Zahlen gestern nach Handelsschluss: Kurslücke und hohe Schwankung, halbe Positionsgröße` };
         lage.ideen.push({ titel: `${sym}: Reaktion auf die Zahlen von gestern`, text: "Kurslücke zur Eröffnung. Hält die Richtung der ersten 30 Minuten, setzt sie sich oft fort (Momentum); dreht sie früh, wird die Lücke häufig teilweise geschlossen.", symbol: sym });
@@ -76,6 +83,7 @@ export function terminlage(termine: Kalendertermin[], datum: string, symbole: st
       } else if (!z) lage.ideen.push({ titel: t.titel, text: "Wichtiger Termin ohne Uhrzeit: das Marktumfeld verkleinert die Positionen für den ganzen Tag.", zeitDe: undefined });
     }
   }
+  if (weitere.length) lage.ideen.push({ titel: `Weitere US-Zahlen heute: ${[...new Set(weitere)].join(", ")}`, text: "Nicht beobachtet; Branchenwerte können mitlaufen." });
   lage.heute.sort((a, b) => (a.zeit ?? "99").localeCompare(b.zeit ?? "99"));
   return lage;
 }

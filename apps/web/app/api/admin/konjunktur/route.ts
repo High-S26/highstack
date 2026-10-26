@@ -1,8 +1,10 @@
-import { leseTermine, bilanz, INDIKATOREN, leseTabelle, MECHANISMEN, rueckblick, type Ereignis, type Prognose } from "@highstack/prognose";
-import { istAdmin, keinAdmin, protokolliere } from "@/lib/admin";
+import { ausUmgebung, fuehreAus, neuerVerbrauch } from "@highstack/agents";
+import { BEISPIEL_ANLAGEPROFIL, BEISPIEL_INVESTOR } from "@highstack/engine";
+import { leseTermine, ordneTermin, type Termin, bilanz, INDIKATOREN, leseTabelle, MECHANISMEN, rueckblick, type Ereignis, type Prognose } from "@highstack/prognose";
+import { bucheVerbrauch, istAdmin, keinAdmin, protokolliere } from "@/lib/admin";
 import { abrufAlle, ereignisse, lagebild, reihen, rueckblickGespeichert, stand, taeglich, uebernimm, umfeldVergessen, type Reihendatensatz, type Rueckblick } from "@/lib/konjunktur";
 import { speicher } from "@/lib/speicher";
-import { id as neueId } from "@/lib/vorgaben";
+import { id as neueId, LEERES_OBJEKT } from "@/lib/vorgaben";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
@@ -30,7 +32,7 @@ type Aktion =
   | { aktion: "lauf" }
   | { aktion: "ereignis"; ereignis: Omit<Ereignis, "id"> }
   | { aktion: "ereignis-loeschen"; id: string }
-  | { aktion: "termine-import"; text: string; jahr?: number; quelle?: string; vorschau?: boolean }
+  | { aktion: "termine-import"; text?: string; termine?: unknown[]; jahr?: number; quelle?: string; vorschau?: boolean; ki?: boolean }
   | { aktion: "termine-alte-loeschen" }
   | { aktion: "reihe-loeschen"; id: string }
   | { aktion: "rueckblick"; von: string; bis: string; schrittTage?: number };
@@ -74,16 +76,43 @@ export async function POST(req: Request) {
       }
       case "termine-import": {
         // Wirtschaftskalender aus eingefügtem Text: Vorschau, dann übernehmen; gleiche Termine (Datum, Uhrzeit, Titel) nicht doppelt
-        if (typeof b.text !== "string" || !b.text.trim()) throw new Error("Bitte den Text der Terminliste einfügen.");
         const jahr = Number.isInteger(b.jahr) && b.jahr! >= 2000 && b.jahr! <= 2100 ? b.jahr : undefined;
         const quelle = typeof b.quelle === "string" ? b.quelle.trim().slice(0, 80) : undefined;
-        const { termine, ohneTag } = leseTermine(b.text.slice(0, 200_000), { jahr, quelle: quelle || undefined });
-        const vorhanden = await ereignisse(s); const schluessel = (e: { datum: string; zeit?: string; titel: string }) => `${e.datum}|${e.zeit ?? ""}|${e.titel.toLowerCase()}`;
-        const bekannt = new Set(vorhanden.map(schluessel)); const neu = termine.filter(t => !bekannt.has(schluessel(t)));
-        if (b.vorschau) return Response.json({ termine, neu: neu.length, doppelt: termine.length - neu.length, ohneTag });
+        let termine: Termin[]; let ohneTag = 0; let ki = 0;
+        if (Array.isArray(b.termine)) termine = b.termine.map(pruefeTermin).filter((x): x is Termin => !!x); // aus der Vorschau übernommen
+        else {
+          if (typeof b.text !== "string" || !b.text.trim()) throw new Error("Bitte den Text der Terminliste einfügen oder eine Datei wählen.");
+          const r = leseTermine(b.text.slice(0, 200_000), { jahr, quelle: quelle || undefined }); termine = r.termine; ohneTag = r.ohneTag;
+          // Fließtext (Artikel): mit KI-Schlüssel liest der Experte „Termine lesen“ zusätzlich; nur Termine, die die Muster nicht schon haben
+          const { client, modelle, testmodus } = ausUmgebung();
+          if (!testmodus && b.ki !== false && ohneTag > 3) {
+            const verbrauch = neuerVerbrauch();
+            const k = await fuehreAus<{ termine?: Termin[] }>("terminleser", { verbrauch, client, modelle, eingabe: { investor: BEISPIEL_INVESTOR, anlageprofil: BEISPIEL_ANLAGEPROFIL, objekt: { ...LEERES_OBJEKT, titel: "Wirtschaftskalender" } }, signal: req.signal, maxRunden: 1, maxTokens: 8000 },
+              `Heute ist ${new Date().toISOString().slice(0, 10)}. Übertrage die Termine aus diesem Text:\n"""${b.text.slice(0, 60_000)}"""`).catch(() => null);
+            await bucheVerbrauch(s, "plattform", "terminleser", verbrauch);
+            for (const x of (k?.ergebnis?.termine ?? []).map(pruefeTermin)) {
+              if (!x) continue; const o = ordneTermin(x.titel, x.land); const t: Termin = { ...x, ...o, ...(quelle ? { quelle } : {}) }; if (!t.unternehmen) delete t.unternehmen;
+              if (!termine.some(v => v.datum === t.datum && ((t.symbol && v.symbol === t.symbol) || (v.art === t.art && v.art !== "sonstiges" && (v.zeit ?? "") === (t.zeit ?? "")) || v.titel.toLowerCase() === t.titel.toLowerCase()))) { termine.push(t); ki++; }
+            }
+          }
+        }
+        // Doppelte: gleicher Tag und gleicher Titel, oder gleicher Tag und gleiches Börsenkürzel bei Quartalszahlen
+        // (zwei Quellen, z. B. Terminliste und Artikel). Hat der neue Termin eine genauere Zeit, wird der alte ergänzt.
+        const vorhanden = await ereignisse(s);
+        const gleich = (a: { datum: string; zeit?: string; titel: string; symbol?: string; art: string }, x: typeof a) => a.datum === x.datum && ((a.titel.toLowerCase() === x.titel.toLowerCase() && (a.zeit ?? "") === (x.zeit ?? "")) || (!!a.symbol && a.symbol === x.symbol && a.art === "zahlen" && x.art === "zahlen")
+          // gleicher Notenbank- oder Datentermin aus zwei Quellen (z. B. „Fed, Ergebnis der FOMC-Sitzung“ und „Fed-Zinsentscheid“)
+          || (!!a.zeit && a.zeit === x.zeit && a.art === x.art && ["zinsentscheid", "inflation", "arbeitsmarkt"].includes(a.art) && (a as { land?: string }).land === (x as { land?: string }).land));
+        const neu: typeof termine = []; const ergaenzt: Ereignis[] = [];
+        for (const t of termine) {
+          const alt = vorhanden.find(v => gleich(v, t)) ?? ergaenzt.find(v => gleich(v, t));
+          if (!alt) { if (!neu.some(n => gleich(n, t))) neu.push(t); continue; }
+          if (!alt.zeit && (t.zeit || (t.zeitpunkt && !alt.zeitpunkt))) { Object.assign(alt, t.zeit ? { zeit: t.zeit } : { zeitpunkt: t.zeitpunkt }); if (!ergaenzt.includes(alt)) ergaenzt.push(alt); }
+        }
+        if (b.vorschau) return Response.json({ termine: termine.sort((a, c) => `${a.datum}${a.zeit ?? "99"}`.localeCompare(`${c.datum}${c.zeit ?? "99"}`)), neu: neu.length, doppelt: termine.length - neu.length, ergaenzt: ergaenzt.length, ohneTag, ki });
         for (const t of neu) { const x: Ereignis = { ...t, id: neueId() }; await s.speichereGlobal("ereignis", x.id, x); }
-        umfeldVergessen(); await protokolliere(s, req, "Termine importiert", quelle || "Kalender", `${neu.length} neu, ${termine.length - neu.length} schon vorhanden`);
-        return Response.json({ neu: neu.length, doppelt: termine.length - neu.length });
+        for (const x of ergaenzt) await s.speichereGlobal("ereignis", x.id, x);
+        umfeldVergessen(); await protokolliere(s, req, "Termine importiert", quelle || "Kalender", `${neu.length} neu, ${termine.length - neu.length} schon vorhanden, ${ergaenzt.length} ergänzt`);
+        return Response.json({ neu: neu.length, doppelt: termine.length - neu.length, ergaenzt: ergaenzt.length });
       }
       case "termine-alte-loeschen": {
         const grenze = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10); const alt = (await ereignisse(s)).filter(e => e.datum < grenze);
@@ -103,4 +132,20 @@ export async function POST(req: Request) {
       default: throw new Error("Unbekannte Aktion");
     }
   } catch (e) { return Response.json({ fehler: (e as Error).message }, { status: 400 }); }
+}
+
+/** Termin aus Vorschau oder KI prüfen: nur bekannte Felder, gültiges Datum und Uhrzeit */
+function pruefeTermin(x: unknown): Termin | null {
+  if (!x || typeof x !== "object") return null; const r = x as Record<string, unknown>;
+  const datum = typeof r.datum === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.datum) ? r.datum : null; const titel = typeof r.titel === "string" ? r.titel.trim().slice(0, 200) : "";
+  if (!datum || titel.length < 3) return null;
+  const arten: Termin["art"][] = ["zinsentscheid", "inflation", "arbeitsmarkt", "konjunktur", "zahlen", "hauptversammlung", "index-aufnahme", "lockup-ende", "ipo", "feiertag", "verfall", "rede", "sonstiges"];
+  const art = arten.includes(r.art as Termin["art"]) ? r.art as Termin["art"] : ordneTermin(titel, typeof r.land === "string" ? r.land : undefined).art;
+  const t: Termin = { datum, titel, art, wichtig: r.wichtig === true };
+  if (typeof r.zeit === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(r.zeit)) t.zeit = r.zeit;
+  if (r.zeitpunkt === "vorboerslich" || r.zeitpunkt === "nachboerslich") t.zeitpunkt = r.zeitpunkt;
+  if (typeof r.land === "string" && /^[A-Z]{2}$/.test(r.land)) t.land = r.land;
+  if (typeof r.symbol === "string" && /^[A-Z]{1,5}(\.[A-Z])?$/.test(r.symbol)) t.symbol = r.symbol;
+  for (const k of ["prognose", "vorwert", "unternehmen", "quelle"] as const) if (typeof r[k] === "string" && r[k]) t[k] = (r[k] as string).slice(0, 80);
+  return t;
 }

@@ -121,7 +121,19 @@ export const MARKTBERICHT_SCHEMA = {
   required: ["titel", "herausgeber", "stand", "fakten", "kernaussagen"],
 } as const;
 
-export const SCHEMA_JE_AUSGABE: Record<string, object> = { mietspiegel: MIETSPIEGEL_SCHEMA, marktbericht: MARKTBERICHT_SCHEMA, kurzurteil: KURZURTEIL_SCHEMA, bericht: BERICHT_SCHEMA, komitee: KOMITEE_SCHEMA, compliance: COMPLIANCE_SCHEMA, extraktion: EXTRAKTION_SCHEMA, marktwerte: MARKTWERTE_SCHEMA };
+export const TERMINE_SCHEMA = {
+  type: "object",
+  properties: {
+    termine: { type: "array", items: { type: "object", properties: {
+      datum: { type: "string", description: "JJJJ-MM-TT" }, zeit: { type: ["string", "null"], description: "HH:MM deutsche Ortszeit" },
+      zeitpunkt: { type: ["string", "null"], enum: ["vorboerslich", "nachboerslich", null] }, land: { type: ["string", "null"] },
+      titel: str, prognose: { type: ["string", "null"] }, vorwert: { type: ["string", "null"] },
+    }, required: ["datum", "titel"] } },
+  },
+  required: ["termine"],
+} as const;
+
+export const SCHEMA_JE_AUSGABE: Record<string, object> = { termine: TERMINE_SCHEMA,  mietspiegel: MIETSPIEGEL_SCHEMA, marktbericht: MARKTBERICHT_SCHEMA, kurzurteil: KURZURTEIL_SCHEMA, bericht: BERICHT_SCHEMA, komitee: KOMITEE_SCHEMA, compliance: COMPLIANCE_SCHEMA, extraktion: EXTRAKTION_SCHEMA, marktwerte: MARKTWERTE_SCHEMA };
 
 export interface Bericht {
   kernaussage: string; bewertung: "positiv" | "neutral" | "kritisch";
