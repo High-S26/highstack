@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Agentansicht } from "@/lib/trading";
 import { BROKER_NAMEN } from "@/lib/tradingTexte";
+import { Thesen } from "@/components/trading/Thesen";
 import { eur } from "@/lib/format";
 import { geld, geldPm } from "@highstack/trading";
 
@@ -32,6 +33,7 @@ export default function Trading() {
             return <div><span>{zuletzt ? `zuletzt ${new Date(v.datum).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}` : "heute"}</span><strong>{zuletzt ? geldPm(v.ende! - v.start, W) : t ? (gv != null ? geldPm(gv - t.start, W) : t.status === "laeuft" ? "läuft" : "–") : "–"}</strong></div>; })()}<div><span>Tage</span><strong>{a.zustand.verlauf.length + (t ? 1 : 0)}</strong></div></div>
           {offen > 0 && <span className="tag warnt">{offen} Vorschlag{offen === 1 ? "" : "e"} offen</span>}
         </Link>); })}</div>}
+      <Thesen symbole={[...new Set((l ?? []).flatMap(a => a.einstellungen.symbole))]} />
       <p className="note">Information und Werkzeug, keine Anlageberatung. Trading mit Hebel und Short-Positionen kann zu Verlusten über den Einsatz hinaus führen. Die Mehrheit privater Daytrader verliert Geld.</p>
     </div>
   );

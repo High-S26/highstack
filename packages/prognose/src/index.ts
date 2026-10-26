@@ -6,3 +6,5 @@ export * from "./pruefung";
 export * from "./rueckblick";
 export * from "./quellen";
 export * from "./termine";
+export * from "./grundkalender";
+export * from "./thesen";

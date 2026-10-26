@@ -1001,3 +1001,15 @@ label.chk input{width:auto;flex:none;margin:0}
 .tr-tliste .tag{margin-left:6px}.tr-tliste .tag.on{border-color:var(--gold);color:var(--gold-ink)}
 .tr-tz{font-family:var(--f-mono);font-size:13px;display:grid}.tr-tz small{color:var(--muted);font-size:11px}
 .tr-ideen{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tr-ideen li{display:grid;gap:2px;font-size:14px}.tr-ideen span{color:var(--muted)}
+
+/* Ideen & Thesen */
+.th-liste{display:grid;gap:8px}
+.th{border:1px solid var(--line);border-radius:12px;padding:0 12px}
+.th[open]{padding-bottom:12px}
+.th>summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;background:none}
+.th>summary::before{display:none}
+.th ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
+.th p{margin:0;font-size:14px}
+.th-art{font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 8px;background:var(--sunk)}
+.th-art.th-vorsicht{color:var(--crit)}.th-art.th-chance{color:var(--good)}.th-art.th-einordnung{color:var(--muted)}
+.th-staerke{margin-left:auto;width:60px;height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}.th-staerke i{display:block;height:100%;background:var(--gold)}

@@ -2,7 +2,7 @@ import { ausUmgebung, fuehreAus, neuerVerbrauch } from "@highstack/agents";
 import { BEISPIEL_ANLAGEPROFIL, BEISPIEL_INVESTOR } from "@highstack/engine";
 import { leseTermine, ordneTermin, type Termin, bilanz, INDIKATOREN, leseTabelle, MECHANISMEN, rueckblick, type Ereignis, type Prognose } from "@highstack/prognose";
 import { bucheVerbrauch, istAdmin, keinAdmin, protokolliere } from "@/lib/admin";
-import { abrufAlle, ereignisse, lagebild, reihen, rueckblickGespeichert, stand, taeglich, uebernimm, umfeldVergessen, type Reihendatensatz, type Rueckblick } from "@/lib/konjunktur";
+import { abrufAlle, ereignisse, gespeicherteEreignisse, lagebild, reihen, rueckblickGespeichert, stand, taeglich, uebernimm, umfeldVergessen, type Reihendatensatz, type Rueckblick } from "@/lib/konjunktur";
 import { speicher } from "@/lib/speicher";
 import { id as neueId, LEERES_OBJEKT } from "@/lib/vorgaben";
 export const dynamic = "force-dynamic";
@@ -115,11 +115,11 @@ export async function POST(req: Request) {
         return Response.json({ neu: neu.length, doppelt: termine.length - neu.length, ergaenzt: ergaenzt.length });
       }
       case "termine-alte-loeschen": {
-        const grenze = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10); const alt = (await ereignisse(s)).filter(e => e.datum < grenze);
+        const grenze = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10); const alt = (await gespeicherteEreignisse(s)).filter(e => e.datum < grenze);
         for (const e of alt) await s.loescheGlobal("ereignis", e.id); umfeldVergessen(); await protokolliere(s, req, "Alte Termine entfernt", undefined, `${alt.length} vor ${grenze}`);
         return Response.json({ geloescht: alt.length });
       }
-      case "ereignis-loeschen": { const e = (await ereignisse(s)).find(x => x.id === b.id); await s.loescheGlobal("ereignis", b.id); umfeldVergessen(); await protokolliere(s, req, "Termin entfernt", e?.titel, e?.datum); return Response.json({ ok: true }); }
+      case "ereignis-loeschen": { if (String(b.id).startsWith("gk-")) throw new Error("Termine aus dem Grundkalender stehen fest und lassen sich nicht entfernen."); const e = (await ereignisse(s)).find(x => x.id === b.id); await s.loescheGlobal("ereignis", b.id); umfeldVergessen(); await protokolliere(s, req, "Termin entfernt", e?.titel, e?.datum); return Response.json({ ok: true }); }
       case "reihe-loeschen": await s.loescheGlobal("konjunktur", b.id); umfeldVergessen(); await protokolliere(s, req, "Konjunkturreihe gelöscht", b.id); return Response.json({ ok: true });
       case "rueckblick": {
         if (!b.von || !b.bis || b.von >= b.bis) throw new Error("Zeitraum von < bis angeben");

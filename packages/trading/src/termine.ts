@@ -71,6 +71,9 @@ export function terminlage(termine: Kalendertermin[], datum: string, symbole: st
       continue;
     }
     if (!heute) continue;
+    // Börsenfeiertag, verkürzter Handel, Verfall (ohne Pause, als Einordnung)
+    if (t.art === "feiertag" && t.land === "US") { lage.ideen.push({ titel: t.titel, text: /geschlossen/.test(t.titel) ? "Heute kein Handel an der US-Börse; der Agent wartet bis zum nächsten Handelstag." : "Verkürzter Handelstag mit oft dünnem Volumen: Kurse reagieren stärker auf einzelne Orders.", zeitDe: t.zeit, zeitNy: z?.zeitNy }); continue; }
+    if (t.art === "verfall" && t.land === "US") { lage.ideen.push({ titel: t.titel, text: /Großer Verfall/.test(t.titel) ? "Hohes Volumen zum Schluss, Kurse kleben oft an großen Basispreisen; die Indexanpassung wird zum Schlusskurs ausgeführt. Der Agent schließt vorher." : "Kurse großer Werte kleben bis zum Schluss oft an viel gehandelten Basispreisen; danach wird die Bewegung freier." }); continue; }
     // Wichtige Konjunkturdaten und Zinsentscheide (marktweit)
     if (t.wichtig && !sym && (t.land === "US" || t.art === "zinsentscheid")) {
       const zins = t.art === "zinsentscheid";

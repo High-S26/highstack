@@ -1,5 +1,6 @@
 "use client";
 import { Termine } from "@/components/trading/Termine";
+import { Thesen } from "@/components/trading/Thesen";
 import { geld, geldPm, kurs as kf, STRATEGIEN, stueck, trefferbilanz, type Konto, type Position } from "@highstack/trading";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -65,6 +66,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
         <div className="tr-balken"><span>Verlustlimit −{g$(e.tagesverlust)}</span><div className="tr-spur"><i className="neg" style={{ width: balken(-tagesGV, e.tagesverlust) }} /></div><div className="tr-spur"><i style={{ width: balken(tagesGV, e.tagesziel) }} /></div><span>Tagesziel +{g$(e.tagesziel)}</span></div>
       </section>}
       <Termine symbole={e.symbole} datum={sim ? z.simUhr?.datum : undefined} an={e.termine !== false} umschalten={setzeTermine} />
+      <Thesen symbole={e.symbole} datum={sim ? z.simUhr?.datum : undefined} max={3} />
       {umfeld && <div className={`tr-umfeld ${e.marktlage === false ? "" : umfeld.lage}`}>
         <b>Marktumfeld: {({ "risk-on": "Risikobereitschaft", neutral: "neutral", "risk-off": "Vorsicht" } as Record<string, string>)[umfeld.lage]}</b>
         <span>{e.marktlage === false ? "wird ignoriert, volle Positionsgröße" : `Positionsgröße ${Math.round(umfeld.faktor * 100)} %`}</span>

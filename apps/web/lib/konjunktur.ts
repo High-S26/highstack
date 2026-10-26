@@ -1,5 +1,5 @@
 import { terminlage } from "@highstack/trading";
-import { abrufen, bewerte, bilanz, gewichteAus, INDIKATOREN, lage, ordne, prognosen, punktAktuell, risikolage, wahrscheinlichkeit, type Bilanz, type Ereignis, type Prognose, type Punkt, type Reihen } from "@highstack/prognose";
+import { mitGrundkalender, thesen, abrufen, bewerte, bilanz, gewichteAus, INDIKATOREN, lage, ordne, prognosen, punktAktuell, risikolage, wahrscheinlichkeit, type Bilanz, type Ereignis, type Prognose, type Punkt, type Reihen } from "@highstack/prognose";
 import type { Speicher } from "./speicher";
 
 /**
@@ -19,7 +19,13 @@ export const rueckblickGespeichert = (s: Speicher) => s.globalEins<Rueckblick>("
 export async function reihen(s: Speicher): Promise<Reihen> {
   const r: Reihen = {}; for (const x of await s.global<Reihendatensatz>("konjunktur")) r[x.id] = x.punkte; return r;
 }
-export const ereignisse = (s: Speicher) => s.global<Ereignis>("ereignis");
+/** Gespeicherte (importierte oder angelegte) Termine */
+export const gespeicherteEreignisse = (s: Speicher) => s.global<Ereignis>("ereignis");
+/** Alle Termine: gespeicherte plus Grundkalender (offizielle Jahrespläne und Regeln, rund ein Jahr zurück und voraus) */
+export async function ereignisse(s: Speicher): Promise<Ereignis[]> {
+  const h = new Date(); const von = new Date(h.getTime() - 400 * 86400_000).toISOString().slice(0, 10); const bis = new Date(h.getTime() + 400 * 86400_000).toISOString().slice(0, 10);
+  return mitGrundkalender(await gespeicherteEreignisse(s), von, bis);
+}
 /** Wirtschaftskalender für einen Handelstag (Datum New York) und die beobachteten Werte des Agenten */
 export async function terminlageFuer(s: Speicher, datum: string, symbole: string[]) { return terminlage(await ereignisse(s), datum, symbole); }
 export const stand = async (s: Speicher): Promise<Stand> => (await s.globalEins<Stand>("konjunktur-stand", "stand")) ?? { id: "stand", letzterLauf: null, gewichte: {} };
@@ -99,3 +105,6 @@ export async function ausblickImmobilien(s: Speicher) {
   if (!w.length && !bund && !bundVeraltet) return null;
   return { pHoch: p?.pHoch ?? null, gruende: w.map(x => x.grund), bund10j: bund ? { wert: bund.w, stand: bund.d } : null, bundVeraltet };
 }
+
+/** Trading- und Anlageideen aus Terminen und Marktdaten (Thesen-Baukasten) */
+export async function thesenFuer(s: Speicher, stichtag = heute()) { return thesen({ stichtag, reihen: await reihen(s), ereignisse: await ereignisse(s) }); }
