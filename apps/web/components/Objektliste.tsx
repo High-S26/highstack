@@ -25,7 +25,7 @@ function Zeile({ o, kandidat, gewaehlt, waehle }: { o: Objektdatensatz; kandidat
       <Netz reihen={[{ name: titel, achsen: matchAchsen(o.objekt, a) }]} groesse={48} klein />
       <div className="body">
         <Link className="t" href={`/objekt/${o.id}`}>{titel}</Link>
-        <div className="m">{[o.objekt.ort, o.objekt.kaufpreis ? eur(mitStellplaetzen(o.objekt).kaufpreis ?? o.objekt.kaufpreis) : null, o.objekt.wohnflaeche ? `${o.objekt.wohnflaeche} m²` : null, anlageprofil(o.anlageprofilId).name].filter(Boolean).join(", ")}</div>
+        <div className="m">{[o.objekt.ort, o.objekt.kaufpreis ? eur(mitStellplaetzen(o.objekt).kaufpreis ?? o.objekt.kaufpreis) : null, o.objekt.wohnflaeche ? `${o.objekt.wohnflaeche.toLocaleString("de-DE", { maximumFractionDigits: 1 })} m²` : null, anlageprofil(o.anlageprofilId).name].filter(Boolean).join(", ")}</div>
         <div className="k">
           {k.bruttorendite != null && <span>Rendite {pct(k.bruttorendite)}</span>}
           {k.faktor != null && <span>Faktor {num(k.faktor, 1)}</span>}

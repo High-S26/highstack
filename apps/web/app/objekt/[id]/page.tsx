@@ -24,10 +24,10 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
   const { objekte, profil, anlageprofil, setzeObjekt, entferneObjekt, meldung, loesche, frage, setzeProfil } = useApp(); const router = useRouter();
   const [o, setO] = useState<Objektdatensatz | null>(objekte.find(x => x.id === params.id) ?? null);
   const [tab, setTab] = useState<Tab>("ergebnis");
-  const [gespeichert, setGespeichert] = useState("");
+  const [gespeichert, setGespeichert] = useState(""); const [fehlt, setFehlt] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(); const offen = useRef<Partial<Objektdatensatz>>({});
 
-  useEffect(() => { api.objekt(params.id).then(x => { setO(x); setTab(x.objekt.kaufpreis ? "ergebnis" : "daten"); const t = new URLSearchParams(window.location.search).get("tab"); if (t && TABS.some(([k]) => k === t)) setTab(t as Tab); }).catch(() => meldung("Objekt nicht gefunden.")); }, [params.id, meldung]);
+  useEffect(() => { api.objekt(params.id).then(x => { setO(x); setTab(x.objekt.kaufpreis ? "ergebnis" : "daten"); const t = new URLSearchParams(window.location.search).get("tab"); if (t && TABS.some(([k]) => k === t)) setTab(t as Tab); }).catch(() => setFehlt(true)); }, [params.id]);
   const [datenZu, setDatenZu] = useState(false);
   useEffect(() => { try { setDatenZu(localStorage.getItem("hs_daten_zu") === "1"); } catch { /* ohne Speicher */ } }, []);
   const schalteDaten = () => setDatenZu(z => { try { localStorage.setItem("hs_daten_zu", z ? "0" : "1"); } catch { /* ohne Speicher */ } if (!z && tab === "daten") setTab("ergebnis"); return !z; });
@@ -69,6 +69,7 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
   }, [params.id, entferneObjekt]);
 
   const a = useMemo(() => o && profil ? analyse({ investor: profil.investor, anlageprofil: anlageprofil(o.anlageprofilId), objekt: o.objekt, szenario: o.szenario, module: o.module }) : null, [o, profil, anlageprofil]);
+  if (fehlt && !o) return <div className="view"><div className="empty"><b>Objekt nicht gefunden</b><span>Es wurde gelöscht oder der Link ist veraltet.</span><Link className="btn" href="/pruefen">Zu den Prüfungen</Link></div></div>;
   if (!o || !a || !profil) return <p className="note">Lädt …</p>;
 
   const setze = (patch: Partial<Objektdatensatz>) => {

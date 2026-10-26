@@ -56,7 +56,7 @@ p{margin:0}
   .who span{display:none}
 }
 .view{display:grid;gap:16px}
-.panel{background:var(--surface);border:1px solid var(--line);box-shadow:var(--schatten);border-radius:var(--r-panel);padding:18px 20px;display:grid;gap:14px;min-width:0;align-content:start}
+.panel{background:var(--surface);border:1px solid var(--line);box-shadow:var(--schatten);border-radius:var(--r-panel);padding:18px 20px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;min-width:0;align-content:start}
 .panel h2{font-family:var(--f-display);font-weight:600;font-size:21px;line-height:1.2;color:var(--purple-ink);margin:0;text-wrap:balance}
 .panel h3{font-family:var(--f-display);font-weight:600;font-size:17px;margin:0}
 h1{font-family:var(--f-display);font-weight:600;font-size:34px;letter-spacing:-.015em;color:var(--purple-ink);margin:0;text-wrap:balance;line-height:1.2}
@@ -89,7 +89,7 @@ details>summary{cursor:pointer;font-weight:600;font-size:13px;list-style:none}
 details>summary::-webkit-details-marker{display:none}
 details>summary::before{content:"+ ";color:var(--green-ink);font-weight:700}
 details[open]>summary::before{content:"− "}
-details[open]{display:grid;gap:12px}
+details[open]{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom,0px));background:var(--anthrazit);color:var(--surface);padding:10px 10px 10px 18px;border-radius:999px;font-size:13.5px;z-index:20;max-width:calc(100% - 32px);display:flex;align-items:center;gap:14px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
 .toast:not(:has(button)){padding-right:18px}
 .toast button{font:inherit;font-weight:600;color:#1f2328;background:#fff;border:0;border-radius:999px;padding:5px 12px;cursor:pointer}
@@ -990,3 +990,6 @@ label.chk input{width:auto;flex:none;margin:0}
 .mp .tbl table{min-width:0}
 .warn-t{color:var(--warn)}
 @media (max-width:600px){.mp-schritte li{grid-template-columns:64px 1fr}.mp-schritte b{grid-column:2}}
+
+/* Admin-Prognosen mobil: Begründung über die ganze Breite, Zahlen darunter */
+@media (max-width:600px){.kj-prog thead{display:none}.kj-prog tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px;padding:10px 0;border-bottom:1px solid var(--line)}.kj-prog td{border:0;padding:0;text-align:left}.kj-prog td:first-child{grid-column:1/-1}.kj-prog td[data-l]::before{content:attr(data-l);display:block;font-size:11.5px;color:var(--muted)}}

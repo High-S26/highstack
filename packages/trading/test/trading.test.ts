@@ -164,3 +164,26 @@ describe("Stopp-Ausführung in der Simulation", () => {
     }
   });
 });
+
+describe("TRD-015: Eigene App rechnet Dollar-Kurse in Euro um", () => {
+  it("Kurse, Bewertung und Bars in Euro; ohne Wechselkurs kein Vermischen", async () => {
+    const { manuellerBroker, leererZustand, bucheManuell } = await import("../src");
+    const z = leererZustand();
+    const daten = { bars: async (s: string[]) => Object.fromEntries(s.map(x => [x, [{ t: "2026-10-26T14:00:00Z", o: 110, h: 112, l: 108, c: 110, v: 1000 }]])) };
+    const b = manuellerBroker(z, 10000, daten, undefined, async () => ({ usdJeEur: 1.1, stand: "2026-10-23" }));
+    const bars = await b.bars(["AAPL"]);
+    expect(bars.AAPL![0]!.c).toBeCloseTo(100, 6);
+    expect(bars.AAPL![0]!.v).toBe(1000);
+    bucheManuell(z, "AAPL", "kauf", 10, 99); // in der App zu 99 € ausgeführt
+    const pos = await b.positionen();
+    expect(pos[0]!.gv).toBeCloseTo(10, 6); // (100 − 99) × 10 €, nicht (110 − 99)
+    expect((await b.konto()).waehrung).toBe("EUR");
+    expect(z.wechselkurs).toMatchObject({ usdJeEur: 1.1, stand: "2026-10-23" });
+    // Abruf fällt aus: letzter Kurs gilt weiter; ganz ohne Kurs Fehler statt Vermischen
+    z.wechselkurs!.abgerufen = 0;
+    const b2 = manuellerBroker(z, 10000, daten, undefined, async () => { throw new Error("offline"); });
+    expect((await b2.bars(["AAPL"])).AAPL![0]!.c).toBeCloseTo(100, 6);
+    const b3 = manuellerBroker(leererZustand(), 10000, daten, undefined, async () => { throw new Error("offline"); });
+    await expect(b3.bars(["AAPL"])).rejects.toThrow(/Wechselkurs/);
+  });
+});

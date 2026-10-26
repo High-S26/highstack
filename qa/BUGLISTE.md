@@ -177,3 +177,33 @@ Der Forecast-Teil (Version 0.13) war nicht Gegenstand dieses Laufs. Im nächsten
 - Mietpfad (Rechenkern `mietrecht.ts`): § 558 mit 15 Monaten Sperrfrist (frühestens ab dem dritten Monat nach Übergang), Kappungsgrenze 15 % bzw. 20 % in drei Jahren, Obergrenze Vergleichsmiete; Neuvermietung mit Mietpreisbremse höchstens Vergleichsmiete + 10 % oder Vormiete; Index jährlich nach Inflation, Staffel nach Vertrag. Stand Oktober 2026 (NRW-Mieterschutzverordnung, Mietpreisbremse bis 2029; Mietrecht II nur als Hinweis).
 - Kalkulation: Durchspielen rechnet standardmäßig „nach Mietrecht“ (Mietsteigerung = Entwicklung der Vergleichsmiete), umschaltbar auf „pauschal“. Playbook zeigt Mietpotenzial, Termine, Cashflow mit und ohne Anpassung, Eigenkapitalrendite mit/ohne, Kaufpreis für Cashflow ± 0 bei erreichter Vergleichsmiete und bei Neuvermietung.
 - Experten Verwalter, Recht, Vermögen und Datenanalyst kennen Mietpfad und Außenfläche.
+
+## Welle 3 (0.20.0, 26.10.2026)
+
+| ID | Befund | Lösung |
+|---|---|---|
+| ✅ TRD-015 | „Eigene App“: Dollar-Kurse mit Euro-Einstand vermischt | Broker rechnet alle Kurse mit dem EZB-Referenzkurs in Euro um (zwölf Stunden zwischengespeichert, bei Ausfall der letzte Kurs, ganz ohne Kurs Fehler statt Vermischen); Hinweis mit Kurs und Stand auf den Order-Zetteln |
+| ✅ INV-015, TRD-024 | Mobil zu breit | Panels und offene Aufklapper begrenzen ihre Spalte; Tabellen scrollen in ihrem Rahmen (gemessen: 390 px) |
+| ✅ INV-045 | Admin mobil | Aktiver Reiter wird eingeblendet, Aktionsleiste fehlt im Admin, Prognosen mobil mit Begründung über die ganze Breite |
+| ✅ INV-008, INV-011 | Endloses „Lädt …“, englische 404 | „Objekt nicht gefunden“ mit Link; deutsche 404-Seite mit Wegen zurück |
+| ✅ INV-022 | Doppelklick legt doppelt an | Sperre in Suchauftrag- und Anlageprofil-Assistent |
+| ✅ TRD-032 (Rest) | „Failed to fetch“ als Rohtext | Netzfehler werden zentral verständlich gemeldet |
+| ✅ INV-016, TRD-025 | Neuladen verwirft Entwürfe | Entwürfe in Objekt-, Suchauftrag-, Anlageprofil-, Agent-Assistent und Onboarding überstehen ein Neuladen (Tab-Speicher, ohne Schlüssel); Abbrechen fragt nach, sobald etwas eingegeben ist |
+| ✅ INV-024 | Profiländerung bei schnellem Neuladen verloren | Ausstehende Änderung wird beim Verlassen noch gesendet |
+| ✅ TRD-011, TRD-012 | Vorlage überschreibt Strategie | Nach Schritt 3 setzt eine Vorlage nur die Grenzen; „Eigene App“ bleibt „Nur Long“ |
+| ✅ TRD-013 | Werte-Eingabe | Erst groß schreiben, dann Doppelte prüfen; nur US-Kürzel, Fehler am Feld |
+| ✅ TRD-018 | Liste/Startseite nach Tagesende „–“ | Tagesergebnis wird bei Ziel, Limit, Schluss und Not-Aus sofort festgehalten; Beträge in Kontowährung |
+| ✅ TRD-021 | Eigene App ohne Kursquelle | Hinweis im Assistenten und Cockpit, Start ohne Zugang gesperrt |
+| ✅ TRD-022 | Alpaca-Cockpit | Kopfzeile ohne abgebrochenen Text, „Keine Verbindung zu Alpaca“ statt „fetch failed“, Hinweis auf Paper-Kontostand, „seit Start“ ab erstem Handelstag |
+| ✅ TRD-029 | Not-Aus ohne Zugang alarmiert | Ohne Handel und Positionen: „keine Orders gesendet“ |
+| ✅ TRD-035 | Simulation am Samstag, Umfeld nach echtem Datum | Erster Simulationstag ist ein Werktag; Marktumfeld nach simuliertem Tag |
+| ✅ INV-027, INV-033, INV-041, INV-051, TRD-036 | Zahlen, Daten, Einzahl/Mehrzahl, Meldungen | de-DE, „1 Wert“, Stand als MM/JJJJ, „Quelle nicht erreichbar“, Importfehler nennen Eingabe und gelesenen Wert mit Tipp; Tagesziel-Grenze wie auf dem Server |
+| ✅ INV-042, INV-043 | Termine, Schrittweite | Rückfrage und Protokoll beim Entfernen, Hinweis bei vergangenem Datum; Schrittweite wird gemeldet |
+| ✅ INV-035 | Kaputte Bilder/PDFs | Werden beim Hochladen geöffnet und sonst mit Grund abgewiesen |
+| ✅ INV-036 | Link-Abruf ohne Gesamtzeitlimit | Fester Abbruch nach Ablauf |
+| ✅ INV-044 | Wohnlage ändert Vergleichsmiete nicht | Wohnlage ermittelt die Vergleichsmiete neu, wenn sie ermittelt war |
+| ✅ INV-052 | Bundrendite zu früh veraltet | Monatswerte gelten bis 100 Tage; danach „veraltet, Stand MM/JJJJ“ |
+| ✅ INV-053 | Abschreibung der Kauf-Positionen unsichtbar | Eigene Zeile im Steuern-Reiter mit Hinweis auf anschaffungsnahe Herstellungskosten |
+| ✅ INV-054 | „1,25 Mio. €“ | Wird gelesen |
+
+Offen bleibt: echte Stopp-Orders beim Broker (Produktthema), Testdaten vor dem Betrieb löschen.

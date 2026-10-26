@@ -103,3 +103,11 @@ describe("Außenfläche und Mietvertrag (Aushang Dachterrasse)", async () => {
     expect(mietvertragAusText("Kaltmiete 500 €")).toBeNull();
   });
 });
+
+describe("INV-054: Kaufpreis in Millionen", async () => {
+  const { musterErkennung } = await import("../lib/erfassung");
+  it("liest „1,25 Mio. €“", () => {
+    expect(musterErkennung("Mehrfamilienhaus in Köln\nKaufpreis: 1,25 Mio. €").felder.kaufpreis).toBe(1250000);
+    expect(musterErkennung("Preis 2 Millionen Euro").felder.kaufpreis).toBe(2000000);
+  });
+});

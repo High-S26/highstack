@@ -86,6 +86,8 @@ export interface Agentzustand {
   simUhr?: { datum: string; minute: number };
   /** Manueller Broker: vom Nutzer bestätigte Bestände */
   manuell?: { cash: number; positionen: Record<string, { qty: number; einstand: number }> };
+  /** Manueller Broker in Euro mit Dollar-Kursen: EZB-Referenzkurs (US-Dollar je Euro) */
+  wechselkurs?: { usdJeEur: number; stand: string; abgerufen: number };
   /** Abgeschlossene Trades, neueste zuerst */
   abschluesse?: Abschluss[];
   /** Zuletzt protokolliertes Umfeld, damit es nur bei Änderung im Protokoll erscheint */

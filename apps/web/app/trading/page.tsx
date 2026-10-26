@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Agentansicht } from "@/lib/trading";
 import { BROKER_NAMEN } from "@/lib/tradingTexte";
 import { eur } from "@/lib/format";
+import { geld, geldPm } from "@highstack/trading";
 
 /** Trading: Übersicht der Agenten */
 export default function Trading() {
@@ -22,7 +23,7 @@ export default function Trading() {
         <Link key={a.id} href={`/trading/${a.id}`} className="tr-karte">
           <div className="ph"><b>{a.einstellungen.name}</b><span className={`badge ${a.zustand.aktiv ? "b-on" : "b-plan"}`}>{a.zustand.aktiv ? "aktiv" : "angehalten"}</span></div>
           <span className="note">{BROKER_NAMEN[a.einstellungen.broker]}{a.einstellungen.brokerApp ? ` (${a.einstellungen.brokerApp})` : ""} · {a.einstellungen.modus === "auto" ? "Automatik" : "Vorschläge"} · {a.einstellungen.symbole.length} Werte</span>
-          <div className="tr-k"><div><span>Startkapital</span><strong>{eur(a.einstellungen.startkapital)}</strong></div><div><span>heute</span><strong>{t ? (gv != null ? eur(gv - t.start) : t.status === "laeuft" ? "läuft" : "–") : "–"}</strong></div><div><span>Tage</span><strong>{a.zustand.verlauf.length + (t ? 1 : 0)}</strong></div></div>
+          <div className="tr-k"><div><span>Startkapital</span><strong>{geld(a.einstellungen.startkapital, a.einstellungen.broker.startsWith("alpaca") ? "USD" : "EUR")}</strong></div><div><span>heute</span><strong>{t ? (gv != null ? geldPm(gv - t.start, a.einstellungen.broker.startsWith("alpaca") ? "USD" : "EUR") : t.status === "laeuft" ? "läuft" : "–") : "–"}</strong></div><div><span>Tage</span><strong>{a.zustand.verlauf.length + (t ? 1 : 0)}</strong></div></div>
           {offen > 0 && <span className="tag warnt">{offen} Vorschlag{offen === 1 ? "" : "e"} offen</span>}
         </Link>); })}</div>}
       <p className="note">Information und Werkzeug, keine Anlageberatung. Trading mit Hebel und Short-Positionen kann zu Verlusten über den Einsatz hinaus führen. Die Mehrheit privater Daytrader verliert Geld.</p>

@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useApp } from "@/components/App";
+import { useEntwurf } from "@/lib/entwurf";
 import { Auswahl, Haken, Text, Zahl } from "@/components/Felder";
 import { STANDARD_HINTERGRUND } from "@/components/Quellen";
 import { ASSETS, URLAUBSREGIONEN } from "@/components/Suchen";
@@ -22,8 +23,12 @@ export default function NeuerSuchauftrag() {
   const [apId, setApId] = useState(ap0.id); const [hinter, setHinter] = useState(false); const [name, setName] = useState("");
   const paket = profil!.paket ?? "basis";
   const vorschlag = [asset === "Ferienimmobilie" ? "Ferienimmobilie" : asset, region].filter(Boolean).join(" ");
+  useEntwurf("suche", { schritt, asset, region, umkreis, apId, hinter, name }, d => { setSchritt(d.schritt); setAsset(d.asset); setRegion(d.region); setUmkreis(d.umkreis); if (profil!.anlageprofile.some(a => a.id === d.apId)) setApId(d.apId); setHinter(d.hinter); setName(d.name); });
   const abbrechen = useAbbrechen("/suchen", schritt > 1 || !!name.trim(), "Der Suchauftrag wird nicht angelegt.");
+  // Doppelklick legt nicht doppelt an
+  const angelegt = useRef(false);
   const anlegen = () => {
+    if (angelegt.current) return; angelegt.current = true;
     const s: Suchauftrag = { id: id(), name: name.trim() || vorschlag || "Neue Suche", anlageprofilId: apId, region: region.trim(), asset, aktiv: true, erstellt: Date.now(), hintergrund: { ...STANDARD_HINTERGRUND, aktiv: hinter && paket !== "basis", umkreisKm: umkreis } };
     setzeProfil({ ...profil!, suchen: [s, ...(profil!.suchen ?? [])] }); meldung(`Suchauftrag „${s.name}“ angelegt`); router.push(`/suchen/${s.id}`);
   };

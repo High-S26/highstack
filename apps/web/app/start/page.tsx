@@ -2,6 +2,7 @@
 import { params, spielraum, type Anlageprofil, type Assetklasse, type Investorenprofil, type Struktur } from "@highstack/engine";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useEntwurf } from "@/lib/entwurf";
 import { useApp } from "@/components/App";
 import { Auswahl, BUNDESLAENDER, Marken, Text, Zahl } from "@/components/Felder";
 import { Finanzierungsrahmen } from "@/components/Profilteile";
@@ -21,6 +22,8 @@ export default function Start() {
   const [schritt, setSchritt] = useState(0);
   const [inv, setInv] = useState(profil!.investor);
   const [ap, setAp] = useState<Anlageprofil>(profil!.anlageprofile[0]!);
+  // Onboarding übersteht ein Neuladen (bis zum Speichern des Profils)
+  useEntwurf("start", { schritt, inv, ap }, d => { if (d.schritt < 5) { setSchritt(d.schritt); setInv(d.inv); setAp(d.ap); } });
   const sr = useMemo(() => spielraum(params(inv, { ...ap, preisMax: null })), [inv, ap]);
   const setI = (p: Partial<Investorenprofil>) => setInv(x => ({ ...x, ...p }));
   const fertigesProfil = () => {

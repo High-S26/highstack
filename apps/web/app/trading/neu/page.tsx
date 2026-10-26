@@ -3,6 +3,7 @@ import { GRENZEN as G, hinweise, neueEinstellungen, pruefeEinstellungen, STRATEG
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useApp } from "@/components/App";
+import { useEntwurf } from "@/lib/entwurf";
 import { useAbbrechen, WizFuss, WizKopf } from "@/components/Assistent";
 import { Marken, Text, Zahl } from "@/components/Felder";
 import { Info } from "@/components/Info";
@@ -17,8 +18,18 @@ export default function NeuerAgent() {
   const [schritt, setSchritt] = useState(1); const [e, setE] = useState<AgentEinstellungen>(neueEinstellungen(500));
   const [vorlage, setVorlage] = useState("vorsichtig"); const [zugang, setZugang] = useState({ keyId: "", secret: "" }); const [legt, setLegt] = useState(false);
   const set = (p: Partial<AgentEinstellungen>) => setE(x => ({ ...x, ...p }));
-  const abbrechen = useAbbrechen("/trading", schritt > 1);
-  const nimmVorlage = (id: string, k = e.startkapital) => { setVorlage(id); const w = VORLAGEN.find(v => v.id === id)!.werte(k); set({ ...w, ...(e.broker === "manuell" ? { richtung: "long" as const } : {}) }); };
+  // Abbrechen fragt nach, sobald etwas eingegeben ist (auch Schlüssel in Schritt 1)
+  const abbrechen = useAbbrechen("/trading", schritt > 1 || !!zugang.keyId || !!zugang.secret || !!e.brokerApp || e.broker !== "simulation");
+  // Entwurf übersteht ein Neuladen; der Alpaca-Zugang wird bewusst nicht zwischengespeichert
+  useEntwurf("agent", { schritt, e, vorlage }, d => { setE(d.e); setVorlage(d.vorlage); setSchritt(d.schritt); });
+  // Wer die Strategie (Schritt 3) schon gesehen hat, behält sie: eine Vorlage setzt dann nur noch die Grenzen (TRD-011)
+  const [strategieGesehen, setStrategieGesehen] = useState(false);
+  if (schritt >= 3 && !strategieGesehen) setStrategieGesehen(true);
+  const nimmVorlage = (id: string, k = e.startkapital) => {
+    setVorlage(id); const { strategie: _s, werte: _w, richtung: _r, symbole: _y, ...grenzen } = VORLAGEN.find(v => v.id === id)!.werte(k) as Partial<AgentEinstellungen>;
+    if (strategieGesehen) { set(grenzen); meldung("Grenzen aus der Vorlage übernommen, Ihre Strategie bleibt."); }
+    else set({ ...grenzen, ...(_s ? { strategie: _s } : {}), ...(_w ? { werte: _w } : {}), ...(_y ? { symbole: _y } : {}), richtung: e.broker === "manuell" ? "long" : _r ?? e.richtung });
+  };
   const h = hinweise(e);
   const WZ = e.broker.startsWith("alpaca") ? "$" : "€"; const de = (v: number) => v.toLocaleString("de-DE", { maximumFractionDigits: 2 });
   // Gleiche Prüfung wie auf dem Server; Fehler je Schritt zeigen und Weiter sperren
@@ -49,7 +60,7 @@ export default function NeuerAgent() {
           {brauchtZugang && <div className="tr-zugang">
             <span className="lrow"><b>Alpaca-Zugang</b><Info label="Alpaca-Zugang" text="Kostenloses Konto auf alpaca.markets anlegen, im Paper-Bereich unter API Keys einen Schlüssel erzeugen. Er wird verschlüsselt gespeichert und nie angezeigt. Beim Broker „Eigene App“ dient er nur als Kursquelle." /></span>
             <div className="fields"><Text label="API Key ID" wert={zugang.keyId} onChange={v => setZugang(z => ({ ...z, keyId: v }))} /><div className="fld"><label htmlFor="sec">Secret Key</label><input id="sec" type="password" autoComplete="off" value={zugang.secret} onChange={x => setZugang(z => ({ ...z, secret: x.target.value }))} /></div></div>
-            <span className="note">Können Sie auch später im Agenten eintragen.</span>
+            <span className="note">{e.broker === "manuell" ? "Pflicht für „Eigene App“: Ohne diesen Zugang kann der Agent keine Kurse lesen und startet nicht. Sie können ihn auch später im Agenten eintragen." : "Können Sie auch später im Agenten eintragen; vorher startet der Agent nicht."}</span>
           </div>}
           <WizFuss weiter={() => setSchritt(2)} />
         </>}
@@ -57,13 +68,13 @@ export default function NeuerAgent() {
           <h1>Ziel und Grenzen</h1>
           <p className="lead">Das Tagesziel ist eine Ausstiegsregel: Ist es erreicht, schließt der Agent alles und hört für heute auf. Ebenso beim Verlustlimit.</p>
           <div className="fields">
-            <Zahl label="Startkapital" einheit={WZ} min={G.startkapital[0]} max={G.startkapital[1]} wert={e.startkapital} onChange={v => { const k = v ?? 500; const w = VORLAGEN.find(x => x.id === vorlage)!.werte(k); set({ startkapital: k, tagesziel: w.tagesziel!, tagesverlust: w.tagesverlust! }); }} />
+            <Zahl label="Startkapital" einheit={WZ} hinweis={e.broker.startsWith("alpaca") ? "Bei Alpaca zählt der Kontostand des Paper-Kontos (Standard 100.000 $); tragen Sie ihn hier ein, damit Tagesziel und Verlustlimit passen." : undefined} min={G.startkapital[0]} max={G.startkapital[1]} wert={e.startkapital} onChange={v => { const k = v ?? 500; const w = VORLAGEN.find(x => x.id === vorlage)!.werte(k); set({ startkapital: k, tagesziel: w.tagesziel!, tagesverlust: w.tagesverlust! }); }} />
             <Text label="Name" wert={e.name} onChange={v => set({ name: v })} />
           </div>
           <span className="flabel">Vorschlag übernehmen</span>
           <div className="wiz-wahl" role="radiogroup" aria-label="Vorschläge">{VORLAGEN.map(v => <button key={v.id} type="button" role="radio" aria-checked={vorlage === v.id} className="wiz-karte" onClick={() => nimmVorlage(v.id)}><b>{v.name}</b><span>{v.text}</span></button>)}</div>
           <div className="fields">
-            <Zahl label="Tagesziel (dann Schluss)" einheit={WZ} min={1} max={e.startkapital} wert={e.tagesziel} onChange={v => set({ tagesziel: v ?? 0 })} />
+            <Zahl label="Tagesziel (dann Schluss)" einheit={WZ} min={0.01} max={e.startkapital} wert={e.tagesziel} onChange={v => set({ tagesziel: v ?? 0 })} />
             <Zahl label="Verlustlimit je Tag (dann Stopp)" einheit={WZ} info="Geprüft wird jede Minute einschließlich der Kosten zum Schließen. Bei schnellen Kurssprüngen kann der tatsächliche Verlust das Limit trotzdem überschreiten." min={1} max={Math.round(e.startkapital / 2)} wert={e.tagesverlust} onChange={v => set({ tagesverlust: v ?? 0 })} />
             <Zahl label="Risiko je Trade" prozent min={G.risikoProTrade[0] * 100} max={G.risikoProTrade[1] * 100} wert={e.risikoProTrade} onChange={v => set({ risikoProTrade: v ?? 0.005 })} info="Abstand vom Einstieg bis zum Stopp mal Stückzahl, in Prozent des Kontos. Bestimmt die Positionsgröße." />
             <Zahl label="Höchstens je Position" prozent min={G.maxPosition[0] * 100} max={G.maxPosition[1] * 100} wert={e.maxPosition} onChange={v => set({ maxPosition: v ?? 0.2 })} />
@@ -86,7 +97,7 @@ export default function NeuerAgent() {
             <Zahl label="Rückblick" einheit="Min." wert={e.werte.fenster} onChange={v => set({ werte: { ...e.werte, fenster: v ?? 30 } })} />
             <Zahl label="Ziel" einheit="× Risiko" wert={e.werte.zielR} onChange={v => set({ werte: { ...e.werte, zielR: v ?? 2 } })} />
           </div>
-          <Marken voll label="Werte, die der Agent beobachtet" werte={e.symbole} onChange={v => set({ symbole: v.map(x => x.toUpperCase()) })} platzhalter="Kürzel, z. B. AAPL, dann Enter" hinweis="US-Aktien und ETFs (Kürzel wie bei der Börse)" />
+          <Marken voll label="Werte, die der Agent beobachtet" werte={e.symbole} onChange={v => set({ symbole: v })} normalisiere={x => x.trim().toUpperCase()} pruefe={x => /^[A-Z]{1,5}(\.[A-Z])?$/.test(x) ? null : `„${x}“ ist kein US-Börsenkürzel (z. B. AAPL, BRK.B). Deutsche Werte wie SAP.DE liefert die Kursquelle nicht.`} platzhalter="Kürzel, z. B. AAPL, dann Enter" hinweis="US-Aktien und ETFs (Kürzel wie bei der Börse)" />
           <div className="chips">{WERTE_VORSCHLAG.filter(x => !e.symbole.includes(x)).map(x => <button key={x} type="button" className="chip" onClick={() => set({ symbole: [...e.symbole, x] })}>+ {x}</button>)}</div>
           <span className="flabel">Richtung</span>
           <div className="chips">{([["long", "Nur Long (steigende Kurse)"], ["long-short", "Long und Short"]] as const).map(([v, l]) => <button key={v} type="button" className="chip" aria-pressed={e.richtung === v} disabled={v === "long-short" && e.broker === "manuell"} onClick={() => set({ richtung: v })}>{l}</button>)}</div>

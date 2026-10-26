@@ -20,6 +20,8 @@ export default function AdminSeite() { return <Suspense fallback={<p className="
 function Admin() {
   const { admin } = useApp(); const q = useSearchParams(); const router = useRouter();
   const tab = (TABS.find(([k]) => k === q.get("tab"))?.[0] ?? "uebersicht") as Tab;
+  // aktiven Reiter auf schmalen Bildschirmen sichtbar machen
+  useEffect(() => { document.querySelector<HTMLElement>('.tabs [aria-selected="true"]')?.scrollIntoView({ inline: "center", block: "nearest" }); }, [tab]);
   if (!admin) return <div className="view"><h1>Admin</h1><p className="note">Dieser Bereich ist nur für Plattform-Admins.</p></div>;
   return (
     <div className="view">

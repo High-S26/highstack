@@ -47,9 +47,12 @@ export async function holeSicher(roh: string, opts: { maxBytes?: number; timeout
         res.on("data", (c: Buffer) => { n += c.length; if (n <= max) teile.push(c); else res.destroy(); });
         res.on("end", () => ok({ status: res.statusCode ?? 0, headers: res.headers, inhalt: new Uint8Array(Buffer.concat(teile)) }));
         res.on("close", () => ok({ status: res.statusCode ?? 0, headers: res.headers, inhalt: new Uint8Array(Buffer.concat(teile)) }));
-        res.on("error", fehler);
+        res.on("error", fehler); res.on("aborted", () => fehler(new Error("Zeitüberschreitung")));
       });
-      req.on("timeout", () => req.destroy(new Error("Zeitüberschreitung"))); req.on("error", fehler); req.end();
+      req.on("timeout", () => req.destroy(new Error("Zeitüberschreitung"))); req.on("error", fehler);
+      // Gesamtzeitlimit: auch wenn die Seite Byte für Byte tröpfelt, wird nach Ablauf abgebrochen (INV-036)
+      const uhr = setTimeout(() => req.destroy(new Error("Zeitüberschreitung")), Math.max(1, ende - Date.now()));
+      req.on("close", () => clearTimeout(uhr)); req.end();
     });
     const loc = r.headers.location;
     if (r.status >= 300 && r.status < 400 && typeof loc === "string") { url = new URL(loc, url); continue; }

@@ -66,7 +66,7 @@ export function leseTabelle(text: string, opts: { grenzen?: [number, number]; he
       if (inT !== inD) w = inT ? tausend : dezimal; else return fail(`„${wRoh}“ ist mehrdeutig (${tausend.toLocaleString("de-DE")} oder ${dezimal.toLocaleString("de-DE")}). Bitte mit Komma als Dezimalzeichen oder ohne Tausenderpunkt schreiben.`);
     } else w = zahl(wRoh);
     if (w == null) return fail(`„${wRoh}“ ist keine Zahl.`);
-    if (opts.grenzen && (w < opts.grenzen[0] || w > opts.grenzen[1])) return fail(`Wert ${w.toLocaleString("de-DE")} liegt außerhalb des plausiblen Bereichs (${opts.grenzen[0].toLocaleString("de-DE")} bis ${opts.grenzen[1].toLocaleString("de-DE")}).`);
+    if (opts.grenzen && (w < opts.grenzen[0] || w > opts.grenzen[1])) return fail(`„${wRoh.trim()}“ (gelesen als ${w.toLocaleString("de-DE")}) liegt außerhalb des plausiblen Bereichs (${opts.grenzen[0].toLocaleString("de-DE")} bis ${opts.grenzen[1].toLocaleString("de-DE")}).${/\./.test(wRoh) ? " Punkt als Dezimalzeichen? Bitte Komma verwenden, z. B. 2,685." : z.includes(" ") || tr === "," ? " Trenner prüfen: Datum und Wert mit Semikolon trennen, z. B. 2026-10-01;2,70." : ""}`);
     out.push({ d, w });
   });
   return { punkte: ordne(out), fehler };

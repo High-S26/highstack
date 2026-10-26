@@ -8,5 +8,5 @@ export const EINSTUFUNG: Record<string, string> = { opp: "Opportunity", watch: "
 export const STRUKTUR: Record<string, string> = { privat: "Privat", gbr: "GbR", gmbh: "GmbH", offen: "Noch offen" };
 export function kennzahl(wert: number | null, einheit: string) {
   if (wert == null) return "–";
-  switch (einheit) { case "€": return eur(wert); case "%": return pct(wert); case "x": return num(wert, 2) + "x"; case "€/m²": return `${num(wert, 0)} €/m²`; case "m²": return `${num(wert, 0)} m²`; case "Monate": return `${num(wert, 0)} Monate`; case "Jahre": return `${num(wert, 1)} Jahre`; default: return num(wert, 2); }
+  switch (einheit) { case "€": return eur(wert); case "%": return pct(wert); case "x": return num(wert, 2) + "x"; case "€/m²": return `${num(wert, Math.abs(wert) < 100 ? 2 : 0)} €/m²`; case "m²": return `${num(wert, 0)} m²`; case "Monate": return `${num(wert, 0)} Monate`; case "Jahre": return `${num(wert, 1)} Jahre`; default: return num(wert, 2); }
 }

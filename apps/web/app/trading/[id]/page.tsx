@@ -32,7 +32,9 @@ export default function Cockpit({ params }: { params: { id: string } }) {
   const e = a.einstellungen; const z = a.zustand; const t = z.tag; const k = a.live.konto;
   const tagesGV = t && k ? k.equity - t.start : 0;
   const offen = z.vorschlaege.filter(v => v.status === "offen");
-  const sim = e.broker === "simulation"; const manuell = e.broker === "manuell";
+  const sim = e.broker === "simulation"; const manuell = e.broker === "manuell"; const alpaca = e.broker.startsWith("alpaca");
+  // Bezug für „seit Start“: bei Alpaca der Kontostand am ersten Handelstag (Startkapital im Assistenten ist dort nur eine Planungsgröße)
+  const startBasis = alpaca ? (z.verlauf.at(-1)?.start ?? t?.start ?? null) : e.startkapital;
   // Kontowährung kommt vom Broker (Alpaca: US-Dollar), Kurse immer mit zwei Nachkommastellen
   const W = k?.waehrung ?? (e.broker.startsWith("alpaca") ? "USD" : "EUR"); const g$ = (v: number) => geld(v, W);
   const bil = trefferbilanz(z.abschluesse ?? []); const g = bil.gesamt;
@@ -43,13 +45,15 @@ export default function Cockpit({ params }: { params: { id: string } }) {
     <div className="view">
       <div className="objbar"><Link className="btn ghost sm" href="/trading">← Trading</Link><h1>{e.name}</h1>
         <span className={`badge ${z.aktiv ? "b-on" : "b-plan"}`}>{z.aktiv ? (e.modus === "auto" ? "handelt" : "schlägt vor") : "angehalten"}</span>
-        <span className="note">{BROKER_NAMEN[e.broker]}{e.brokerApp ? ` · ${e.brokerApp}` : ""} · {a.live.uhr ? `${a.live.uhr.zeit}, Markt ${a.live.uhr.offen ? `offen, noch ${a.live.uhr.minutenBisSchluss} Min.` : "geschlossen"}` : ""}</span>
+        <span className="note">{[BROKER_NAMEN[e.broker], e.brokerApp, a.live.uhr ? `${a.live.uhr.zeit}, Markt ${a.live.uhr.offen ? `offen, noch ${a.live.uhr.minutenBisSchluss} Min.` : "geschlossen"}` : a.live.fehler ? "keine Verbindung" : null].filter(Boolean).join(" · ")}</span>
         {z.aktiv ? <button type="button" className="btn sm ghost" onClick={() => aktion({ aktion: "stopp" }, "Agent angehalten")}>Anhalten</button> : <button type="button" className="btn sm" onClick={() => aktion({ aktion: "start" }, "Agent gestartet")}>Starten</button>}
         <button type="button" className="btn sm gefahr" onClick={notaus}>Not-Aus</button>
       </div>
       {a.live.fehler && <p className="hint">{a.live.fehler}</p>}
+      {manuell && !a.zugangHinterlegt && <p className="hint bad">Ohne Kursquelle kann der Agent keine Kurse lesen und keine Order-Zettel erstellen. Bitte unten den kostenlosen Alpaca-Datenzugang hinterlegen; erst dann lässt er sich starten.</p>}
+      {alpaca && <p className="note">Bei Alpaca gilt der Kontostand des Paper-Kontos (Standard 100.000 $). Tagesziel und Verlustlimit sollten zu diesem Betrag passen; „seit Start“ rechnet ab dem ersten Handelstag des Agenten.</p>}
       {sim && <div className="testband">Simulation mit künstlichen Kursen: läuft der Agent, vergeht alle 5 Sekunden eine Handelsminute. {z.aktiv ? <button type="button" className="linkbtn" disabled={!!laeuft} onClick={() => aktion({ aktion: "tag" }, "Handelstag durchgespielt")}>{laeuft?.includes("tag") ? "spielt …" : "Rest des Tages sofort durchspielen"}</button> : <span>Zum Durchspielen den Agenten starten.</span>} · <button type="button" className="linkbtn" onClick={async () => { if (await frage({ titel: "Simulation zurücksetzen?", text: "Kontostand, Verlauf und Protokoll der Simulation werden gelöscht.", ja: "Zurücksetzen", gefahr: true })) aktion({ aktion: "zuruecksetzen" }, "Zurückgesetzt"); }}>zurücksetzen</button></div>}
-      <div className="tiles">{([["Konto", k ? `${g$(k.equity)}` : "–"], ["heute", t ? `${tagesGV >= 0 ? "+" : ""}${g$(tagesGV)}` : "–"], ["Trades heute", t ? `${t.trades} / ${e.maxTradesTag}` : "–"], ["seit Start", k ? `${k.equity - e.startkapital >= 0 ? "+" : ""}${g$(k.equity - e.startkapital)}` : "–"]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong className={l !== "Konto" && l !== "Trades heute" && v.startsWith("-") ? "dn" : ""}>{v}</strong></div>)}</div>
+      <div className="tiles">{([["Konto", k ? `${g$(k.equity)}` : "–"], ["heute", t ? `${tagesGV >= 0 ? "+" : ""}${g$(tagesGV)}` : "–"], ["Trades heute", t ? `${t.trades} / ${e.maxTradesTag}` : "–"], ["seit Start", k && startBasis != null ? `${k.equity - startBasis >= 0 ? "+" : ""}${g$(k.equity - startBasis)}` : "–"]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong className={l !== "Konto" && l !== "Trades heute" && v.startsWith("-") ? "dn" : ""}>{v}</strong></div>)}</div>
       {t && <section className="panel tr-grenzen">
         <div className="ph"><h2>Heute</h2><span className="tag">{({ laeuft: "läuft", ziel: "Tagesziel erreicht", limit: "Verlustlimit erreicht", notaus: "Not-Aus", beendet: "beendet" } as Record<string, string>)[t.status]}</span></div>
         <div className="tr-balken"><span>Verlustlimit −{g$(e.tagesverlust)}</span><div className="tr-spur"><i className="neg" style={{ width: balken(-tagesGV, e.tagesverlust) }} /></div><div className="tr-spur"><i style={{ width: balken(tagesGV, e.tagesziel) }} /></div><span>Tagesziel +{g$(e.tagesziel)}</span></div>
@@ -62,7 +66,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
       </div>}
       {offen.length > 0 && <section className="panel">
         <div className="ph"><h2>{manuell ? "Order-Zettel" : "Vorschläge"}</h2><span className="tag">{offen.length} offen</span></div>
-        {manuell && <p className="note">In {e.brokerApp || "Ihrer App"} ausführen, dann den tatsächlichen Kurs eintragen und bestätigen.</p>}
+        {manuell && <p className="note">In {e.brokerApp || "Ihrer App"} ausführen, dann den tatsächlichen Kurs in Euro eintragen und bestätigen.{z.wechselkurs ? ` Kurse, Stopp und Ziel sind von US-Dollar umgerechnet (EZB-Referenzkurs 1 € = ${z.wechselkurs.usdJeEur.toLocaleString("de-DE", { maximumFractionDigits: 4 })} $, Stand ${z.wechselkurs.stand.split("-").reverse().join(".")}); der Kurs in Ihrer App kann leicht abweichen.` : ""}</p>}
         <div className="tr-vorschlaege">{offen.map(v => (
           <div key={v.id} className={`tr-v ${v.antrag.seite}`}>
             <div><b>{v.antrag.seite === "kauf" ? "Kauf" : "Verkauf"} {stueck(v.antrag.qty)} × {v.antrag.symbol}</b><span className="note">{v.zeit} · {v.art === "ausstieg" ? "Ausstieg" : "Einstieg"}</span></div>

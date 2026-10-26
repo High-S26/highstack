@@ -83,7 +83,9 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
   const t = text.replace(/ /g, " ");
   const f: Partial<Objekt> = {};
   // Kaufpreis: zuerst über die robuste Betragserkennung („289.000,- €“, „EUR 289.000“), sonst die alten Muster
-  const kp = betragNach(t, /Kaufpreis/) ?? zahl(finde(t, [/([\d.]{6,})\s*(?:€|EUR)\s*Kaufpreis/i, /Preis[^\d€]{0,15}([\d.,]{5,})\s*(?:€|EUR)/i]));
+  // „1,25 Mio. €“ / „1,25 Millionen Euro“
+  const mio = t.match(/(?:Kauf)?[Pp]reis[^\d\n]{0,20}(\d{1,3}(?:[.,]\d{1,3})?)\s*(?:Mio\.?|Millionen)\s*(?:€|EUR|Euro)?/i);
+  const kp = (mio ? Math.round(Number(mio[1]!.replace(",", ".")) * 1_000_000) : null) ?? betragNach(t, /Kaufpreis/) ?? zahl(finde(t, [/([\d.]{6,})\s*(?:€|EUR)\s*Kaufpreis/i, /Preis[^\d€]{0,15}([\d.,]{5,})\s*(?:€|EUR)/i]));
   if (kp && kp > 10000) f.kaufpreis = Math.round(kp);
   const qm = zahl(finde(t, [/Wohnfl(?:ä|ae)che[^\d]{0,20}([\d.,]+)\s*m/i, /Nutzfl(?:ä|ae)che[^\d]{0,20}([\d.,]+)\s*m/i, /([\d.,]+)\s*m²\s*Wohnfl/i, /ca\.\s*([\d.,]+)\s*m²/i]));
   if (qm && qm > 10 && qm < 20000) f.wohnflaeche = Math.round(qm * 10) / 10;

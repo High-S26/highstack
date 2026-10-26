@@ -70,18 +70,24 @@ export function Haken({ label, wert, onChange }: { label: string; wert: boolean;
   return <div className="full swrow"><label className="switch"><input type="checkbox" role="switch" checked={wert} onChange={e => onChange(e.target.checked)} /><span className="track-s" aria-hidden="true" /><span>{label}</span></label>{t && <Info text={t} label={label} />}</div>;
 }
 /** Mehrere Begriffe (z. B. Regionen) als Marken: Enter oder Komma fügt hinzu, × entfernt. */
-export function Marken({ label, werte, onChange, platzhalter, voll, hinweis }: { label: string; werte: string[]; onChange: (v: string[]) => void; platzhalter?: string; voll?: boolean; hinweis?: string }) {
-  const id = useId(); const [t, setT] = useState("");
-  const add = (x: string) => { const n = x.split(/[,;]+/).map(s => s.trim()).filter(s => s && !werte.includes(s)); if (n.length) onChange([...werte, ...n]); setT(""); };
+export function Marken({ label, werte, onChange, platzhalter, voll, hinweis, normalisiere, pruefe }: { label: string; werte: string[]; onChange: (v: string[]) => void; platzhalter?: string; voll?: boolean; hinweis?: string; normalisiere?: (s: string) => string; pruefe?: (s: string) => string | null }) {
+  const id = useId(); const [t, setT] = useState(""); const [fehler, setFehler] = useState<string | null>(null);
+  // erst normalisieren, dann auf Doppelte prüfen (aapl = AAPL); ungültige Einträge bleiben im Feld stehen
+  const add = (x: string) => {
+    const roh = x.split(/[,;]+/).map(s => (normalisiere ? normalisiere(s) : s.trim())).filter(Boolean);
+    const falsch = pruefe ? roh.map(s => pruefe(s)).find(Boolean) ?? null : null; const gut = roh.filter(s => !pruefe || !pruefe(s));
+    const n = [...new Set(gut)].filter(s => !werte.includes(s)); if (n.length) onChange([...werte, ...n]);
+    setFehler(falsch); setT(falsch ? roh.filter(s => pruefe?.(s)).join(", ") : "");
+  };
   return (
     <div className={`fld${voll ? " full" : ""}`}>
       <Beschriftung htmlFor={id} label={label} />
       <div className="tags" onClick={e => (e.currentTarget.querySelector("input") as HTMLInputElement)?.focus()}>
         {werte.map(w => <span key={w} className="tagx">{w}<button type="button" aria-label={`${w} entfernen`} onClick={() => onChange(werte.filter(x => x !== w))}>×</button></span>)}
-        <input id={id} value={t} placeholder={werte.length ? "" : platzhalter} onChange={e => { const v = e.target.value; if (/[,;]$/.test(v)) add(v); else setT(v); }}
+        <input id={id} value={t} placeholder={werte.length ? "" : platzhalter} onChange={e => { const v = e.target.value; setFehler(null); if (/[,;]$/.test(v)) add(v); else setT(v); }}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(t); } else if (e.key === "Backspace" && !t && werte.length) onChange(werte.slice(0, -1)); }} onBlur={() => t && add(t)} />
       </div>
-      {hinweis && <div className="hint">{hinweis}</div>}
+      {(fehler || hinweis) && <div className={fehler ? "hint bad" : "hint"} role={fehler ? "alert" : undefined}>{fehler ?? hinweis}</div>}
     </div>
   );
 }

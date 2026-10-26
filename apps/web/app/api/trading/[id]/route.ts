@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const s = await speicher(req); const a = await agent(s, mandant(req), params.id); if (!a) return Response.json({ fehler: "Nicht gefunden" }, { status: 404 });
   let konto = null, positionen: unknown[] = [], uhr = null, fehler: string | null = null;
-  try { const b = await brokerFuer(a); [konto, positionen, uhr] = await Promise.all([b.konto(), b.positionen(), b.uhr()]); } catch (e) { fehler = (e as Error).message; }
+  try { const b = await brokerFuer(a); [konto, positionen, uhr] = await Promise.all([b.konto(), b.positionen(), b.uhr()]); } catch (e) { const m = (e as Error).message; fehler = /fetch failed|ECONN|ENOTFOUND|ETIMEDOUT|network|abort/i.test(m) ? `Keine Verbindung zu ${a.einstellungen.broker === "manuell" ? "der Kursquelle (Alpaca)" : "Alpaca"}. Kontostand und Kurse erscheinen, sobald die Verbindung steht.` : m; }
   return Response.json({ ...ansicht(a), live: { konto, positionen, uhr, fehler } });
 }
 export async function PUT(req: Request, { params }: { params: { id: string } }) {

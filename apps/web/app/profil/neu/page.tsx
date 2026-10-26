@@ -2,8 +2,9 @@
 import type { Anlageprofil, Assetklasse } from "@highstack/engine";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useApp } from "@/components/App";
+import { useEntwurf } from "@/lib/entwurf";
 import { Marken, Text, Zahl } from "@/components/Felder";
 import { neuesAnlageprofil, nachStrategie } from "@/lib/vorgaben";
 import { useAbbrechen, WizFuss, WizKopf } from "@/components/Assistent";
@@ -15,8 +16,12 @@ export default function NeuesAnlageprofil() {
   const { profil, setzeProfil, meldung } = useApp(); const router = useRouter();
   const [schritt, setSchritt] = useState<1 | 2>(1);
   const [ap, setAp] = useState<Anlageprofil>(() => ({ ...neuesAnlageprofil(""), regionen: [] }));
-  const abbrechen = useAbbrechen("/profil", schritt > 1, "Das Anlageprofil wird nicht angelegt.");
+  useEntwurf("anlageprofil", { schritt, ap }, d => { setSchritt(d.schritt); setAp(d.ap); });
+  const abbrechen = useAbbrechen("/profil", schritt > 1 || !!ap.name.trim(), "Das Anlageprofil wird nicht angelegt.");
+  // Doppelklick legt nicht doppelt an
+  const angelegt = useRef(false);
   const anlegen = () => {
+    if (angelegt.current) return; angelegt.current = true;
     const a = nachStrategie({ ...ap, name: ap.name.trim() || `${ap.strategie}${ap.regionen[0] ? ` ${ap.regionen[0]}` : ""}` }, profil!.investor.risiko);
     setzeProfil({ ...profil!, anlageprofile: [...profil!.anlageprofile, a], aktivesAnlageprofil: a.id }); meldung(`Anlageprofil „${a.name}“ angelegt`); router.push("/profil");
   };

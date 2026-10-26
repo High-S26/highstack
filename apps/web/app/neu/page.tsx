@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/App";
+import { useEntwurf } from "@/lib/entwurf";
 import { Auswahl, Text, Zahl } from "@/components/Felder";
 import { api } from "@/lib/client";
 import { EINSTUFUNG, eur, num, pct } from "@/lib/format";
@@ -43,6 +44,11 @@ export default function NeuesObjekt() {
   const [gefunden, setGefunden] = useState<string[]>([]); const [expose, setExpose] = useState(""); const [hinweis, setHinweis] = useState<string | null>(null); const [herkunft, setHerkunft] = useState<"ki" | "muster" | "keine">("keine");
   const [sichtbar, setSichtbar] = useState(0); const [apId, setApId] = useState(profil!.aktivesAnlageprofil); const [legtAn, setLegtAn] = useState(false);
   const eingabe = useRef<HTMLInputElement>(null);
+  // Entwurf übersteht ein Neuladen (eine gewählte Datei nicht: dann zurück zur Auswahl)
+  useEntwurf("objekt", { schritt, quelle, url, text, ob, gefunden, expose, herkunft, apId }, d => {
+    setQuelle(d.quelle); setUrl(d.url); setText(d.text); setOb(d.ob); setGefunden(d.gefunden); setExpose(d.expose); setHerkunft(d.herkunft); if (profil!.anlageprofile.some(a => a.id === d.apId)) setApId(d.apId);
+    setSchritt(d.schritt === 3 || (d.schritt === 2 && d.quelle !== "pdf") ? d.schritt : 1);
+  });
 
   const begleitet = (profil!.modus ?? "unterstuetzt") === "unterstuetzt";
   const bereit = quelle === "hand" || quelle === "concierge" || (quelle === "pdf" && !!datei) || (quelle === "link" && /^https?:\/\/\S+\.\S+/.test(url.trim())) || (quelle === "text" && text.trim().length > 30);

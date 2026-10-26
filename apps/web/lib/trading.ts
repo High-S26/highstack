@@ -59,10 +59,14 @@ export async function taktFuer(s: Speicher, id: string, schritte = 1) {
     let b: Broker;
     try { b = await brokerFuer(a); } catch (err) { fehlerLog(a.zustand, (err as Error).message); await speichere(s, a); throw err; }
     let letzter = null;
-    const u = a.einstellungen.marktlage === false ? undefined : await umfeld(s).catch(() => undefined);
+    const sim = a.einstellungen.broker === "simulation";
+    const umfeldAm = async () => a.einstellungen.marktlage === false ? undefined : await umfeld(s, sim ? a.zustand.simUhr?.datum : undefined).catch(() => undefined);
+    let u = await umfeldAm(); let umfeldTag = a.zustand.simUhr?.datum;
     // Nachrichten, Insider und Short-Anteil nur für echte Kurse; die Simulation hat künstliche Kurse
     const k = a.einstellungen.kontext === false || a.einstellungen.broker === "simulation" ? undefined : (await kontextFuer(a).catch(() => null))?.lage;
     for (let i = 0; i < schritte; i++) {
+      // Simulation: neuer simulierter Tag, neues Marktumfeld
+      if (sim && a.zustand.simUhr?.datum !== umfeldTag) { umfeldTag = a.zustand.simUhr?.datum; u = await umfeldAm(); }
       try { letzter = await takt(a.einstellungen, a.zustand, b, new Date(), u, k); }
       catch (err) { fehlerLog(a.zustand, (err as Error).message); break; }
       if (a.einstellungen.broker === "simulation") { simWeiter(a.zustand); if (a.zustand.simUhr!.minute === 0) break; }

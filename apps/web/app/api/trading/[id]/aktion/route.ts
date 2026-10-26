@@ -29,6 +29,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       if (b.aktion === "start") {
         if (!erlaubteBroker().includes(e.broker)) throw new Error(e.broker === "alpaca-live" ? "Handel mit echtem Geld ist auf diesem Server gesperrt." : "Dieser Broker ist noch nicht angebunden.");
         await brokerFuer(a); // wirft mit verständlicher Meldung, wenn z. B. der Zugang fehlt
+        if (e.broker === "manuell" && !a.zugang && !process.env.ALPACA_KEY_ID) throw new Error("Ohne Kursquelle kann der Agent keine Signale erzeugen. Bitte den kostenlosen Alpaca-Datenzugang hinterlegen.");
         z.aktiv = true; if (z.tag?.status === "notaus") z.tag.status = "laeuft";
         protokoll(z, "info", `Agent gestartet (${e.modus === "auto" ? "Automatik" : "Vorschläge"})`, jetzt());
       }

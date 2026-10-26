@@ -101,6 +101,8 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
         for (const g of z.gefuehrt) { const x = r.find(q => q.symbol === g.symbol); const k = x?.preis ?? positionen.find(p => p.symbol === g.symbol)?.kurs; if (k != null) abschluss(z, g, k, grund, zeit); } z.gefuehrt = []; }
     }
     tag.status = status; log("schluss", `${grund}: alle Positionen ${b.nurZettel ? "zum Schließen vorgelegt" : "geschlossen"}`);
+    // Tagesergebnis sofort festhalten, damit Liste und Startseite es zeigen (TRD-018)
+    if (!b.nurZettel) { try { tag.ende = (await b.konto()).equity; } catch { /* beim nächsten Takt */ } }
   };
   const zettel = (antrag: OrderAntrag, art: Vorschlag["art"], signal?: Signal) => {
     if (z.vorschlaege.some(v => v.status === "offen" && v.antrag.symbol === antrag.symbol && v.art === art)) return;
@@ -198,6 +200,7 @@ export async function notaus(z: Agentzustand, b: Broker | null, grund = "Not-Aus
   const uhr = b ? await b.uhr().catch(() => null) : null; const zeit = uhr?.zeit ?? new Date().toISOString();
   let text: string; let geschlossen = false;
   if (!b && !z.gefuehrt.length && !z.tag) text = `${grund}: Agent angehalten. Er hatte noch nicht gehandelt, es sind keine Positionen bekannt.`;
+  else if (!b && !z.gefuehrt.length && !z.tag?.trades) text = `${grund}: Agent angehalten. Ohne Verbindung zum Broker wurden keine Orders gesendet; der Agent führte keine offenen Positionen.`;
   else if (!b) text = `${grund}: Agent angehalten. Positionen konnten nicht geschlossen werden (${brokerFehler ?? "Broker nicht verfügbar"}); bitte direkt beim Broker prüfen.`;
   else if (b.nurZettel) text = `${grund}: Agent angehalten; bitte offene Positionen in der App schließen.`;
   else {
@@ -205,7 +208,7 @@ export async function notaus(z: Agentzustand, b: Broker | null, grund = "Not-Aus
     if (r) {
       for (const x of r) protokoll(z, "order", `${x.seite === "kauf" ? "Kauf" : "Verkauf"} ${stueck(x.qty)} ${x.symbol}${x.preis != null ? ` zu ${kf(x.preis)}` : ` (${x.meldung ?? x.status})`}: ${grund}`, zeit);
       for (const g of z.gefuehrt) { const x = r.find(q => q.symbol === g.symbol); if (x?.preis != null) abschluss(z, g, x.preis, grund, zeit); }
-      z.gefuehrt = []; geschlossen = true; text = `${grund}: Agent angehalten, ${r.length ? `${r.length} Position(en) geschlossen` : "keine Positionen offen"}.`;
+      z.gefuehrt = []; geschlossen = true; if (z.tag && z.tag.ende == null) { try { z.tag.ende = (await b.konto()).equity; } catch { /* später */ } } text = `${grund}: Agent angehalten, ${r.length ? `${r.length} Position(en) geschlossen` : "keine Positionen offen"}.`;
     } else text = `${grund}: Agent angehalten. Schließen beim Broker fehlgeschlagen; Positionen bitte direkt beim Broker prüfen.`;
   }
   protokoll(z, "schluss", text, zeit); return { geschlossen, text };

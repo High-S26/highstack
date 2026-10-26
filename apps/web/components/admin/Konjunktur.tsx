@@ -19,6 +19,8 @@ const RISIKO: Record<Risikolage, string> = { "risk-on": "Risikobereitschaft", ne
 const pz = (v: number | null | undefined, d = 0) => v == null ? "–" : `${(v * 100).toLocaleString("de-DE", { maximumFractionDigits: d })} %`;
 const zahl = (v: number | null | undefined, d = 2) => v == null ? "–" : v.toLocaleString("de-DE", { maximumFractionDigits: d });
 const datum = (d: string) => new Date(d).toLocaleDateString("de-DE");
+/** Einzahl/Mehrzahl: „1 Wert“, „3 Werte“ */
+const anz = (n: number, eins: string, mehr: string) => `${n.toLocaleString("de-DE")} ${n === 1 ? eins : mehr}`;
 const ART: Ereignis["art"][] = ["zinsentscheid", "inflation", "arbeitsmarkt", "zahlen", "index-aufnahme", "lockup-ende", "ipo", "sonstiges"];
 const ART_NAME: Record<Ereignis["art"], string> = { zinsentscheid: "Zinsentscheid", inflation: "Inflationsdaten", arbeitsmarkt: "Arbeitsmarkt", zahlen: "Quartalszahlen", "index-aufnahme": "Indexaufnahme", "lockup-ende": "Lockup-Ende", ipo: "Börsengang", sonstiges: "Sonstiges" };
 
@@ -62,9 +64,9 @@ export function Konjunktur() {
           {d.lage.fehlend.length > 0 && <p className="hint">Ohne Daten: {d.lage.fehlend.map(f => `${f.name} (${f.braucht.join(" oder ")})`).join(", ")}.</p>}
         </section>
         <section className="panel">
-          <div className="ph"><h2>Aktuelle Prognosen</h2><button type="button" className="btn sm ghost" disabled={!!laeuft} onClick={async () => { const r = await aktion({ aktion: "lauf" }, "lauf"); if (r) meldung(`${r.bewertet} fällige geprüft, ${r.neu} neue Prognosen${r.vorhanden ? `, ${r.vorhanden} waren heute schon da` : ""}`); }}>{laeuft === "lauf" ? "Läuft …" : "Lauf jetzt"}</button></div>
-          {neueste.length ? <div className="tbl"><table><thead><tr><th>Ziel</th><th className="num">Tage</th><th className="num">steigt</th><th className="num">Spanne 80 %</th></tr></thead><tbody>
-            {neueste.map(p => <tr key={p.id} title={p.beitraege.map(x => x.grund).join("\n")}><td>{ZIEL[p.ziel]}{p.symbol ? ` ${p.symbol}` : ""}<div className="note">{p.beitraege.length ? p.beitraege.map(x => x.grund).join("; ") : "nur Grundhäufigkeit"}</div></td><td className="num">{p.horizontTage}</td><td className="num"><b>{pz(p.pHoch)}</b></td><td className="num">{p.spanne ? `${zahl(p.spanne.p10)} – ${zahl(p.spanne.p90)}` : "–"}</td></tr>)}
+          <div className="ph"><h2>Aktuelle Prognosen</h2><button type="button" className="btn sm ghost" disabled={!!laeuft} onClick={async () => { const r = await aktion({ aktion: "lauf" }, "lauf"); if (r) meldung(`${anz(r.bewertet, "fällige Prognose", "fällige Prognosen")} geprüft, ${anz(r.neu, "neue Prognose", "neue Prognosen")}${r.vorhanden ? `, ${r.vorhanden === 1 ? "eine war" : `${r.vorhanden} waren`} heute schon da` : ""}`); }}>{laeuft === "lauf" ? "Läuft …" : "Lauf jetzt"}</button></div>
+          {neueste.length ? <div className="tbl"><table className="kj-prog"><thead><tr><th>Ziel</th><th className="num">Tage</th><th className="num">steigt</th><th className="num">Spanne 80 %</th></tr></thead><tbody>
+            {neueste.map(p => <tr key={p.id} title={p.beitraege.map(x => x.grund).join("\n")}><td>{ZIEL[p.ziel]}{p.symbol ? ` ${p.symbol}` : ""}<div className="note">{p.beitraege.length ? p.beitraege.map(x => x.grund).join("; ") : "nur Grundhäufigkeit"}</div></td><td className="num" data-l="Tage">{p.horizontTage}</td><td className="num" data-l="steigt"><b>{pz(p.pHoch)}</b></td><td className="num" data-l="Spanne 80 %">{p.spanne ? `${zahl(p.spanne.p10)} – ${zahl(p.spanne.p90)}` : "–"}</td></tr>)}
           </tbody></table></div> : <p className="note">Noch keine Prognosen. Sie entstehen täglich, sobald Daten da sind.</p>}
         </section>
       </div>
@@ -97,10 +99,10 @@ export function Konjunktur() {
           <div className="fld"><label htmlFor="kj-text">Werte: je Zeile Datum und Wert (Einzelwerte als Reihe kurs:NVDA)</label><textarea id="kj-text" rows={5} value={imp.text} onChange={e => setImp({ ...imp, text: e.target.value })} placeholder={"2026-08-01;49,1\n2026-09-01;48,7\n01.10.2026;50,2"} /></div>
           <div className="row">
             <button type="button" className="btn ghost" disabled={!imp.text.trim() || !!laeuft} onClick={async () => setVorschau(await aktion({ aktion: "import", vorschau: true, ...imp }, "vorschau"))}>Prüfen</button>
-            {vorschau && vorschau.anzahl > 0 && <button type="button" className="btn" disabled={!!laeuft} onClick={async () => { const r = await aktion({ aktion: "import", nurGueltige: vorschau.fehlerAnzahl > 0, ...imp }, "import"); if (r) { meldung(`${r.anzahl} Werte übernommen${r.abgewiesen ? `, ${r.abgewiesen} abgewiesen` : ""}`); setImp({ ...imp, text: "" }); setVorschau(null); } }}>{vorschau.fehlerAnzahl ? `Nur die ${vorschau.anzahl} gültigen übernehmen` : `${vorschau.anzahl} Werte übernehmen`}</button>}
+            {vorschau && vorschau.anzahl > 0 && <button type="button" className="btn" disabled={!!laeuft} onClick={async () => { const r = await aktion({ aktion: "import", nurGueltige: vorschau.fehlerAnzahl > 0, ...imp }, "import"); if (r) { meldung(`${anz(r.anzahl, "Wert", "Werte")} übernommen${r.abgewiesen ? `, ${r.abgewiesen} abgewiesen` : ""}`); setImp({ ...imp, text: "" }); setVorschau(null); } }}>{vorschau.fehlerAnzahl ? `Nur die ${vorschau.anzahl} gültigen übernehmen` : `${vorschau.anzahl} Werte übernehmen`}</button>}
           </div>
           {vorschau && <div className="kj-vorschau">
-            <p className="note">{vorschau.anzahl} gültige Werte{vorschau.erste && vorschau.letzte ? ` von ${datum(vorschau.erste.d)} (${zahl(vorschau.erste.w)}) bis ${datum(vorschau.letzte.d)} (${zahl(vorschau.letzte.w)})` : ""}.</p>
+            <p className="note">{anz(vorschau.anzahl, "gültiger Wert", "gültige Werte")}{vorschau.erste && vorschau.letzte ? ` von ${datum(vorschau.erste.d)} (${zahl(vorschau.erste.w)}) bis ${datum(vorschau.letzte.d)} (${zahl(vorschau.letzte.w)})` : ""}.</p>
             {vorschau.fehlerAnzahl > 0 && <ul className="flags">{vorschau.fehler.map(f => <li key={f.zeile} className="crit">Zeile {f.zeile} „{f.inhalt}“: {f.text}</li>)}{vorschau.fehlerAnzahl > vorschau.fehler.length && <li className="info">… und {vorschau.fehlerAnzahl - vorschau.fehler.length} weitere</li>}</ul>}
           </div>}
           <details><summary>Werte einer Reihe löschen</summary>
@@ -108,7 +110,7 @@ export function Konjunktur() {
               <div className="fld"><label htmlFor="kl-v">von</label><input id="kl-v" type="date" value={loeschen.von} onChange={e => setLoeschen({ ...loeschen, von: e.target.value })} /></div>
               <div className="fld"><label htmlFor="kl-b">bis</label><input id="kl-b" type="date" value={loeschen.bis} onChange={e => setLoeschen({ ...loeschen, bis: e.target.value })} /></div>
             </div>
-            <button type="button" className="btn sm danger" disabled={!loeschen.von || !loeschen.bis || !!laeuft} onClick={async () => { if (await frage({ titel: `Werte von ${imp.id} löschen?`, text: `Alle Werte vom ${datum(loeschen.von)} bis ${datum(loeschen.bis)} werden entfernt.`, ja: "Löschen", gefahr: true })) { const r = await aktion({ aktion: "werte-loeschen", id: imp.id, ...loeschen }, "x"); if (r) meldung(`${r.geloescht} Werte gelöscht`); } }}>Werte der Reihe „{imp.id}“ löschen</button>
+            <button type="button" className="btn sm danger" disabled={!loeschen.von || !loeschen.bis || !!laeuft} onClick={async () => { if (await frage({ titel: `Werte von ${imp.id} löschen?`, text: `Alle Werte vom ${datum(loeschen.von)} bis ${datum(loeschen.bis)} werden entfernt.`, ja: "Löschen", gefahr: true })) { const r = await aktion({ aktion: "werte-loeschen", id: imp.id, ...loeschen }, "x"); if (r) meldung(`${anz(r.geloescht, "Wert", "Werte")} gelöscht`); } }}>Werte der Reihe „{imp.id}“ löschen</button>
           </details>
         </div>
       </section>
@@ -124,7 +126,7 @@ export function Konjunktur() {
             <div className="fld"><label htmlFor="ev-s">Wert (optional)</label><input id="ev-s" value={ev.symbol ?? ""} onChange={e => setEv({ ...ev, symbol: e.target.value.toUpperCase() })} placeholder="z. B. NVDA" /></div>
           </div>
           <label className="chk"><input type="checkbox" checked={!!ev.wichtig} onChange={e => setEv({ ...ev, wichtig: e.target.checked })} /> wichtig für den Gesamtmarkt</label>
-          <button type="button" className="btn ghost" disabled={!ev.datum || !ev.titel.trim()} onClick={async () => { if (await aktion({ aktion: "ereignis", ereignis: { ...ev, symbol: ev.symbol || undefined } }, "ev")) { meldung(`Termin „${ev.titel}“ angelegt`); setEv({ ...ev, titel: "", symbol: "" }); } }}>Termin anlegen</button>
+          <button type="button" className="btn ghost" disabled={!ev.datum || !ev.titel.trim()} onClick={async () => { if (await aktion({ aktion: "ereignis", ereignis: { ...ev, symbol: ev.symbol || undefined } }, "ev")) { meldung(`Termin „${ev.titel}“ angelegt${ev.datum < new Date().toISOString().slice(0, 10) ? ". Das Datum liegt in der Vergangenheit und wirkt nur auf Rückblicke." : ""}`); setEv({ ...ev, titel: "", symbol: "" }); } }}>Termin anlegen</button>
         </section>
         <section className="panel">
           <div className="ph"><h2>Rückblick</h2><Info label="Rückblick" text="Rechnet die Historie Schritt für Schritt durch, jeweils nur mit den Daten, die am Stichtag veröffentlicht waren, und prüft jede Prognose gegen das später Eingetretene. So zeigt sich, ob die Wirkungsketten tragen, bevor man ihnen vertraut." /></div>
@@ -133,7 +135,7 @@ export function Konjunktur() {
             <div className="fld"><label htmlFor="rb-b">bis</label><input id="rb-b" type="date" value={rb.bis} onChange={e => setRb({ ...rb, bis: e.target.value })} /></div>
             <div className="fld"><label htmlFor="rb-s">alle … Tage</label><input id="rb-s" type="number" min={7} value={rb.schrittTage} onChange={e => setRb({ ...rb, schrittTage: Number(e.target.value) || 30 })} />{rb.schrittTage < 7 && <span className="note dn">mindestens 7</span>}</div>
           </div>
-          <button type="button" className="btn ghost" disabled={!!laeuft} onClick={async () => { const r = await aktion({ aktion: "rueckblick", ...rb }, "rb"); if (r) meldung(`Rückblick gespeichert: ${r.bilanz.n} Prognosen geprüft`); }}>{laeuft === "rb" ? "Rechnet …" : "Rückblick rechnen"}</button>
+          <button type="button" className="btn ghost" disabled={!!laeuft} onClick={async () => { const r = await aktion({ aktion: "rueckblick", ...rb }, "rb"); if (r) meldung(`Rückblick gespeichert: ${anz(r.bilanz.n, "Prognose", "Prognosen")} geprüft`); }}>{laeuft === "rb" ? "Rechnet …" : "Rückblick rechnen"}</button>
           {d.rueckblick && <RueckblickKarte r={d.rueckblick} uebernehmen={async () => { if (await aktion({ aktion: "gewichte-uebernehmen" }, "gw")) meldung("Gewichte übernommen; sie gelten für die nächsten Prognosen"); }} laeuft={!!laeuft} />}
         </section>
       </div>

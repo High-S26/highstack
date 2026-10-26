@@ -65,7 +65,7 @@ export function nettoLiquiditaet(r: Reihen, stichtag: string, vorTagen = 0): num
 }
 
 /** Höchstalter eines Werts je Frequenz (Tage nach dem Stichtag des Werts, zusätzlich zum Veröffentlichungsverzug) */
-export const MAX_ALTER: Record<Indikator["frequenz"], number> = { taeglich: 10, woechentlich: 21, monatlich: 75, quartal: 200 };
+export const MAX_ALTER: Record<Indikator["frequenz"], number> = { taeglich: 10, woechentlich: 21, monatlich: 95, quartal: 200 };
 
 /** Letzter veröffentlichter Punkt zum Stichtag, null wenn keiner da oder er zu alt ist */
 export function punktAktuell(r: Reihen, id: string, stichtag: string, vorTagen = 0): Punkt | null {

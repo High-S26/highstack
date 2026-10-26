@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useApp } from "@/components/App";
 import { eur } from "@/lib/format";
+import { geldPm } from "@highstack/trading";
 
 type Agent = { id: string; einstellungen: { name: string; broker: string }; zustand: { aktiv: boolean; tag: { start: number; ende: number | null; status: string } | null } };
 /** Startbildschirm: Investments oder Trading */
@@ -33,7 +34,7 @@ export default function Start() {
         </Link>
       </div>
       {agenten && agenten.some(a => a.zustand.tag) && <section className="panel"><h2>Trading heute</h2>
-        <div className="todo">{agenten.filter(a => a.zustand.tag).map(a => { const t = a.zustand.tag!; return <div key={a.id}><span>{a.einstellungen.name}</span><Link className="btn ghost sm" href={`/trading/${a.id}`}>{t.ende != null ? eur(t.ende - t.start) : "läuft"}</Link></div>; })}</div></section>}
+        <div className="todo">{agenten.filter(a => a.zustand.tag).map(a => { const t = a.zustand.tag!; return <div key={a.id}><span>{a.einstellungen.name}</span><Link className="btn ghost sm" href={`/trading/${a.id}`}>{t.ende != null ? geldPm(t.ende - t.start, a.einstellungen.broker.startsWith("alpaca") ? "USD" : "EUR") : t.status === "laeuft" ? "läuft" : "–"}</Link></div>; })}</div></section>}
     </div>
   );
 }

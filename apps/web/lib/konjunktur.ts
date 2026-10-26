@@ -33,7 +33,7 @@ export async function abrufAlle(s: Speicher) {
   const ergebnis: Record<string, string> = {};
   for (const i of INDIKATOREN.filter(x => x.quelle.art !== "manuell")) {
     try { const p = await abrufen(i.id, { fredKey: process.env.FRED_API_KEY, seit: "2005-01-01" }); await uebernimm(s, i.id, p, i.quelle.text); ergebnis[i.id] = `${p.length} Werte`; }
-    catch (e) { ergebnis[i.id] = `Fehler: ${(e as Error).message}`; }
+    catch (e) { const m = (e as Error).message; ergebnis[i.id] = `Fehler: ${/fetch failed|ECONN|ENOTFOUND|ETIMEDOUT|abort|network/i.test(m) ? `Quelle nicht erreichbar (${i.quelle.text}). Die vorhandenen Werte bleiben; später erneut abrufen.` : m}`; }
   }
   const st = await stand(s); await s.speichereGlobal("konjunktur-stand", "stand", { ...st, letzterAbruf: Date.now(), abrufFehler: Object.fromEntries(Object.entries(ergebnis).filter(([, v]) => v.startsWith("Fehler"))) });
   return ergebnis;
@@ -71,13 +71,19 @@ export async function lagebild(s: Speicher, tag = heute()) {
 // Für den Trading-Takt zwischengespeichert, damit nicht jede Minute alle Reihen gelesen werden
 const bevorzugt = ((globalThis as { hsUmfeld?: { zeit: number; wert: { faktor: number; text: string; lage: string; gruende: string[] } | null } }).hsUmfeld ??= { zeit: 0, wert: null });
 /** Nach neuen Daten oder Terminen sofort neu rechnen statt bis zu 10 Minuten zu warten */
-export function umfeldVergessen() { bevorzugt.zeit = 0; bevorzugt.wert = null; }
-export async function umfeld(s: Speicher) {
-  if (Date.now() - bevorzugt.zeit < 10 * 60_000 && bevorzugt.wert) return bevorzugt.wert;
-  const r = risikolage({ stichtag: heute(), reihen: await reihen(s), ereignisse: await ereignisse(s) });
+export function umfeldVergessen() { bevorzugt.zeit = 0; bevorzugt.wert = null; umfeldJeTag.clear(); }
+const umfeldJeTag = new Map<string, { zeit: number; wert: Umfeldwert }>();
+type Umfeldwert = { faktor: number; lage: "risk-on" | "neutral" | "risk-off"; gruende: string[]; text: string };
+/** Marktumfeld zum Stichtag; die Simulation fragt mit ihrem simulierten Tag (TRD-035) */
+export async function umfeld(s: Speicher, stichtag?: string): Promise<Umfeldwert> {
+  const tag = stichtag ?? heute();
+  if (tag === heute() && Date.now() - bevorzugt.zeit < 10 * 60_000 && bevorzugt.wert) return bevorzugt.wert as Umfeldwert;
+  const c = umfeldJeTag.get(tag); if (tag !== heute() && c && Date.now() - c.zeit < 10 * 60_000) return c.wert;
+  const r = risikolage({ stichtag: tag, reihen: await reihen(s), ereignisse: await ereignisse(s) });
   const name = { "risk-on": "Risikobereitschaft", neutral: "neutral", "risk-off": "Vorsicht" }[r.lage];
-  bevorzugt.wert = { faktor: r.faktor, lage: r.lage, gruende: r.gruende, text: `${name}, Positionsgröße ${Math.round(r.faktor * 100)} % (${r.gruende.join("; ")})` }; bevorzugt.zeit = Date.now();
-  return bevorzugt.wert;
+  const wert: Umfeldwert = { faktor: r.faktor, lage: r.lage, gruende: r.gruende, text: `${name}, Positionsgröße ${Math.round(r.faktor * 100)} % (${r.gruende.join("; ")})` };
+  if (tag === heute()) { bevorzugt.wert = wert; bevorzugt.zeit = Date.now(); } else { umfeldJeTag.set(tag, { zeit: Date.now(), wert }); if (umfeldJeTag.size > 400) umfeldJeTag.clear(); }
+  return wert;
 }
 
 /** Ausblick für die Marktszenarien der Investments: Wohnimmobilienpreise und Zinsniveau */
@@ -86,6 +92,7 @@ export async function ausblickImmobilien(s: Speicher) {
   const w = l.wirkungen.filter(x => x.ziel === "immo-wert"); const p = w.length ? wahrscheinlichkeit("immo-wert", 365, w, st.gewichte) : null;
   // Nur aktuelle, plausible Bundrendite (Höchstalter je Frequenz, Bereich −1 bis 10 %); veraltete Werte werden nicht verwendet
   const b = punktAktuell(await reihen(s), "bund10j", heute()); const bund = b && b.w >= -1 && b.w <= 10 ? b : null;
-  if (!w.length && !bund) return null;
-  return { pHoch: p?.pHoch ?? null, gruende: w.map(x => x.grund), bund10j: bund ? { wert: bund.w, stand: bund.d } : null };
+  const letzterBund = (await reihen(s)).bund10j?.at(-1); const bundVeraltet = !bund && letzterBund ? { stand: letzterBund.d } : null;
+  if (!w.length && !bund && !bundVeraltet) return null;
+  return { pHoch: p?.pHoch ?? null, gruende: w.map(x => x.grund), bund10j: bund ? { wert: bund.w, stand: bund.d } : null, bundVeraltet };
 }

@@ -56,7 +56,8 @@ const rd = (v: number) => Math.round(v * 100) / 100;
  */
 export function simBroker(z: Agentzustand, startkapital: number, opts: { quelle?: (symbol: string, datum: string) => Bar[]; waehrung?: string } = {}): Broker {
   z.sim ??= { cash: startkapital, positionen: {} };
-  const uhr = z.simUhr ??= { datum: new Date().toISOString().slice(0, 10), minute: 0 };
+  // Erster Simulationstag ist ein Handelstag: am Wochenende der folgende Montag (TRD-035)
+  const uhr = z.simUhr ??= (() => { const d = new Date(); d.setUTCHours(12); while ([0, 6].includes(d.getUTCDay())) d.setUTCDate(d.getUTCDate() + 1); return { datum: d.toISOString().slice(0, 10), minute: 0 }; })();
   const quelle = opts.quelle ?? kuenstlicherTag;
   const tag = (s: string) => quelle(s, uhr.datum).slice(0, Math.max(1, uhr.minute + 1));
   const kurs = (s: string) => { const k = tag(s).at(-1)?.c; if (k == null) throw new Error(`Keine Kurse für ${s} am ${uhr.datum}`); return k; };
@@ -131,15 +132,37 @@ export function alpacaBroker(zugang: AlpacaZugang, live = false, holen: typeof f
 
 // ---------- Manuell: App ohne Schnittstelle (Trade Republic, Scalable …) ----------
 /** Marktdaten kommen aus einer Datenquelle (z. B. Alpaca-Daten), Orders werden als Zettel vorgelegt und von Ihnen bestätigt */
-export function manuellerBroker(z: Agentzustand, startkapital: number, daten: Pick<Broker, "bars"> | null, uhrQuelle: () => Promise<Uhr> = async () => usUhr(new Date())): Broker {
+/** EZB-Referenzkurs US-Dollar je Euro (frei, ohne Schlüssel) */
+export async function ezbUsdJeEur(f: typeof fetch = fetch): Promise<{ usdJeEur: number; stand: string }> {
+  const r = await f("https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?lastNObservations=1&format=csvdata", { signal: AbortSignal.timeout(8000) });
+  if (!r.ok) throw new Error(`EZB-Wechselkurs: HTTP ${r.status}`);
+  const zeilen = (await r.text()).trim().split(/\r?\n/); const kopf = zeilen[0]!.split(","); const w = zeilen.at(-1)!.split(",");
+  const kurs = Number(w[kopf.indexOf("OBS_VALUE")]); const stand = w[kopf.indexOf("TIME_PERIOD")] ?? "";
+  if (!(kurs > 0.3 && kurs < 3)) throw new Error("EZB-Wechselkurs nicht lesbar");
+  return { usdJeEur: kurs, stand };
+}
+const WECHSELKURS_GUELTIG_MS = 12 * 3600_000;
+
+/**
+ * Eigene App (z. B. Trade Republic): Konto in Euro, Kurse von Alpaca in US-Dollar. Damit nichts vermischt wird, rechnet der
+ * Broker alle Kurse mit dem EZB-Referenzkurs in Euro um; Signale, Stopps, Ziele und Bewertung laufen dann in Euro.
+ * Der Kurs am Handelsplatz der App kann davon leicht abweichen; maßgeblich ist der eingetragene Ausführungskurs.
+ */
+export function manuellerBroker(z: Agentzustand, startkapital: number, daten: Pick<Broker, "bars"> | null, uhrQuelle: () => Promise<Uhr> = async () => usUhr(new Date()), wechselkurs: (() => Promise<{ usdJeEur: number; stand: string }>) | null = () => ezbUsdJeEur()): Broker {
   z.manuell ??= { cash: startkapital, positionen: {} };
-  const kurse = async (s: string[]) => { if (!daten) return {} as Record<string, number>; const b = await daten.bars(s); return Object.fromEntries(Object.entries(b).map(([k, l]) => [k, l.at(-1)?.c ?? 0])); };
+  const kursUsdJeEur = async () => {
+    const w = z.wechselkurs; if (w && Date.now() - w.abgerufen < WECHSELKURS_GUELTIG_MS) return w.usdJeEur;
+    try { if (!wechselkurs) throw new Error("kein Abruf"); const n = await wechselkurs(); z.wechselkurs = { ...n, abgerufen: Date.now() }; return n.usdJeEur; }
+    catch (x) { if (w) return w.usdJeEur; throw new Error(`Wechselkurs US-Dollar/Euro nicht verfügbar (${(x as Error).message}). Ohne Umrechnung würden Dollar-Kurse mit Euro-Beträgen vermischt.`); }
+  };
+  const inEuro = async (s: string[]) => { const b = await daten!.bars(s); const r = await kursUsdJeEur(); return Object.fromEntries(Object.entries(b).map(([k, l]) => [k, l.map(x => ({ ...x, o: x.o / r, h: x.h / r, l: x.l / r, c: x.c / r }))])) as Awaited<ReturnType<Broker["bars"]>>; };
+  const kurse = async (s: string[]) => { if (!daten || !s.length) return {} as Record<string, number>; const b = await inEuro(s); return Object.fromEntries(Object.entries(b).map(([k, l]) => [k, l.at(-1)?.c ?? 0])); };
   return {
     art: "manuell", nurZettel: true, bruchstuecke: false,
     uhr: uhrQuelle,
     async konto() { const pos = await this.positionen(); return { equity: rd(z.manuell!.cash + pos.reduce((a, p) => a + p.wert, 0)), cash: rd(z.manuell!.cash), waehrung: "EUR" }; },
     async positionen() { const e = Object.entries(z.manuell!.positionen); const k = await kurse(e.map(([s]) => s)); return e.map(([s, p]) => { const kurs = k[s] || p.einstand; return { symbol: s, qty: p.qty, einstand: p.einstand, kurs, wert: p.qty * kurs, gv: (kurs - p.einstand) * p.qty }; }); },
-    async bars(s) { if (!daten) throw new Error("Für Marktdaten bitte einen Datenzugang (Alpaca, kostenlos) hinterlegen."); return daten.bars(s); },
+    async bars(s) { if (!daten) throw new Error("Für Marktdaten bitte einen Datenzugang (Alpaca, kostenlos) hinterlegen."); return inEuro(s); },
     async sende(a) { return { id: id(), symbol: a.symbol, seite: a.seite, qty: a.qty, preis: null, status: "offen", meldung: "als Zettel vorgelegt", zeit: new Date().toISOString() }; },
     async schliesseAlle() { return Object.entries(z.manuell!.positionen).map(([s, p]) => ({ id: id(), symbol: s, seite: p.qty > 0 ? "verkauf" as const : "kauf" as const, qty: Math.abs(p.qty), preis: null, status: "offen" as const, meldung: "als Zettel vorgelegt", zeit: new Date().toISOString() })); },
   };

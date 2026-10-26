@@ -263,5 +263,5 @@ export function steuern(sim: Simulation, p: Params, o: Objekt) {
   const ausschuettung = Math.max(0, sum(flowsG)) * ABG;
   const flowsGA = flowsG.slice(); flowsGA[flowsGA.length - 1]! -= ausschuettung;
   const res = (st: number[], verkauf: number, cf: number[], flows: number[], aus: number) => ({ steuernLaufend: sum(st), steuerVerkauf: verkauf, steuerAusschuettung: aus, cashflowJahr1Monat: cf[0]! / 12, cashflowSchnittMonat: sum(cf) / cf.length / 12, zuwachsNachSteuern: sum(flows), irr: irr(flows) });
-  return { afaSatz: satz, afaJahr: basis * satz, privat: res(stP, verkaufP, cfP, flowsP, 0), gmbh: res(stG, verkaufG, cfG, flowsG, 0), gmbhAusgeschuettet: res(stG, verkaufG, cfG, flowsGA, ausschuettung) };
+  return { afaSatz: satz, afaJahr: basis * satz, afaKaufAusgabenJahr: kaufAfa, privat: res(stP, verkaufP, cfP, flowsP, 0), gmbh: res(stG, verkaufG, cfG, flowsG, 0), gmbhAusgeschuettet: res(stG, verkaufG, cfG, flowsGA, ausschuettung) };
 }

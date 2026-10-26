@@ -31,6 +31,13 @@ interface AppZustand {
   /** Rückfrage vor folgenreichen Aktionen. Löst mit true auf, wenn bestätigt. */
   frage: (f: Frage) => Promise<boolean>;
 }
+/** Technische Rohmeldungen des Browsers in verständliche Sätze übersetzen */
+export function verstaendlich(t: string): string {
+  if (/failed to fetch|networkerror|load failed|fetch failed|network request failed/i.test(t)) return "Keine Verbindung zum Server. Bitte Verbindung prüfen und erneut versuchen.";
+  if (/unexpected token|json/i.test(t) && /<|JSON/.test(t)) return "Der Server hat unerwartet geantwortet. Bitte erneut versuchen.";
+  return t;
+}
+
 export interface Frage { titel: string; text?: string; ja: string; nein?: string; gefahr?: boolean; /** muss abgetippt werden, z. B. LÖSCHEN */ eingabe?: string }
 const Ctx = createContext<AppZustand | null>(null);
 export const useApp = () => { const c = useContext(Ctx); if (!c) throw new Error("useApp außerhalb von App"); return c; };
@@ -68,7 +75,7 @@ export function App({ children }: { children: ReactNode }) {
   objekteRef.current = objekte;
   useEffect(() => { if (profil && !profil.onboarded && pfad !== "/start") router.replace("/start"); }, [profil, pfad, router]);
   const schliesseToast = useCallback(() => { clearTimeout(toastTimer.current); const f = ablaufRef.current; ablaufRef.current = null; f?.(); setToast(null); }, []);
-  const meldung = useCallback((t: string) => { schliesseToast(); setToast({ text: t }); toastTimer.current = setTimeout(() => setToast(null), 3500); }, [schliesseToast]);
+  const meldung = useCallback((t: string) => { schliesseToast(); setToast({ text: verstaendlich(t) }); toastTimer.current = setTimeout(() => setToast(null), 3500); }, [schliesseToast]);
   const meldungMitAktion = useCallback((t: string, aktion: string, tun: () => void, ablauf?: () => void) => {
     schliesseToast(); ablaufRef.current = ablauf ?? null;
     setToast({ text: t, aktion, tun: () => { clearTimeout(toastTimer.current); ablaufRef.current = null; tun(); setToast(null); } });
@@ -77,10 +84,13 @@ export function App({ children }: { children: ReactNode }) {
   // Ausstehende Löschungen beim Schließen des Tabs noch abschicken
   useEffect(() => { const f = () => { const a = ablaufRef.current; ablaufRef.current = null; a?.(); }; window.addEventListener("pagehide", f); return () => window.removeEventListener("pagehide", f); }, []);
 
+  const profilOffen = useRef<Profil | null>(null);
   const setzeProfil = useCallback((p: Profil) => {
-    setProfil(p); clearTimeout(speicherTimer.current);
-    speicherTimer.current = setTimeout(() => api.speichereProfil(p).catch(() => meldung("Profil konnte nicht gespeichert werden.")), 600);
+    setProfil(p); clearTimeout(speicherTimer.current); profilOffen.current = p;
+    speicherTimer.current = setTimeout(() => { profilOffen.current = null; api.speichereProfil(p).catch(() => meldung("Profil konnte nicht gespeichert werden.")); }, 600);
   }, [meldung]);
+  // Neuladen oder Tab schließen innerhalb der Verzögerung: Änderung noch abschicken (INV-024)
+  useEffect(() => { const f = () => { const p = profilOffen.current; if (!p) return; profilOffen.current = null; clearTimeout(speicherTimer.current); try { fetch("/api/profil", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(p), keepalive: true }); } catch { /* best effort */ } }; window.addEventListener("pagehide", f); return () => window.removeEventListener("pagehide", f); }, []);
   const ladeObjekte = useCallback(async () => setObjekte(await api.objekte()), []);
   const setzeObjekt = useCallback((o: Objektdatensatz) => setObjekte(l => { const i = l.findIndex(x => x.id === o.id); return i < 0 ? [o, ...l] : l.map(x => x.id === o.id ? o : x); }), []);
   const entferneObjekt = useCallback((id: string) => setObjekte(l => l.filter(x => x.id !== id)), []);
@@ -103,7 +113,7 @@ export function App({ children }: { children: ReactNode }) {
         <div className="appbar">
           <Link href="/" className="brand" aria-label="highstack, zur Übersicht"><Logo /></Link>
           {profil?.onboarded && pfad !== "/" && <nav className="bereich" aria-label="Bereich"><Link href="/investments" aria-current={!trading ? "page" : undefined}>Investments</Link><Link href="/trading" aria-current={trading ? "page" : undefined}>Trading</Link></nav>}
-          {profil?.onboarded && pfad !== "/" && (trading ? <div className="aktionen">
+          {profil?.onboarded && pfad !== "/" && !pfad.startsWith("/admin") && !pfad.startsWith("/konto") && (trading ? <div className="aktionen">
             <Link href="/trading/neu" className="btn sm" aria-current={pfad === "/trading/neu" ? "page" : undefined}>+ Agent einstellen</Link>
           </div> : <div className="aktionen">
             <Link href="/suchen/neu" className="btn ghost sm" aria-current={pfad === "/suchen/neu" ? "page" : undefined}>+ Auftrag anlegen</Link>
