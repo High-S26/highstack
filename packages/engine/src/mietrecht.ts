@@ -93,7 +93,8 @@ export function mietpfad(o: Objekt, opts: { jahre: number; vmSteigerung: number;
   const vm = (m: number) => vmQm * fl * Math.pow(1 + g, m / 12);
   const ziel = (m: number) => (o.neuvermietungQm && o.neuvermietungQm > 0 ? o.neuvermietungQm : vmQm) * fl * Math.pow(1 + g, m / 12);
   const zul = (m: number) => reg.bremse ? vm(m) * (1 + MIETRECHT.bremse) : Infinity;
-  const neuvermietung = (m: number, vormiete: number) => Math.min(ziel(m), Math.max(zul(m), vormiete));
+  // Ohne eigenes Ziel: Vergleichsmiete, eine höhere Vormiete bleibt (§ 556e BGB, INV-056)
+  const neuvermietung = (m: number, vormiete: number) => Math.min(o.neuvermietungQm && o.neuvermietungQm > 0 ? ziel(m) : Math.max(vm(m), vormiete), Math.max(zul(m), vormiete));
   const hinweise: string[] = []; const schritte: Mietschritt[] = [];
   const leer = o.leer || !o.miete;
   let miete: number; let art: "standard" | "staffel" | "index" = leer ? "standard" : mv.art; let letzte: number;
@@ -104,16 +105,22 @@ export function mietpfad(o: Objekt, opts: { jahre: number; vmSteigerung: number;
     else { letzte = 0; if (art === "standard") hinweise.push("Datum der letzten Mieterhöhung unbekannt: vorsichtig gerechnet, als sei die Miete gerade erhöht worden (nächste Erhöhung frühestens in 15 Monaten). Datum beim Verkäufer erfragen."); }
   }
   const start = miete; const verlauf: number[] = [];
-  /** Miete vor m Monaten (für die Kappungsgrenze); vor dem Kauf gilt die Startmiete */
+  // Kappungsgrenze: maßgeblich ist die Miete drei Jahre vor der neuen Erhöhung. Lag die letzte Erhöhung innerhalb dieser
+  // drei Jahre, war die Miete davor niedriger. Ohne Angabe vorsichtig: die letzte Erhöhung hat die Kappungsgrenze voll
+  // ausgeschöpft (INV-055)
+  const letzteStart = letzte;
+  const vorErhoehung = !leer && mv.art === "standard" && letzteStart > -MIETRECHT.kappungJahre * 12 ? (mv.mieteVorErhoehung && mv.mieteVorErhoehung > 0 && mv.mieteVorErhoehung <= start ? mv.mieteVorErhoehung : start / (1 + reg.kappung)) : start;
+  if (vorErhoehung < start - 0.005 && !(mv.mieteVorErhoehung && mv.mieteVorErhoehung > 0)) hinweise.push(`Die letzte Erhöhung liegt keine drei Jahre zurück${mv.letzteErhoehung ? "" : " (oder ihr Datum ist unbekannt)"}: Die Miete davor ist nicht bekannt. Vorsichtig angenommen, dass sie die Kappungsgrenze ausgeschöpft hat (${de(vorErhoehung, 0)} €); dann ist die nächste Erhöhung erst drei Jahre danach möglich. Mit der Miete vor der letzten Erhöhung wird genauer gerechnet.`);
   let vertragsbeginn = leer ? 0 : -Infinity;
-  const mieteVor = (m: number) => { const k = Math.max(m, vertragsbeginn); return k < 0 ? start : verlauf[k] ?? start; };
+  /** Miete vor m Monaten (für die Kappungsgrenze); vor dem Kauf die Startmiete bzw. die Miete vor der letzten Erhöhung */
+  const mieteVor = (m: number) => { const k = Math.max(m, vertragsbeginn); return k < 0 ? (k < letzteStart ? vorErhoehung : start) : verlauf[k] ?? start; };
   const wechsel = !leer && mv.mieterwechselJahr && mv.mieterwechselJahr >= 1 ? (Math.round(mv.mieterwechselJahr) - 1) * 12 : null;
   let leerMonat = -1;
   for (let m = 0; m < H * 12; m++) {
     if (m === wechsel) {
       const neu = neuvermietung(m + 1, miete);
       schritte.push({ monat: m, datum: monatLabel(heute, m), miete: 0, vorher: miete, art: "leerstand", grund: "Mieterwechsel: ein Monat ohne Miete" });
-      schritte.push({ monat: m + 1, datum: monatLabel(heute, m + 1), miete: neu, vorher: miete, art: "neuvermietung", grund: neu < miete ? `Neuvermietung unter der bisherigen Miete (Ziel ${de(ziel(m + 1) / fl, 2)} €/m²)` : reg.bremse ? `Neuvermietung, zulässig bis ${de(Math.max(zul(m + 1), miete) / fl, 2)} €/m² (Vergleichsmiete + 10 % oder Vormiete)` : "Neuvermietung zur Marktmiete" });
+      schritte.push({ monat: m + 1, datum: monatLabel(heute, m + 1), miete: neu, vorher: miete, art: "neuvermietung", grund: neu < miete ? `Neuvermietung unter der bisherigen Miete (Ihr Ziel ${de(ziel(m + 1) / fl, 2)} €/m²)` : Math.abs(neu - miete) < 0.01 ? "Neuvermietung zur bisherigen Miete (Vormiete bleibt zulässig)" : reg.bremse ? `Neuvermietung, zulässig bis ${de(Math.max(zul(m + 1), miete) / fl, 2)} €/m² (Vergleichsmiete + 10 % oder Vormiete)` : "Neuvermietung zur Marktmiete" });
       miete = neu; art = "standard"; letzte = m + 1; leerMonat = m; vertragsbeginn = m + 1;
     } else {
       if (art === "standard" && m - letzte >= MIETRECHT.sperrMonate && (m >= MIETRECHT.fruehestensMonat || leer)) {
@@ -141,7 +148,7 @@ export function mietpfad(o: Objekt, opts: { jahre: number; vmSteigerung: number;
 
   if (!leer && art === "standard" && start > vergleichsmiete * 1.005) hinweise.push(`Die Ist-Miete liegt ${de((start / vergleichsmiete - 1) * 100)} % über der Vergleichsmiete: keine Erhöhung nach § 558 möglich, bis die Vergleichsmiete aufholt. Bei einem Mieterwechsel darf die Vormiete bleiben, eine höhere Miete nur ohne Mietpreisbremse.`);
   if (!leer && mv.art === "index") hinweise.push(`Indexmiete: keine Erhöhung nach § 558, Anpassung höchstens jährlich an die Inflation.${reg.angespannt ? " Der Entwurf Mietrecht II würde Indexanpassungen über 3 % Inflation in angespannten Märkten nur zur Hälfte zulassen (noch kein Gesetz)." : ""}`);
-  if (!leer && mv.art === "staffel") hinweise.push("Staffelmiete: Erhöhungen nur laut Staffel, keine Erhöhung nach § 558. Bei Mietpreisbremse muss jede Stufe für sich zulässig sein.");
+  if (!leer && mv.art === "staffel") hinweise.push(`Staffelmiete: Erhöhungen nur laut Staffel, keine Erhöhung nach § 558. Bei Mietpreisbremse muss jede Stufe für sich zulässig sein.${mv.staffelProzent ? "" : " Der Staffelsatz fehlt: ohne Angabe bleibt die Miete über die ganze Haltedauer gleich. Bitte die Staffel aus dem Mietvertrag eintragen."}`);
   if (!reg.geprueft) hinweise.push(reg.text);
   if (o.neuvermietungQm && reg.bremse && o.neuvermietungQm * fl > zul(0)) hinweise.push(`Angestrebte Neuvermietungsmiete ${de(o.neuvermietungQm, 2)} €/m² liegt über dem zulässigen Rahmen (${de(zul(0) / fl, 2)} €/m²); gerechnet wird mit dem zulässigen Wert, es sei denn, eine Ausnahme greift (Neubau ab Oktober 2014, umfassende Modernisierung, höhere Vormiete).`);
 

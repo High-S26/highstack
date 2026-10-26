@@ -35,13 +35,19 @@ export const simKurz = (m: Simulation | null) => m ? {
   nettovermoegenEnde: r0(m.nettovermoegenEnde), irrVorSteuern: r3(m.irr), dscrJahr1: r3(m.dscrJahr1), dscrMin: r3(m.dscrMin),
 } : null;
 
+/** Parameter für ein Objekt: eine objektbezogene Käuferprovision (z. B. provisionsfrei) ersetzt den Profilwert */
+export function paramsFuer(e: Pick<Analyseeingabe, "investor" | "anlageprofil" | "objekt">) {
+  const mp = e.objekt.maklerProvision; return params(mp != null && mp >= 0 && mp <= 0.15 ? { ...e.investor, makler: mp } : e.investor, e.anlageprofil);
+}
+
 /** Vollständige, deterministische Analyse eines Objekts. Grundlage für App und Agenten. */
 export function analyse(e: Analyseeingabe) {
-  const p = params(e.investor, e.anlageprofil);
+  const p = paramsFuer(e);
   const o = mitStellplaetzen(e.objekt);
   const bewertung = bewerte(p, o);
   const s: Szenario = { ...standardSzenario(p), ...(e.szenario ?? {}) };
-  s.stichtag = e.stichtag ?? s.stichtag ?? new Date().toISOString().slice(0, 7);
+  const gueltig = (x?: string) => !!x && /^(19|20)\d\d-(0[1-9]|1[0-2])$/.test(x);
+  s.stichtag = gueltig(e.stichtag) ? e.stichtag : gueltig(s.stichtag) ? s.stichtag : new Date().toISOString().slice(0, 7);
   const sim = simuliere(p, o, bewertung.miete, s);
   const vorlagen = Object.fromEntries(Object.entries(VORLAGEN).map(([k, v]) => [k, simuliere(p, o, bewertung.miete, { ...s, ...v })]));
   const variationen: [string, Partial<Szenario>, Partial<Szenario> | null][] = [

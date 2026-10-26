@@ -26,26 +26,39 @@ describe("Mietpfad", () => {
   });
   it("Bestand: frühestens 15 Monate nach der letzten Erhöhung, je drei Jahre höchstens 15 %, bis zur Vergleichsmiete", () => {
     const vm = 14 * 37.4; // 523,60 €
-    const p = mietpfad({ ...DG, mietvertrag: { art: "standard", letzteErhoehung: "2026-01" } }, opts)!;
-    // letzte Erhöhung 01/2026 → frühestens 04/2027 (Monat 5 ab 11/2026), dann 15 % Kappung: 485,30 €
+    // letzte Erhöhung 01/2026 von 400 € auf 422 €: frühestens 04/2027 (Monat 5 ab 11/2026), Kappung auf die Miete drei Jahre vorher (400 €) → 460 €
+    const p = mietpfad({ ...DG, mietvertrag: { art: "standard", letzteErhoehung: "2026-01", mieteVorErhoehung: 400 } }, opts)!;
     expect(p.ersteErhoehung).toMatchObject({ monat: 5, datum: "04/2027" });
-    expect(p.ersteErhoehung!.miete).toBeCloseTo(422 * 1.15, 2);
+    expect(p.ersteErhoehung!.miete).toBeCloseTo(400 * 1.15, 2);
     // nächste Erhöhung frühestens 15 Monate später; Kappung bezieht sich auf die Miete drei Jahre vorher (422 €) → keine weitere bis 3 Jahre nach Start
     const zweite = p.schritte.filter(x => x.art === "558")[1]!;
-    expect(zweite.monat).toBeGreaterThanOrEqual(36);
-    expect(zweite.miete).toBeCloseTo(vm, 1);
-    expect(p.vergleichErreicht).toBe(zweite.datum);
+    expect(zweite.monat).toBeGreaterThanOrEqual(26);
+    expect(zweite.miete).toBeCloseTo(422 * 1.15, 1); // drei Jahre nach 01/2026: Basis 422 €
+    const dritte = p.schritte.filter(x => x.art === "558")[2]!;
+    expect(dritte.miete).toBeCloseTo(vm, 1);
+    expect(p.vergleichErreicht).toBe(dritte.datum);
     expect(p.potenzialMonat).toBeCloseTo(vm - 422, 1);
   });
-  it("ohne Datum der letzten Erhöhung vorsichtig: erst in 15 Monaten", () => {
+  it("INV-055: letzte Erhöhung unter drei Jahren ohne Vormiete: vorsichtig erst drei Jahre danach", () => {
+    const p = mietpfad({ ...DG, mietvertrag: { art: "standard", letzteErhoehung: "2026-01" } }, opts)!;
+    expect(p.ersteErhoehung).toMatchObject({ monat: 26, datum: "01/2029" });
+    expect(p.hinweise.join(" ")).toMatch(/keine drei Jahre zurück/);
+    // alte Erhöhung (über drei Jahre): sofort nach der Frist volle Kappung auf die heutige Miete
+    const alt = mietpfad({ ...DG, mietvertrag: { art: "standard", letzteErhoehung: "2022-01" } }, opts)!;
+    expect(alt.ersteErhoehung).toMatchObject({ monat: 3 }); expect(alt.ersteErhoehung!.miete).toBeCloseTo(422 * 1.15, 2);
+  });
+  it("ohne Datum der letzten Erhöhung vorsichtig: wie gerade erhöht", () => {
     const p = mietpfad(DG, opts)!;
-    expect(p.ersteErhoehung!.monat).toBe(15);
+    expect(p.ersteErhoehung!.monat).toBe(36);
     expect(p.hinweise.join(" ")).toMatch(/letzten Mieterhöhung unbekannt/);
   });
   it("Neuvermietung: höchstens Vergleichsmiete + 10 %, höhere Vormiete bleibt", () => {
     const leer = mietpfad({ ...DG, leer: true, miete: null, neuvermietungQm: 20 }, opts)!;
     expect(leer.start).toBeCloseTo(14 * 1.1 * 37.4, 1);
     expect(leer.hinweise.join(" ")).toMatch(/über dem zulässigen Rahmen/);
+    // INV-056: ohne eigenes Ziel bleibt die höhere Vormiete ebenfalls
+    const ohneZiel = mietpfad({ ...DG, miete: 600, mietvertrag: { art: "standard", letzteErhoehung: "2020-01", mieterwechselJahr: 3 } }, opts)!;
+    expect(ohneZiel.schritte.find(x => x.art === "neuvermietung")!.miete).toBe(600);
     const wechsel = mietpfad({ ...DG, miete: 600, neuvermietungQm: 20, mietvertrag: { art: "standard", letzteErhoehung: "2020-01", mieterwechselJahr: 3 } }, opts)!;
     const n = wechsel.schritte.find(x => x.art === "neuvermietung")!;
     expect(n.miete).toBe(600); // Vormiete über dem Rahmen darf bleiben
@@ -61,7 +74,7 @@ describe("Mietpfad", () => {
     expect(st.schritte[0]).toMatchObject({ art: "staffel", monat: 6 });
   });
   it("fließt in die Kalkulation: mehr Cashflow ab der Erhöhung, Zielpreis bei voller Vergleichsmiete", () => {
-    const e = { investor: INV, anlageprofil: AP, objekt: { ...DG, mietvertrag: { art: "standard" as const, letzteErhoehung: "2025-01" } }, stichtag: "2026-11" };
+    const e = { investor: INV, anlageprofil: AP, objekt: { ...DG, mietvertrag: { art: "standard" as const, letzteErhoehung: "2022-01" } }, stichtag: "2026-11" };
     const a = analyse(e);
     const m = a.mietrecht!;
     expect(m.pfad.ersteErhoehung!.monat).toBe(3); // Verlangen nach Übergang, wirksam ab dem dritten Monat

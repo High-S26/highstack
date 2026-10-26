@@ -20,6 +20,9 @@ export async function POST(req: Request) {
     if (datei.size > 20 * 1024 * 1024) return Response.json({ fehler: "Die Datei ist größer als 20 MB." }, { status: 413 });
     const bytes = new Uint8Array(await datei.arrayBuffer()); const typ = typAusInhalt(bytes);
     if (typ === "application/pdf") {
+      // beschädigte PDFs ehrlich melden: sie lassen sich weder lesen noch als Unterlage ablegen (INV-065)
+      let lesbar = true; try { const { getDocumentProxy } = await import("unpdf"); await getDocumentProxy(bytes.slice()); } catch { lesbar = false; }
+      if (!lesbar) return Response.json({ felder: {}, gefunden: [], quelle: "keine", text: "", hinweis: "Das PDF ist beschädigt oder verschlüsselt und lässt sich nicht öffnen. Bitte eine andere Datei wählen oder die Werte von Hand eintragen." });
       text = await textAusPdf(bytes);
       if (!text.trim()) hinweis = "Im PDF war kein Text lesbar (vermutlich ein Scan). Tragen Sie die Werte kurz selbst ein; das PDF wird trotzdem als Unterlage abgelegt.";
     } else if (typ) {
@@ -34,6 +37,8 @@ export async function POST(req: Request) {
   else if (roh) text = roh.slice(0, 120000);
   if (!text.trim() && !bild) return Response.json({ felder: {}, gefunden: [], quelle: "keine", text: "", hinweis: hinweis ?? "Nichts zum Auslesen gefunden." });
   const muster = musterErkennung(text, titel);
+  // Foto ohne Anzeige (z. B. Landschaft): ehrlich sagen und keinen Titel aus Zufallstext vorschlagen
+  if (bild && !muster.gefunden.length) { muster.felder.titel = ""; hinweis = "Auf dem Foto ist keine Anzeige zu erkennen. Bitte ein Foto des Aushangs oder Inserats wählen oder die Werte von Hand eintragen."; }
   const { client, modelle, testmodus } = ausUmgebung();
   if (testmodus) return Response.json({ ...muster, text: text.slice(0, 20000), hinweis: hinweis ?? (muster.gefunden.length ? undefined : "Keine Werte erkannt. Mit API-Key liest der Daten-Analyst auch freie Formulierungen.") });
   try {

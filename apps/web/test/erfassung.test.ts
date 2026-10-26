@@ -99,7 +99,7 @@ describe("Außenfläche und Mietvertrag (Aushang Dachterrasse)", async () => {
   it("Staffel-, Indexmiete und letzte Mieterhöhung", () => {
     expect(mietvertragAusText("Indexmietvertrag, letzte Mieterhöhung 03/2025")).toEqual({ art: "index", letzteErhoehung: "2025-03" });
     expect(mietvertragAusText("Staffelmiete mit 2,5 % pro Jahr")).toMatchObject({ art: "staffel", staffelProzent: 0.025 });
-    expect(mietvertragAusText("Mieterhöhung zuletzt 2024")).toEqual({ art: "standard", letzteErhoehung: "2024-01" });
+    expect(mietvertragAusText("Mieterhöhung zuletzt 2024")).toEqual({ art: "standard", letzteErhoehung: "2024-12" }); // nur Jahr: vorsichtig Dezember
     expect(mietvertragAusText("Kaltmiete 500 €")).toBeNull();
   });
 });
@@ -109,5 +109,31 @@ describe("INV-054: Kaufpreis in Millionen", async () => {
   it("liest „1,25 Mio. €“", () => {
     expect(musterErkennung("Mehrfamilienhaus in Köln\nKaufpreis: 1,25 Mio. €").felder.kaufpreis).toBe(1250000);
     expect(musterErkennung("Preis 2 Millionen Euro").felder.kaufpreis).toBe(2000000);
+  });
+});
+
+describe("Nachtest Welle 3: Erkennung", async () => {
+  const { mietvertragAusText, aussenflaecheAusText, musterErkennung } = await import("../lib/erfassung");
+  it("INV-059: Datumsformate der letzten Mieterhöhung", () => {
+    expect(mietvertragAusText("Letzte Mieterhöhung: März 2024.")?.letzteErhoehung).toBe("2024-03");
+    expect(mietvertragAusText("Letzte Mieterhöhung zum 01.03.2024.")?.letzteErhoehung).toBe("2024-03");
+    expect(mietvertragAusText("Die Miete wurde zuletzt im Juni 2025 erhöht.")?.letzteErhoehung).toBe("2025-06");
+    expect(mietvertragAusText("Letzte Mieterhöhung 2023.")?.letzteErhoehung).toBe("2023-12");
+    expect(mietvertragAusText("Letzte Mieterhöhung 03/2024")?.letzteErhoehung).toBe("2024-03");
+  });
+  it("INV-059: Garten ohne Anbieter-Anrechnung", () => {
+    expect(aussenflaecheAusText("Wohnfläche 60 m², Gartenanteil 120 m² zur Sondernutzung.", 60)?.anbieterAnrechnung).toBeUndefined();
+  });
+  it("INV-063: Staffel in Euro wird zu Prozent", () => {
+    expect(mietvertragAusText("Staffelmiete: jährlich + 15 € pro Monat", 500)?.staffelProzent).toBeCloseTo(0.03, 4);
+  });
+  it("INV-062: provisionsfrei und Provisionssatz", () => {
+    expect(musterErkennung("Kaufpreis: 165.200 €\nVerkauf provisionsfrei von Privat").felder.maklerProvision).toBe(0);
+    expect(musterErkennung("Kaufpreis: 300.000 €\nKäuferprovision 3,57 % inkl. MwSt.").felder.maklerProvision).toBeCloseTo(0.0357, 5);
+  });
+  it("INV-064: Stellplatzpreis in eigener Zeile", () => {
+    const f = musterErkennung("3-Zimmer-Wohnung in Köln\nKaufpreis: 289.000 €\nTiefgaragenstellplatz: 18.000 €\nWohnfläche 78 m²").felder;
+    expect(f.kaufpreis).toBe(289000);
+    expect(f.stellplaetze?.[0]).toMatchObject({ art: "tiefgarage", preis: "separat", kaufpreis: 18000 });
   });
 });

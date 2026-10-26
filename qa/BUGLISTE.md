@@ -207,3 +207,33 @@ Der Forecast-Teil (Version 0.13) war nicht Gegenstand dieses Laufs. Im nächsten
 | ✅ INV-054 | „1,25 Mio. €“ | Wird gelesen |
 
 Offen bleibt: echte Stopp-Orders beim Broker (Produktthema), Testdaten vor dem Betrieb löschen.
+
+## Nachtest Welle 3 (26.10.2026, Stand c1622d9) und Korrekturen (0.21.0)
+
+Einzelheiten: [nachtest-welle3-investments.md](nachtest-welle3-investments.md), [nachtest-welle3-trading.md](nachtest-welle3-trading.md).
+- **Investments:** 18 von 19 behoben, INV-051 teilweise. 14 Mietpfad-Fälle von Hand nachgerechnet, alle Termine und Beträge stimmen. Fotoerkennung des Aushangs vollständig richtig.
+- **Trading:** 9 von 14 behoben, 5 teilweise. 10 Simulationstage aus dem Protokoll nachgerechnet, alle stimmen.
+
+| ID | Befund | Lösung |
+|---|---|---|
+| ✅ TRD-042 (Hoch) | Stopp und Verlustlimit in derselben Minute: Schluss zum Minutenschluss | Erst Stopps (zum Stopp-Kurs), dann Tagesziel und Limit prüfen |
+| ✅ TRD-043 | Neuer Trade riskiert mehr als das Restbudget bis zum Limit | Stückzahl wird auf das Restbudget verkleinert (inkl. Risiko offener Positionen und Vorschläge) oder gesperrt |
+| ✅ TRD-044 | Wechselkurs ohne Altersgrenze, App-Kurs-Abweichung | Kurs höchstens vier Tage; Abweichung des App-Kurses wird je Position gemerkt, ab 1 % Hinweis im Protokoll |
+| ✅ TRD-045, TRD-032 (Rest) | Netzausfall: leere Liste, Löschen ohne Fehlermeldung, alte Zahlen ohne Hinweis | Liste bleibt mit Hinweis, Löschen meldet Fehler, Cockpit kennzeichnet veraltete Werte |
+| ✅ TRD-046, TRD-047 | Entwurf: Strategie nach Neuladen überschrieben, Schlüssel fehlen still, alter Entwurf später | Merkmal im Entwurf, Hinweis auf Schlüssel, Entwürfe höchstens 30 Minuten |
+| ✅ TRD-048 | Beträge brechen um | Karten ohne Umbruch |
+| ✅ TRD-013, 016, 018, 029 (Reste) | API nimmt SAP.DE, Echtzeit im Sim-Protokoll, „+0,00 €“ nach Tageswechsel, Not-Aus-Text bei Eigener App | US-Kürzel auch in der API, Simulationszeit, Ergebnis des letzten Tages, „keine Positionen offen“ |
+| ✅ INV-055 (Hoch) | Kappungsgrenze mit heutiger Miete trotz Erhöhung unter drei Jahren | Basis ist die Miete vor der letzten Erhöhung (neues Feld, Concierge fragt); ohne Angabe vorsichtig: Grenze gilt als ausgeschöpft. Auch „Datum unbekannt“ rechnet so |
+| ✅ INV-056 | Mieterwechsel senkt Miete über Vergleichsmiete | Ohne eigenes Ziel bleibt die Vormiete |
+| ✅ INV-057, INV-058 | Zielpreis-Zeile bei Miete über Vergleichsmiete, doppelter Regulierungshinweis | Zeile nur bei Miete darunter; Hinweis einmal |
+| ✅ INV-059 | Datumsformate, Garten-Anrechnung, fehlende Anzeige im Assistenten | „März 2024“, „01.03.2024“, „zuletzt im Juni 2025 erhöht“; nur Jahr → Dezember; Garten ohne Gesamtflächen-Abgleich; Außenfläche, Mietvertrag und Provision erscheinen in „Angaben gefunden“ |
+| ✅ INV-060 | Datei nach Neuladen still verloren | Warnung mit „Datei erneut wählen“; Upload-Fehler beim Anlegen wird gemeldet |
+| ✅ INV-061 | Auslese-Schritt | 33,5 m², Überschrift „… Angaben gefunden“ |
+| ✅ INV-062 | „Provisionsfrei“ ignoriert | Käuferprovision je Objekt (Feld, Erkennung „provisionsfrei“, „von Privat“, „Käuferprovision x %“, KI-Feld) |
+| ✅ INV-063 | Staffel ohne Satz | Concierge fragt nach dem Satz, Hinweis im Mietpfad; Staffel in Euro wird umgerechnet |
+| ✅ INV-064 (Hoch) | „Tiefgaragenstellplatz: 18.000 €“ als inklusive gelesen | Betrag direkt am Stellplatzwort zählt als eigener Preis |
+| ✅ INV-065 | Formate, beschädigtes PDF, HEIC unter Unterlagen, Foto ohne Anzeige | WebP überall genannt; beschädigtes PDF wird beim Auslesen ehrlich gemeldet; HEIC-Hinweis auch unter Unterlagen; „keine Anzeige zu erkennen“ ohne Titelvorschlag |
+| ✅ INV-066 | Neue Felder ungeprüft, Übergang nicht einstellbar | Zukunftsdatum, Staffel, Mieterwechsel, Vormiete, Stichtag und Mietentwicklung werden geprüft und gemeldet; Feld „Übergang (Besitz, Nutzen, Lasten)“ im Durchspielen |
+| ✅ INV-051 (Rest) | „1 Werte übernehmen“, „1,09“ statt „1,0856“ | Einzahl im Knopf und Protokoll, Vorschau mit vier Nachkommastellen |
+
+Offen bleibt: echte Stopp-Orders beim Broker (Produktthema), Testdaten vor dem Betrieb löschen.

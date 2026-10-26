@@ -23,7 +23,7 @@ const QUELLEN: { id: Quelle; titel: string; text: string; icon: string }[] = [
 ];
 const FELDER: { k: keyof Objekt; label: string; fmt: (v: unknown) => string }[] = [
   { k: "kaufpreis", label: "Kaufpreis", fmt: v => eur(v as number) },
-  { k: "wohnflaeche", label: "Wohnfläche", fmt: v => `${num(v as number, 0)} m²` },
+  { k: "wohnflaeche", label: "Wohnfläche", fmt: v => `${(v as number).toLocaleString("de-DE", { maximumFractionDigits: 1 })} m²` },
   { k: "ort", label: "Ort", fmt: v => String(v) },
   { k: "miete", label: "Kaltmiete", fmt: v => `${eur(v as number)} im Monat` },
   { k: "hausgeldNichtUmlagefaehig", label: "Hausgeld, nicht umlagefähig", fmt: v => `${eur(v as number)} im Monat` },
@@ -32,7 +32,13 @@ const FELDER: { k: keyof Objekt; label: string; fmt: (v: unknown) => string }[] 
   { k: "energieklasse", label: "Energieklasse", fmt: v => String(v) },
   { k: "erbbaurecht", label: "Erbbaurecht", fmt: v => v ? "ja (K.O.-Kriterium möglich)" : "nein" },
   { k: "sonderumlage", label: "Sonderumlage", fmt: v => v ? "ja / offen" : "nein" },
+  { k: "aussenflaeche", label: "Außenfläche", fmt: v => aussenText(v as Objekt["aussenflaeche"]) },
+  { k: "mietvertrag", label: "Mietvertrag", fmt: v => mietvertragText(v as Objekt["mietvertrag"]) },
+  { k: "maklerProvision", label: "Käuferprovision", fmt: v => (v as number) === 0 ? "provisionsfrei" : `${((v as number) * 100).toLocaleString("de-DE", { maximumFractionDigits: 2 })} %` },
 ];
+const AUSSEN_NAME: Record<string, string> = { balkon: "Balkon", loggia: "Loggia", terrasse: "Terrasse", dachterrasse: "Dachterrasse", garten: "Garten", wintergarten: "Wintergarten" };
+const aussenText = (a: Objekt["aussenflaeche"]) => !a ? "–" : [AUSSEN_NAME[a.art] ?? a.art, a.qm ? `${a.qm.toLocaleString("de-DE", { maximumFractionDigits: 1 })} m²` : null, a.ausrichtung, a.art === "garten" ? null : a.inWohnflaeche ? "in der Wohnfläche" : "zusätzlich"].filter(Boolean).join(", ");
+const mietvertragText = (m: Objekt["mietvertrag"]) => !m ? "–" : [{ standard: "normale Miete", staffel: "Staffelmiete", index: "Indexmiete" }[m.art], m.staffelProzent ? `${(m.staffelProzent * 100).toLocaleString("de-DE", { maximumFractionDigits: 2 })} % pro Jahr` : null, m.letzteErhoehung ? `letzte Erhöhung ${m.letzteErhoehung.slice(5)}/${m.letzteErhoehung.slice(0, 4)}` : null].filter(Boolean).join(", ");
 const PFLICHT: (keyof Objekt)[] = ["kaufpreis", "wohnflaeche", "ort", "miete", "hausgeldNichtUmlagefaehig"];
 
 export default function NeuesObjekt() {
@@ -88,7 +94,7 @@ export default function NeuesObjekt() {
     try {
       const o = await api.neuesObjekt({ anlageprofilId: apId, objekt: { ...ob, titel: ob.titel.trim() || [ob.asset, ob.ort].filter(Boolean).join(", ") || "Neues Objekt" }, expose });
       let fertig = o;
-      if (datei) { try { const r = await api.hochladen(o.id, [datei]); fertig = { ...o, dokumente: r.dokumente }; } catch { /* Objekt steht, Upload kann im Reiter Unterlagen wiederholt werden */ } }
+      if (datei) { try { const r = await api.hochladen(o.id, [datei]); fertig = { ...o, dokumente: r.dokumente }; } catch (x) { meldung(`Objekt angelegt, die Datei aber nicht abgelegt: ${(x as Error).message}. Unter Unterlagen erneut hochladen.`); } }
       setzeObjekt(fertig); meldung("Objekt angelegt"); router.push(`/objekt/${o.id}?tab=ergebnis`);
     } catch (e) { meldung((e as Error).message); setLegtAn(false); }
   };
@@ -107,7 +113,7 @@ export default function NeuesObjekt() {
             <b>{q.titel}</b><span>{q.text}</span>
           </button>))}</div>
         {quelle === "pdf" && <div className={`drop${ueber ? " over" : ""}`} onDragOver={e => { e.preventDefault(); setUeber(true); }} onDragLeave={() => setUeber(false)} onDrop={e => { e.preventDefault(); setUeber(false); const f = e.dataTransfer.files[0]; if (f) setDatei(f); }}>
-          <b>{datei ? datei.name : "Exposé oder Foto hier ablegen"}</b><span className="note">{datei ? `${Math.round(datei.size / 1024)} KB · bereit zum Auslesen` : "PDF oder Foto (JPG, PNG) bis 20 MB"}</span>
+          <b>{datei ? datei.name : "Exposé oder Foto hier ablegen"}</b><span className="note">{datei ? `${Math.round(datei.size / 1024)} KB · bereit zum Auslesen` : "PDF oder Foto (JPG, PNG, WebP) bis 20 MB"}</span>
           <label className="btn sm ghost upl">{datei ? "Andere Datei" : "Datei auswählen"}<input ref={eingabe} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => setDatei(e.target.files?.[0] ?? null)} /></label>
         </div>}
         {quelle === "link" && <div className="fld"><label htmlFor="link">Link zur Anzeige</label><input id="link" type="url" inputMode="url" autoFocus value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" /></div>}
@@ -118,8 +124,8 @@ export default function NeuesObjekt() {
       </section>}
 
       {schritt === 2 && <section className="wiz-body">
-        <h1>{sichtbar > zeilen.length ? (gefunden.length ? `${gefunden.length} Angaben gefunden` : "Nichts gefunden") : "Wird ausgelesen …"}</h1>
-        <p className="lead">{herkunft === "ki" ? "Der Daten-Analyst hat das Exposé gelesen." : expose ? "Typische Angaben im Text erkannt." : "Einen Moment."}</p>
+        <h1>{expose || hinweis ? (gefunden.length ? `${gefunden.length} Angaben gefunden` : "Nichts gefunden") : "Wird ausgelesen …"}</h1>
+        <p className="lead">{herkunft === "ki" ? "Der Daten-Analyst hat das Exposé gelesen." : gefunden.length ? "Typische Angaben im Text erkannt." : expose || hinweis ? "Bitte die Werte im nächsten Schritt eintragen." : "Einen Moment."}</p>
         {!expose && !hinweis ? <div className="lesend" aria-live="polite"><span /><span /><span /></div> :
           <ul className="fund" aria-live="polite">{zeilen.slice(0, sichtbar).map(f => { const da = gefunden.includes(f.k); return <li key={f.k} className={da ? "ok" : "fehlt"}><span className="m">{da ? "✓" : "–"}</span><b>{f.label}</b><span>{da ? f.fmt(ob[f.k]) : "nicht gefunden, gleich ergänzen"}</span></li>; })}</ul>}
         {hinweis && <p className="hint">{hinweis}</p>}
@@ -130,6 +136,7 @@ export default function NeuesObjekt() {
         <div>
           <h1>Passt das?</h1>
           <p className="lead">{gefunden.length ? "Gefundene Werte sind markiert. Ergänzen Sie, was fehlt; Sie können alles später ändern." : "Tragen Sie die Eckdaten ein. Fünf Angaben reichen für das erste Ergebnis."}</p>
+          {quelle === "pdf" && !datei && expose && <div className="hint bad" role="alert">Die Datei wurde beim Neuladen nicht behalten und würde nicht als Unterlage abgelegt. <label className="linkbtn">Datei erneut wählen<input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden onChange={x => { const f = x.target.files?.[0]; if (f) setDatei(f); }} /></label></div>}
           <div className="fields">
             <div className={`full erf ${gefunden.includes("titel") ? "gefunden" : ""}`}><Text label="Titel" wert={ob.titel} onChange={v => set({ titel: v })} platzhalter="z. B. 2-Zi.-ETW Bilk" /></div>
             <div className={`erf ${markiert("ort")}`}><Text label="Ort / Stadtteil" wert={ob.ort} onChange={v => set({ ort: v })} /></div>

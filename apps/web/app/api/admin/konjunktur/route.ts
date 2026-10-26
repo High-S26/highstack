@@ -45,7 +45,7 @@ export async function POST(req: Request) {
         if (b.vorschau) return Response.json({ anzahl: punkte.length, erste: punkte[0] ?? null, letzte: punkte.at(-1) ?? null, fehler: fehler.slice(0, 50), fehlerAnzahl: fehler.length });
         if (fehler.length && !b.nurGueltige) return Response.json({ fehler: `${fehler.length} Zeile(n) fehlerhaft, nichts übernommen. Zuerst die Vorschau prüfen.`, zeilen: fehler.slice(0, 50) }, { status: 400 });
         if (!punkte.length) throw new Error("Keine gültigen Werte erkannt. Je Zeile Datum und Wert, z. B. 2026-09-01;48,7");
-        const r = await uebernimm(s, b.id, punkte, ind?.quelle.text ?? "Import"); await protokolliere(s, req, "Konjunkturdaten importiert", b.id, `${punkte.length} Werte${fehler.length ? `, ${fehler.length} abgewiesen` : ""}`);
+        const r = await uebernimm(s, b.id, punkte, ind?.quelle.text ?? "Import"); await protokolliere(s, req, "Konjunkturdaten importiert", b.id, `${punkte.length} ${punkte.length === 1 ? "Wert" : "Werte"}${fehler.length ? `, ${fehler.length} abgewiesen` : ""}`);
         return Response.json({ ok: true, anzahl: punkte.length, abgewiesen: fehler.length, gesamt: r.punkte.length });
       }
       case "werte-loeschen": {

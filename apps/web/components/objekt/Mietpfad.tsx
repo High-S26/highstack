@@ -7,6 +7,8 @@ import { Auswahl, Text, Zahl } from "../Felder";
 type Set = (p: Partial<Objekt>) => void;
 
 /** Eingaben: Außenfläche und Mietvertrag (Art, letzte Erhöhung, Mieterwechsel, Regulierung am Ort) */
+const monateSeit = (jm: string) => { const [j, m] = jm.split("-").map(Number) as [number, number]; const d = new Date(); return (d.getFullYear() - j) * 12 + (d.getMonth() + 1 - m); };
+
 export function MietFelder({ ob, set }: { ob: Objekt; set: Set }) {
   const au = ob.aussenflaeche; const mv = ob.mietvertrag ?? { art: "standard" as const };
   const fl = flaechen(ob); const reg = regulierung(ob);
@@ -36,6 +38,7 @@ export function MietFelder({ ob, set }: { ob: Objekt; set: Set }) {
             <input id={monatId} type="month" value={mv.letzteErhoehung ?? ""} max={new Date().toISOString().slice(0, 7)} onChange={e => setMv({ letzteErhoehung: e.target.value || null })} />
             <div className="hint">{mv.letzteErhoehung ? "Ab diesem Monat galt die letzte Erhöhung (oder der Mietbeginn)." : "Unbekannt: gerechnet wird, als sei gerade erhöht worden."}</div>
           </div>
+          {mv.art === "standard" && (!mv.letzteErhoehung || monateSeit(mv.letzteErhoehung) < 36) && <Zahl label="Miete vor der letzten Erhöhung" einheit="€/Monat" wert={mv.mieteVorErhoehung ?? null} onChange={v => setMv({ mieteVorErhoehung: v })} min={0} max={1e6} hinweis="Für die Kappungsgrenze (drei Jahre). Leer: vorsichtig gerechnet, als hätte die letzte Erhöhung die Grenze ausgeschöpft." />}
           {mv.art === "staffel" && <Zahl label="Staffel pro Jahr" prozent wert={mv.staffelProzent ?? null} onChange={v => setMv({ staffelProzent: v })} min={-20} max={20} />}
           <Zahl label="Mieterwechsel angenommen im Jahr" wert={mv.mieterwechselJahr ?? null} onChange={v => setMv({ mieterwechselJahr: v })} min={1} max={60} hinweis="leer lassen: kein Wechsel eingeplant" />
         </div>
@@ -78,11 +81,11 @@ export function MietpfadPanel({ o, a }: { o: Objekt; a: Analyse }) {
         <li><span /><span>Eigenkapitalrendite mit / ohne Anpassung</span><b>{pct(w.irrMit)} / {pct(w.irrOhne)}</b><span /></li>
         <li><span /><span>Mehr Miete über die Haltedauer</span><b>{eur(w.mehrMieteSumme)}</b><span /></li>
         {z != null && <li><span /><span>Kaufpreis für Cashflow ± 0 mit heutiger Miete</span><b>{eur(z)}</b><span className={angebot && z >= angebot ? "up" : "dn"}>{angebot ? vorzeichen(z / angebot - 1, x => pct(x, 0)) : ""}</span></li>}
-        {w.zielpreisVergleichsmiete != null && <li><span /><span>… sobald die Vergleichsmiete erreicht ist{p.vergleichErreicht && !leer ? ` (${p.vergleichErreicht})` : ""}</span><b>{eur(w.zielpreisVergleichsmiete)}</b><span className={angebot && w.zielpreisVergleichsmiete >= angebot ? "up" : "dn"}>{angebot ? vorzeichen(w.zielpreisVergleichsmiete / angebot - 1, x => pct(x, 0)) : ""}</span></li>}
+        {w.zielpreisVergleichsmiete != null && p.abstand < -0.005 && <li><span /><span>… sobald die Vergleichsmiete erreicht ist{p.vergleichErreicht && !leer ? ` (${p.vergleichErreicht})` : ""}</span><b>{eur(w.zielpreisVergleichsmiete)}</b><span className={angebot && w.zielpreisVergleichsmiete >= angebot ? "up" : "dn"}>{angebot ? vorzeichen(w.zielpreisVergleichsmiete / angebot - 1, x => pct(x, 0)) : ""}</span></li>}
         {w.zielpreisNeuvermietung != null && w.zielpreisNeuvermietung !== w.zielpreisVergleichsmiete && <li><span /><span>… bei Neuvermietung zum zulässigen Höchstwert</span><b>{eur(w.zielpreisNeuvermietung)}</b><span className={angebot && w.zielpreisNeuvermietung >= angebot ? "up" : "dn"}>{angebot ? vorzeichen(w.zielpreisNeuvermietung / angebot - 1, x => pct(x, 0)) : ""}</span></li>}
       </ul>
       {p.hinweise.length > 0 && <ul className="flags">{p.hinweise.map(h => <li key={h}>{h}</li>)}</ul>}
-      <p className="note">{p.regulierung.text.replace(/\.$/, "")}. Informationsmodell, keine Rechtsberatung; Modernisierungsumlagen (§ 559) sind nicht enthalten.{a.szenario.mietentwicklung === "pauschal" ? " Im Durchspielen ist gerade „pauschal“ eingestellt: Cashflow und Rendite dort rechnen ohne diesen Pfad." : ""}</p>
+      <p className="note">{p.regulierung.geprueft ? `${p.regulierung.text.replace(/\.$/, "")}. ` : ""}Informationsmodell, keine Rechtsberatung; Modernisierungsumlagen (§ 559) sind nicht enthalten.{a.szenario.mietentwicklung === "pauschal" ? " Im Durchspielen ist gerade „pauschal“ eingestellt: Cashflow und Rendite dort rechnen ohne diesen Pfad." : ""}</p>
     </div>
   );
 }

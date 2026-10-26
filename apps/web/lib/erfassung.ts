@@ -120,7 +120,11 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
   const erb = merkmal(t, /Erbbaurecht/i); if (erb) f.erbbaurecht = erb === "ja";
   const su = merkmal(t, /Sonderumlage/i); if (su) f.sonderumlage = su === "ja";
   const au = aussenflaecheAusText(t, f.wohnflaeche ?? null); if (au) f.aussenflaeche = au;
-  const mv = mietvertragAusText(t); if (mv && !f.leer) f.mietvertrag = mv;
+  const mv = mietvertragAusText(t, f.miete ?? null); if (mv && !f.leer) f.mietvertrag = mv;
+  // Käuferprovision: „provisionsfrei“, „von Privat“, „ohne Makler“ → 0; „Käuferprovision 3,57 %“ → Satz (INV-062)
+  const prov = t.match(/(?:Käufer)?(?:provision|courtage)[^.\d%]{0,30}(\d{1,2}(?:,\d{1,2})?)\s*%/i);
+  if (/provisionsfrei|courtagefrei|ohne\s+Makler|keine\s+(?:Käufer)?provision|von\s+Privat|privat\s+zu\s+verkaufen/i.test(t)) f.maklerProvision = 0;
+  else if (prov) { const v = Number(prov[1]!.replace(",", ".")) / 100; if (v >= 0 && v <= 0.15) f.maklerProvision = v; }
   const sp = stellplatzAusText(t, [f.kaufpreis, hg, nu, f.miete].filter((x): x is number => !!x));
   if (sp.length) { f.stellplaetze = sp; f.gefragt = { stellplatz: "ja", "sp-art": "ja" }; }
   else if (saetze(t).some(stellplatzVerneint)) f.gefragt = { stellplatz: "nein" };
@@ -162,7 +166,7 @@ export function aussenflaecheAusText(t: string, wohnflaeche: number | null): Aus
   // gerechnet wird mit dem Regelfall (ein Viertel); setzt der Anbieter mehr an, steht das als Hinweis dabei
   const anrechnung = art === "garten" ? 0 : art === "wintergarten" ? 0.5 : 0.25; let anbieterAnrechnung: number | undefined;
   // Gesamtfläche im Inserat („ca. 41,3 m² (Wohnfläche 33,5 m² zzgl. 15,6 m² Dachterrasse)“) verrät den Anteil
-  if (qm && wohnflaeche && !inWohnflaeche) {
+  if (qm && wohnflaeche && !inWohnflaeche && art !== "garten") {
     const gesamt = [...t.matchAll(/(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:m²|qm)/gi)].map(m => qmZahl(m[1]!)).filter((v): v is number => v != null && v > wohnflaeche && v <= wohnflaeche + qm);
     const g = gesamt.find(v => Math.abs(v - (wohnflaeche + qm / 2)) <= 0.15 || Math.abs(v - (wohnflaeche + qm / 4)) <= 0.15);
     if (g != null) anbieterAnrechnung = Math.abs(g - (wohnflaeche + qm / 2)) <= 0.15 ? 0.5 : 0.25;
@@ -171,13 +175,19 @@ export function aussenflaecheAusText(t: string, wohnflaeche: number | null): Aus
 }
 
 /** Mietvertrag aus dem Text: Staffel- oder Indexmiete, letzte Mieterhöhung */
-export function mietvertragAusText(t: string): Mietvertrag | null {
+export function mietvertragAusText(t: string, miete?: number | null): Mietvertrag | null {
   const art: Mietvertrag["art"] | null = /Indexmiet|indexiert|Index-Miet|Indexmietvertrag/i.test(t) ? "index" : /Staffelmiet/i.test(t) ? "staffel" : null;
-  const e = t.match(/(?:letzte\s+)?Mieterh(?:ö|oe)hung[^.\d]{0,25}?(?:(\d{1,2})[./](\d{4})|(\d{4}))/i);
-  const letzteErhoehung = e ? (e[3] ? `${e[3]}-01` : `${e[2]}-${e[1]!.padStart(2, "0")}`) : null;
-  const staffel = art === "staffel" ? t.match(/Staffel[^.]{0,40}?(\d(?:[.,]\d)?)\s*%/i) : null;
+  // „03/2024“, „01.03.2024“, „März 2024“, „zuletzt im Juni 2025 erhöht“; nur ein Jahr: Dezember (vorsichtig, INV-059)
+  const MON = ["januar", "februar", "märz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember"];
+  const DATUM = "(?:(\\d{1,2})\\.(\\d{1,2})\\.(\\d{4})|(\\d{1,2})[./](\\d{4})|(januar|februar|märz|maerz|april|mai|juni|juli|august|september|oktober|november|dezember)\\s+(\\d{4})|(\\d{4}))";
+  const e = t.match(new RegExp(`(?:letzte\\s+)?Mieterh(?:ö|oe)hung[^.\\d]{0,30}?${DATUM}`, "i")) ?? t.match(new RegExp(`Miete\\s+wurde\\s+zuletzt[^.\\d]{0,20}?${DATUM}[^.]{0,15}erh(?:ö|oe)ht`, "i"));
+  const zwei = (n: string | number) => String(n).padStart(2, "0");
+  const letzteErhoehung = !e ? null : e[3] ? `${e[3]}-${zwei(e[2]!)}` : e[5] ? `${e[5]}-${zwei(e[4]!)}` : e[7] ? `${e[7]}-${zwei(MON.indexOf(e[6]!.toLowerCase().replace("maerz", "märz")) + 1)}` : `${e[8]}-12`;
+  const staffel = art === "staffel" ? t.match(/Staffel[^.]{0,40}?(\d(?:[.,]\d+)?)\s*%/i) : null;
+  // Staffel in Euro („jährlich + 15 € pro Monat“): in Prozent der Miete umrechnen
+  const staffelEur = art === "staffel" && !staffel && miete ? t.match(/(?:Staffel|jährlich|pro Jahr)[^.]{0,40}?\+?\s*(\d{1,4}(?:,\d{1,2})?)\s*(?:€|EUR|Euro)/i) : null;
   if (!art && !letzteErhoehung) return null;
-  return { art: art ?? "standard", letzteErhoehung: letzteErhoehung && /^(19|20)\d\d-(0[1-9]|1[0-2])$/.test(letzteErhoehung) ? letzteErhoehung : null, ...(staffel ? { staffelProzent: Number(staffel[1]!.replace(",", ".")) / 100 } : {}) };
+  return { art: art ?? "standard", letzteErhoehung: letzteErhoehung && /^(19|20)\d\d-(0[1-9]|1[0-2])$/.test(letzteErhoehung) ? letzteErhoehung : null, ...(staffel ? { staffelProzent: Number(staffel[1]!.replace(",", ".")) / 100 } : staffelEur && miete ? { staffelProzent: Math.round(Number(staffelEur[1]!.replace(",", ".")) / miete * 10000) / 10000 } : {}) };
 }
 
 const SP_ART: [RegExp, Stellplatz["art"]][] = [[/Duplex/i, "duplex"], [/Tiefgarage|TG-(?:Stell)?platz/i, "tiefgarage"], [/Carport/i, "carport"], [/\bGarage\b/i, "garage"], [/(?:Au(?:ß|ss)en|Frei)?[Ss]tellplatz|Parkplatz/i, "aussen"]];
@@ -192,7 +202,9 @@ export function stellplatzAusText(t: string, ausschliessen: number[] = []): Stel
   if (!saetzeMit.length) return [];
   const betraege = (x: string) => [...x.matchAll(/(?:€|EUR|Euro)?\s*(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)(?:\s*,-)?\s*(?:€|EUR|Euro)/gi)].map(m => zahl(m[1])).filter((v): v is number => v != null && !ausschliessen.some(a => Math.abs(a - v) < 0.5));
   // bevorzugt der Satz mit eigenem Preis, sonst die erste Erwähnung
-  const mitPreis = saetzeMit.find(x => /zzgl\.?|zuzüglich|Kaufpreis|Preis|separat|optional|erworben/i.test(x) && betraege(x).some(v => v >= 3000 && v < 150000));
+  // eigener Preis: „zzgl.“, „Kaufpreis“ … oder ein Betrag direkt am Stellplatzwort („Tiefgaragenstellplatz: 18.000 €“, INV-064)
+  const amWort = (x: string) => /(?:Tiefgarage\w*|Stellpl\w*|Garage|Carport|Duplex\w*|TG-\w*)\s*:?\s*(?:€|EUR)?\s*\d{1,3}(?:\.\d{3})+/i.test(x);
+  const mitPreis = saetzeMit.find(x => (/zzgl\.?|zuzüglich|Kaufpreis|Preis|separat|optional|erworben/i.test(x) || amWort(x)) && betraege(x).some(v => v >= 3000 && v < 150000));
   const satz = mitPreis ?? saetzeMit[0]!;
   const art = SP_ART.find(([r]) => r.test(satz))?.[1] ?? SP_ART.find(([r]) => saetzeMit.some(x => r.test(x)))?.[1] ?? "aussen";
   const preisZahl = mitPreis ? betraege(mitPreis).find(v => v >= 3000 && v < 150000) ?? null : null;
@@ -205,7 +217,7 @@ export function stellplatzAusText(t: string, ausschliessen: number[] = []): Stel
 }
 
 /** Ausgabe des Daten-Analysten in Objektfelder übersetzen */
-export interface Extrakt { titel: string; ort: string; asset: Assetklasse; kaufpreis: number | null; wohnflaeche: number | null; vermietet?: boolean | null; kaltmieteMonat?: number | null; hausgeldNichtUmlagefaehig?: number | null; hausgeldGesamt?: number | null; ruecklageAnteil?: number | null; baujahr?: number | null; energieklasse?: string | null; erbbaurecht?: boolean | null; sonderumlage?: boolean | null; aussenflaeche?: { art: Aussenart; qm?: number | null; inWohnflaeche?: boolean | null; ausrichtung?: string | null } | null; mietvertragArt?: Mietvertrag["art"] | null; letzteMieterhoehung?: string | null; stellplaetze?: { art: Stellplatz["art"]; preis: "inklusive" | "separat" | "unbekannt"; kaufpreis?: number | null; recht?: Stellplatz["recht"]; miete?: number | null }[] }
+export interface Extrakt { titel: string; ort: string; asset: Assetklasse; kaufpreis: number | null; wohnflaeche: number | null; vermietet?: boolean | null; kaltmieteMonat?: number | null; hausgeldNichtUmlagefaehig?: number | null; hausgeldGesamt?: number | null; ruecklageAnteil?: number | null; baujahr?: number | null; energieklasse?: string | null; erbbaurecht?: boolean | null; sonderumlage?: boolean | null; provisionProzent?: number | null; aussenflaeche?: { art: Aussenart; qm?: number | null; inWohnflaeche?: boolean | null; ausrichtung?: string | null } | null; mietvertragArt?: Mietvertrag["art"] | null; letzteMieterhoehung?: string | null; stellplaetze?: { art: Stellplatz["art"]; preis: "inklusive" | "separat" | "unbekannt"; kaufpreis?: number | null; recht?: Stellplatz["recht"]; miete?: number | null }[] }
 export function ausExtrakt(x: Extrakt): Partial<Objekt> {
   const f: Partial<Objekt> = { titel: x.titel || undefined, ort: x.ort || undefined, asset: x.asset || "ETW" };
   if (x.kaufpreis) f.kaufpreis = x.kaufpreis; if (x.wohnflaeche) f.wohnflaeche = x.wohnflaeche;
@@ -214,6 +226,7 @@ export function ausExtrakt(x: Extrakt): Partial<Objekt> {
   if (x.hausgeldGesamt) f.hausgeldGesamt = x.hausgeldGesamt;
   if (x.ruecklageAnteil) f.ruecklageAnteil = x.ruecklageAnteil; if (x.baujahr) f.baujahr = x.baujahr; if (x.energieklasse) f.energieklasse = x.energieklasse;
   if (x.erbbaurecht) f.erbbaurecht = true; if (x.sonderumlage) f.sonderumlage = true;
+  if (x.provisionProzent != null && x.provisionProzent >= 0 && x.provisionProzent <= 15) f.maklerProvision = x.provisionProzent / 100;
   if (x.aussenflaeche?.art) f.aussenflaeche = { art: x.aussenflaeche.art, qm: x.aussenflaeche.qm ?? null, inWohnflaeche: x.aussenflaeche.inWohnflaeche ?? true, anrechnung: x.aussenflaeche.art === "garten" ? 0 : x.aussenflaeche.art === "wintergarten" ? 0.5 : 0.25, ausrichtung: x.aussenflaeche.ausrichtung ?? null };
   if (x.vermietet !== false && (x.mietvertragArt || x.letzteMieterhoehung)) f.mietvertrag = { art: x.mietvertragArt ?? "standard", letzteErhoehung: x.letzteMieterhoehung && /^\d{4}-\d{2}$/.test(x.letzteMieterhoehung) ? x.letzteMieterhoehung : null };
   if (x.stellplaetze?.length) { f.stellplaetze = stellplaetzeAusExtrakt(x.stellplaetze); f.gefragt = { stellplatz: "ja", "sp-art": "ja" }; }

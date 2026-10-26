@@ -76,6 +76,8 @@ export interface Objekt {
   mietvertrag?: Mietvertrag | null;
   /** Gilt am Ort Mietpreisbremse und abgesenkte Kappungsgrenze? null = nach Ort ermitteln */
   mietregulierung?: "angespannt" | "normal" | null;
+  /** Käuferprovision für dieses Objekt (0 = provisionsfrei); ohne Angabe gilt der Satz aus dem Investorenprofil */
+  maklerProvision?: number | null;
   /** Angestrebte Kaltmiete je m² bei Neuvermietung; ohne Angabe die ortsübliche Vergleichsmiete */
   neuvermietungQm?: number | null;
 }
@@ -100,6 +102,8 @@ export interface Mietvertrag {
   art: "standard" | "staffel" | "index";
   /** Monat, ab dem die letzte Erhöhung galt (JJJJ-MM); unbekannt = gerade erst erhöht (vorsichtig) */
   letzteErhoehung?: string | null;
+  /** Kaltmiete vor der letzten Erhöhung (für die Kappungsgrenze, wenn die Erhöhung keine drei Jahre zurückliegt) */
+  mieteVorErhoehung?: number | null;
   /** Staffel pro Jahr (Staffelmiete) */
   staffelProzent?: number | null;
   /** Angenommener Mieterwechsel im Haltejahr x (Neuvermietung), sonst keiner */

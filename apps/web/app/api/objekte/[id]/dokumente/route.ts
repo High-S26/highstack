@@ -38,7 +38,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const bytes = new Uint8Array(await f.arrayBuffer());
     // Typ aus dem Inhalt, nicht aus Endung oder Browser-Angabe
     const typ = typAusInhalt(bytes);
-    if (!typ) { abgelehnt.push({ datei: f.name, grund: "nur PDF oder Bilder (PNG, JPG, WebP); der Inhalt passt zu keinem davon" }); continue; }
+    const heic = !typ && bytes.length > 12 && new TextDecoder().decode(bytes.slice(4, 12)).match(/^ftyp(heic|heix|hevc|mif1|msf1)/);
+    if (!typ) { abgelehnt.push({ datei: f.name, grund: heic ? "iPhone-Foto im HEIC-Format: bitte vorher als JPG teilen (in Fotos: Teilen › Optionen › Format „Am kompatibelsten“)" : "nur PDF oder Bilder (PNG, JPG, WebP); der Inhalt passt zu keinem davon" }); continue; }
     // Inhalt muss sich auch öffnen lassen: beschädigte Bilder oder PDFs nicht als Unterlage ablegen (INV-035)
     if (typ === "application/pdf") { try { await getDocumentProxy(bytes.slice()); } catch { abgelehnt.push({ datei: f.name, grund: "PDF ist beschädigt oder verschlüsselt und lässt sich nicht öffnen" }); continue; } }
     else { try { const sharp = (await import("sharp")).default; const m = await sharp(bytes).metadata(); if (!m.width || !m.height) throw new Error("ohne Maße"); await sharp(bytes).resize(8).raw().toBuffer(); } catch { abgelehnt.push({ datei: f.name, grund: "Bild ist beschädigt und lässt sich nicht anzeigen" }); continue; } }

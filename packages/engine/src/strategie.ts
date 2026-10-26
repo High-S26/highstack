@@ -1,5 +1,5 @@
-import { analyse, type Analyseeingabe } from "./analyse";
-import { nebenkostenSatz, params, simuliere, standardSzenario } from "./core";
+import { analyse, paramsFuer, type Analyseeingabe } from "./analyse";
+import { nebenkostenSatz, simuliere, standardSzenario } from "./core";
 import type { Szenario } from "./types";
 
 export interface Strategievorschlag {
@@ -17,7 +17,7 @@ const pz = (v: number, d = 0) => `${(v * 100).toLocaleString("de-DE", { maximumF
  * so wählen, dass das Ziel-Cashflow des Anlageprofils erreicht wird, passend zur Risikoneigung. Keine Empfehlung im Einzelfall.
  */
 export function strategieVorschlag(e: Analyseeingabe): Strategievorschlag | null {
-  const a = analyse(e); const p = params(e.investor, e.anlageprofil); const o = e.objekt;
+  const a = analyse(e); const p = paramsFuer(e); const o = e.objekt;
   if (!a.simulation || !o.kaufpreis || !a.bewertung.miete) return null;
   const r = e.investor.risiko; const ziel = e.anlageprofil.minCashflow ?? 0;
   const gruende: string[] = [];
