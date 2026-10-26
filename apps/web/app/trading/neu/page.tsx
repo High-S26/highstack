@@ -21,10 +21,11 @@ export default function NeuerAgent() {
   // Abbrechen fragt nach, sobald etwas eingegeben ist (auch Schlüssel in Schritt 1)
   const abbrechen = useAbbrechen("/trading", schritt > 1 || !!zugang.keyId || !!zugang.secret || !!e.brokerApp || e.broker !== "simulation");
   // Entwurf übersteht ein Neuladen; der Alpaca-Zugang wird bewusst nicht zwischengespeichert
-  useEntwurf("agent", { schritt, e, vorlage }, d => { setE(d.e); setVorlage(d.vorlage); setSchritt(d.schritt); });
+
   // Wer die Strategie (Schritt 3) schon gesehen hat, behält sie: eine Vorlage setzt dann nur noch die Grenzen (TRD-011)
   const [strategieGesehen, setStrategieGesehen] = useState(false);
   if (schritt >= 3 && !strategieGesehen) setStrategieGesehen(true);
+  useEntwurf("agent", { schritt, e, vorlage, strategieGesehen }, d => { setE(d.e); setVorlage(d.vorlage); setSchritt(d.schritt); if (d.strategieGesehen) setStrategieGesehen(true); if (d.e.broker === "alpaca-paper" || d.e.broker === "manuell") meldung("Entwurf wiederhergestellt. Den Alpaca-Zugang speichern wir aus Sicherheitsgründen nicht zwischen: bitte in Schritt 1 erneut eintragen."); });
   const nimmVorlage = (id: string, k = e.startkapital) => {
     setVorlage(id); const { strategie: _s, werte: _w, richtung: _r, symbole: _y, ...grenzen } = VORLAGEN.find(v => v.id === id)!.werte(k) as Partial<AgentEinstellungen>;
     if (strategieGesehen) { set(grenzen); meldung("Grenzen aus der Vorlage übernommen, Ihre Strategie bleibt."); }

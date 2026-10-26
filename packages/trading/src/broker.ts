@@ -142,6 +142,8 @@ export async function ezbUsdJeEur(f: typeof fetch = fetch): Promise<{ usdJeEur: 
   return { usdJeEur: kurs, stand };
 }
 const WECHSELKURS_GUELTIG_MS = 12 * 3600_000;
+/** Ohne neuen Abruf gilt ein Kurs höchstens vier Tage (über ein Wochenende), danach kein Handel (TRD-044) */
+const WECHSELKURS_HOECHSTALTER_MS = 4 * 24 * 3600_000;
 
 /**
  * Eigene App (z. B. Trade Republic): Konto in Euro, Kurse von Alpaca in US-Dollar. Damit nichts vermischt wird, rechnet der
@@ -153,7 +155,7 @@ export function manuellerBroker(z: Agentzustand, startkapital: number, daten: Pi
   const kursUsdJeEur = async () => {
     const w = z.wechselkurs; if (w && Date.now() - w.abgerufen < WECHSELKURS_GUELTIG_MS) return w.usdJeEur;
     try { if (!wechselkurs) throw new Error("kein Abruf"); const n = await wechselkurs(); z.wechselkurs = { ...n, abgerufen: Date.now() }; return n.usdJeEur; }
-    catch (x) { if (w) return w.usdJeEur; throw new Error(`Wechselkurs US-Dollar/Euro nicht verfügbar (${(x as Error).message}). Ohne Umrechnung würden Dollar-Kurse mit Euro-Beträgen vermischt.`); }
+    catch (x) { if (w && Date.now() - w.abgerufen < WECHSELKURS_HOECHSTALTER_MS) return w.usdJeEur; throw new Error(`Wechselkurs US-Dollar/Euro nicht verfügbar (${(x as Error).message}). Ohne Umrechnung würden Dollar-Kurse mit Euro-Beträgen vermischt.`); }
   };
   const inEuro = async (s: string[]) => { const b = await daten!.bars(s); const r = await kursUsdJeEur(); return Object.fromEntries(Object.entries(b).map(([k, l]) => [k, l.map(x => ({ ...x, o: x.o / r, h: x.h / r, l: x.l / r, c: x.c / r }))])) as Awaited<ReturnType<Broker["bars"]>>; };
   const kurse = async (s: string[]) => { if (!daten || !s.length) return {} as Record<string, number>; const b = await inEuro(s); return Object.fromEntries(Object.entries(b).map(([k, l]) => [k, l.at(-1)?.c ?? 0])); };
@@ -161,15 +163,17 @@ export function manuellerBroker(z: Agentzustand, startkapital: number, daten: Pi
     art: "manuell", nurZettel: true, bruchstuecke: false,
     uhr: uhrQuelle,
     async konto() { const pos = await this.positionen(); return { equity: rd(z.manuell!.cash + pos.reduce((a, p) => a + p.wert, 0)), cash: rd(z.manuell!.cash), waehrung: "EUR" }; },
-    async positionen() { const e = Object.entries(z.manuell!.positionen); const k = await kurse(e.map(([s]) => s)); return e.map(([s, p]) => { const kurs = k[s] || p.einstand; return { symbol: s, qty: p.qty, einstand: p.einstand, kurs, wert: p.qty * kurs, gv: (kurs - p.einstand) * p.qty }; }); },
+    async positionen() { const e = Object.entries(z.manuell!.positionen); const k = await kurse(e.map(([s]) => s)); return e.map(([s, p]) => { const kurs = k[s] ? k[s] * (p.faktor ?? 1) : p.einstand; return { symbol: s, qty: p.qty, einstand: p.einstand, kurs, wert: p.qty * kurs, gv: (kurs - p.einstand) * p.qty }; }); },
     async bars(s) { if (!daten) throw new Error("Für Marktdaten bitte einen Datenzugang (Alpaca, kostenlos) hinterlegen."); return inEuro(s); },
     async sende(a) { return { id: id(), symbol: a.symbol, seite: a.seite, qty: a.qty, preis: null, status: "offen", meldung: "als Zettel vorgelegt", zeit: new Date().toISOString() }; },
     async schliesseAlle() { return Object.entries(z.manuell!.positionen).map(([s, p]) => ({ id: id(), symbol: s, seite: p.qty > 0 ? "verkauf" as const : "kauf" as const, qty: Math.abs(p.qty), preis: null, status: "offen" as const, meldung: "als Zettel vorgelegt", zeit: new Date().toISOString() })); },
   };
 }
 /** Bestätigte Ausführung eines Zettels in den manuellen Bestand buchen */
-export function bucheManuell(z: Agentzustand, symbol: string, seite: "kauf" | "verkauf", qty: number, preis: number) {
+export function bucheManuell(z: Agentzustand, symbol: string, seite: "kauf" | "verkauf", qty: number, preis: number, bezug?: number | null) {
   const m = z.manuell!; const p = m.positionen[symbol] ?? { qty: 0, einstand: 0 }; const d = seite === "kauf" ? qty : -qty; const neu = p.qty + d;
   m.cash -= d * preis;
-  if (Math.abs(neu) < 1e-9) delete m.positionen[symbol]; else m.positionen[symbol] = { qty: neu, einstand: Math.abs(neu) > Math.abs(p.qty) ? (p.einstand * p.qty + preis * d) / neu : p.einstand };
+  // Abweichung zwischen App-Kurs und umgerechnetem Kurs merken, damit die Bewertung nicht sofort einen Scheinverlust zeigt
+  const faktor = bezug && bezug > 0 && Math.abs(preis / bezug - 1) < 0.05 ? preis / bezug : p.faktor ?? 1;
+  if (Math.abs(neu) < 1e-9) delete m.positionen[symbol]; else m.positionen[symbol] = { qty: neu, einstand: Math.abs(neu) > Math.abs(p.qty) ? (p.einstand * p.qty + preis * d) / neu : p.einstand, faktor: Math.abs(neu) > Math.abs(p.qty) ? faktor : p.faktor ?? 1 };
 }

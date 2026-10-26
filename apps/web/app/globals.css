@@ -940,7 +940,7 @@ details>summary:hover{background:color-mix(in srgb,var(--sunk) 70%,var(--line))}
 .tr-karten{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
 .tr-karte{display:grid;gap:8px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--schatten);text-decoration:none;color:var(--fg)}
 .tr-karte:hover{border-color:var(--gold)}
-.tr-k{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.tr-k>div{display:grid}.tr-k span{font-size:11.5px;color:var(--muted)}.tr-k strong{font-family:var(--f-display);font-size:18px}
+.tr-k{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.2fr) minmax(0,.6fr);gap:6px}.tr-k>div{display:grid;min-width:0}.tr-k span{font-size:11.5px;color:var(--muted)}.tr-k strong{font-family:var(--f-display);font-size:clamp(14px,4vw,18px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .tr-zugang{display:grid;gap:8px;padding:14px;border-radius:14px;background:var(--sunk)}
 .tr-zus dl{display:grid;gap:4px;margin:0}.tr-zus dl>div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}.tr-zus dt{color:var(--muted)}.tr-zus dd{margin:0;font-weight:600;text-align:right}
 .tr-balken{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}

@@ -1,5 +1,5 @@
 "use client";
-import { geld, kurs as kf, STRATEGIEN, stueck, trefferbilanz, type Konto, type Position } from "@highstack/trading";
+import { geld, geldPm, kurs as kf, STRATEGIEN, stueck, trefferbilanz, type Konto, type Position } from "@highstack/trading";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -17,7 +17,9 @@ export default function Cockpit({ params }: { params: { id: string } }) {
   const { frage, meldung } = useApp(); const router = useRouter();
   const [a, setA] = useState<(Agentansicht & { live: Live }) | null>(null); const [laeuft, setLaeuft] = useState<string | null>(null);
   const [preise, setPreise] = useState<Record<string, string>>({}); const [zugang, setZugang] = useState({ keyId: "", secret: "" });
-  const lade = useCallback(() => fetch(`/api/trading/${params.id}`).then(r => r.json()).then(d => d.fehler ? meldung(d.fehler) : setA(d)), [params.id, meldung]);
+  // Automatisches Neuladen: bei Ausfall die Zahlen als veraltet kennzeichnen statt still alte Werte zu zeigen (TRD-032)
+  const [veraltet, setVeraltet] = useState(false);
+  const lade = useCallback(() => fetch(`/api/trading/${params.id}`).then(r => r.json()).then(d => { if (d.fehler) meldung(d.fehler); else { setA(d); setVeraltet(false); } }).catch(() => setVeraltet(true)), [params.id, meldung]);
   useEffect(() => { lade(); const t = setInterval(lade, 5000); return () => clearInterval(t); }, [lade]);
   const [umfeld, setUmfeld] = useState<{ lage: string; faktor: number; gruende: string[] } | null>(null);
   useEffect(() => { const hole = () => fetch("/api/trading/umfeld").then(r => r.ok ? r.json() : null).then(setUmfeld).catch(() => null); hole(); const t = setInterval(hole, 30_000); return () => clearInterval(t); }, []);
@@ -49,11 +51,13 @@ export default function Cockpit({ params }: { params: { id: string } }) {
         {z.aktiv ? <button type="button" className="btn sm ghost" onClick={() => aktion({ aktion: "stopp" }, "Agent angehalten")}>Anhalten</button> : <button type="button" className="btn sm" onClick={() => aktion({ aktion: "start" }, "Agent gestartet")}>Starten</button>}
         <button type="button" className="btn sm gefahr" onClick={notaus}>Not-Aus</button>
       </div>
+      {veraltet && <p className="hint bad" role="status">Keine Verbindung zum Server: angezeigte Werte sind nicht aktuell.</p>}
       {a.live.fehler && <p className="hint">{a.live.fehler}</p>}
       {manuell && !a.zugangHinterlegt && <p className="hint bad">Ohne Kursquelle kann der Agent keine Kurse lesen und keine Order-Zettel erstellen. Bitte unten den kostenlosen Alpaca-Datenzugang hinterlegen; erst dann lässt er sich starten.</p>}
       {alpaca && <p className="note">Bei Alpaca gilt der Kontostand des Paper-Kontos (Standard 100.000 $). Tagesziel und Verlustlimit sollten zu diesem Betrag passen; „seit Start“ rechnet ab dem ersten Handelstag des Agenten.</p>}
       {sim && <div className="testband">Simulation mit künstlichen Kursen: läuft der Agent, vergeht alle 5 Sekunden eine Handelsminute. {z.aktiv ? <button type="button" className="linkbtn" disabled={!!laeuft} onClick={() => aktion({ aktion: "tag" }, "Handelstag durchgespielt")}>{laeuft?.includes("tag") ? "spielt …" : "Rest des Tages sofort durchspielen"}</button> : <span>Zum Durchspielen den Agenten starten.</span>} · <button type="button" className="linkbtn" onClick={async () => { if (await frage({ titel: "Simulation zurücksetzen?", text: "Kontostand, Verlauf und Protokoll der Simulation werden gelöscht.", ja: "Zurücksetzen", gefahr: true })) aktion({ aktion: "zuruecksetzen" }, "Zurückgesetzt"); }}>zurücksetzen</button></div>}
       <div className="tiles">{([["Konto", k ? `${g$(k.equity)}` : "–"], ["heute", t ? `${tagesGV >= 0 ? "+" : ""}${g$(tagesGV)}` : "–"], ["Trades heute", t ? `${t.trades} / ${e.maxTradesTag}` : "–"], ["seit Start", k && startBasis != null ? `${k.equity - startBasis >= 0 ? "+" : ""}${g$(k.equity - startBasis)}` : "–"]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong className={l !== "Konto" && l !== "Trades heute" && v.startsWith("-") ? "dn" : ""}>{v}</strong></div>)}</div>
+      {t && t.status === "laeuft" && !t.trades && z.verlauf[0]?.ende != null && <p className="note">Letzter Handelstag {new Date(z.verlauf[0].datum).toLocaleDateString("de-DE")}: {geldPm(z.verlauf[0].ende - z.verlauf[0].start, W)}.</p>}
       {t && <section className="panel tr-grenzen">
         <div className="ph"><h2>Heute</h2><span className="tag">{({ laeuft: "läuft", ziel: "Tagesziel erreicht", limit: "Verlustlimit erreicht", notaus: "Not-Aus", beendet: "beendet" } as Record<string, string>)[t.status]}</span></div>
         <div className="tr-balken"><span>Verlustlimit −{g$(e.tagesverlust)}</span><div className="tr-spur"><i className="neg" style={{ width: balken(-tagesGV, e.tagesverlust) }} /></div><div className="tr-spur"><i style={{ width: balken(tagesGV, e.tagesziel) }} /></div><span>Tagesziel +{g$(e.tagesziel)}</span></div>
@@ -112,7 +116,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
         <div className="fields"><div className="fld"><label htmlFor="kid">API Key ID</label><input id="kid" value={zugang.keyId} onChange={x => setZugang(v => ({ ...v, keyId: x.target.value }))} /></div><div className="fld"><label htmlFor="ksec">Secret Key</label><input id="ksec" type="password" autoComplete="off" value={zugang.secret} onChange={x => setZugang(v => ({ ...v, secret: x.target.value }))} /></div></div>
         <button type="button" className="btn sm ghost" disabled={!zugang.keyId || !zugang.secret} onClick={() => { aktion({ aktion: "zugang", ...zugang }, "Zugang gespeichert"); setZugang({ keyId: "", secret: "" }); }}>Speichern</button>
       </section>}
-      <div className="row"><button type="button" className="btn sm danger" onClick={async () => { if (z.aktiv) { meldung("Bitte den Agenten zuerst anhalten."); return; } if (await frage({ titel: "Agent löschen?", text: "Einstellungen, Verlauf und Protokoll werden gelöscht. Positionen beim Broker bleiben unberührt.", ja: "Löschen", gefahr: true })) { await fetch(`/api/trading/${a.id}`, { method: "DELETE" }); router.push("/trading"); } }}>Agent löschen</button></div>
+      <div className="row"><button type="button" className="btn sm danger" onClick={async () => { if (z.aktiv) { meldung("Bitte den Agenten zuerst anhalten."); return; } if (await frage({ titel: "Agent löschen?", text: "Einstellungen, Verlauf und Protokoll werden gelöscht. Positionen beim Broker bleiben unberührt.", ja: "Löschen", gefahr: true })) { try { const r = await fetch(`/api/trading/${a.id}`, { method: "DELETE" }); if (!r.ok) { const d = await r.json().catch(() => ({})); meldung(`Nicht gelöscht: ${d.fehler ?? `Fehler ${r.status}`}`); return; } meldung("Agent gelöscht"); router.push("/trading"); } catch { meldung("Nicht gelöscht: keine Verbindung zum Server"); } } }}>Agent löschen</button></div>
     </div>
   );
 }

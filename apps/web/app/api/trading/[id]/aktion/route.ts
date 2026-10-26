@@ -14,7 +14,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const b = await req.json().catch(() => null) as Aktion | null;
   if (!b || typeof b !== "object" || typeof b.aktion !== "string") return nein("Ungültige Anfrage.");
   const a0 = await agent(s, t, params.id); if (!a0) return nein("Nicht gefunden", 404);
-  const jetzt = () => new Date().toISOString();
+  // In der Simulation steht im Protokoll die simulierte Uhrzeit, nicht die echte (TRD-016)
+  const jetzt = () => { const u = a0.einstellungen.broker === "simulation" ? a0.zustand.simUhr : null; if (!u) return new Date().toISOString(); const m = 9 * 60 + 30 + Math.min(u.minute, 390); return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")} (Simulation)`; };
   if (b.aktion === "takt" || b.aktion === "tag") {
     // Ein angehaltener Agent handelt nicht, auch nicht auf Knopfdruck
     if (!a0.zustand.aktiv) return nein("Der Agent ist angehalten. Bitte zuerst starten.", 409);
@@ -77,7 +78,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           if (br.nurZettel) {
             if (typeof b.preis !== "number" || !Number.isFinite(b.preis) || b.preis <= 0) throw new Error("Bitte den Ausführungskurs aus der App eintragen.");
             const ref = v.signal?.kurs; if (ref && Math.abs(b.preis / ref - 1) > 0.25) throw new Error(`Der Kurs weicht mehr als 25 % vom Signalkurs (${ref.toLocaleString("de-DE")}) ab. Bitte prüfen.`);
-            bucheManuell(z, v.antrag.symbol, v.antrag.seite, qty, b.preis); preis = b.preis;
+            const bezug = await br.bars([v.antrag.symbol]).then(x => x[v.antrag.symbol]?.at(-1)?.c ?? null).catch(() => null);
+            bucheManuell(z, v.antrag.symbol, v.antrag.seite, qty, b.preis, bezug); preis = b.preis;
+            if (bezug && Math.abs(b.preis / bezug - 1) > 0.01) protokoll(z, "info", `${v.antrag.symbol}: Ihr Kurs ${kf(b.preis)} weicht ${(Math.abs(b.preis / bezug - 1) * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 })} % vom umgerechneten Kurs ${kf(bezug)} ab (Handelsplatz oder Wechselkurs). Stopp und Ziel gelten weiter auf den umgerechneten Kurs.`, jetzt());
           } else { const r = await br.sende({ ...v.antrag, qty }); if (r.status === "abgelehnt") throw new Error(`Order abgelehnt: ${r.meldung ?? ""}`); preis = r.preis; }
           v.status = "ausgefuehrt"; v.meldung = preis ? `zu ${preis}` : undefined;
           if (v.art === "einstieg" && v.signal) { z.gefuehrt.push({ symbol: v.signal.symbol, richtung: v.signal.richtung, qty, einstieg: preis ?? v.signal.kurs, stopp: v.signal.stopp, ziel: v.signal.ziel, seit: jetzt(), grund: v.signal.grund, staerke: v.signal.staerke, strategie: e.strategie }); if (z.tag) z.tag.trades++; }

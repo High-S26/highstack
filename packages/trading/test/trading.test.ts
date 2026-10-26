@@ -180,10 +180,49 @@ describe("TRD-015: Eigene App rechnet Dollar-Kurse in Euro um", () => {
     expect((await b.konto()).waehrung).toBe("EUR");
     expect(z.wechselkurs).toMatchObject({ usdJeEur: 1.1, stand: "2026-10-23" });
     // Abruf fällt aus: letzter Kurs gilt weiter; ganz ohne Kurs Fehler statt Vermischen
-    z.wechselkurs!.abgerufen = 0;
+    z.wechselkurs!.abgerufen = Date.now() - 13 * 3600_000;
     const b2 = manuellerBroker(z, 10000, daten, undefined, async () => { throw new Error("offline"); });
     expect((await b2.bars(["AAPL"])).AAPL![0]!.c).toBeCloseTo(100, 6);
+    // älter als vier Tage: kein Handel mehr mit altem Kurs (TRD-044)
+    z.wechselkurs!.abgerufen = Date.now() - 5 * 24 * 3600_000;
+    await expect(b2.bars(["AAPL"])).rejects.toThrow(/Wechselkurs/);
+    // Abweichung des App-Kurses wird gemerkt: kein Scheinverlust direkt nach dem Kauf
+    const z4 = leererZustand(); const b4 = manuellerBroker(z4, 10000, daten, undefined, async () => ({ usdJeEur: 1.1, stand: "2026-10-23" }));
+    bucheManuell(z4, "AAPL", "kauf", 10, 100.3, 100);
+    expect((await b4.positionen())[0]!.gv).toBeCloseTo(0, 6);
     const b3 = manuellerBroker(leererZustand(), 10000, daten, undefined, async () => { throw new Error("offline"); });
     await expect(b3.bars(["AAPL"])).rejects.toThrow(/Wechselkurs/);
+  });
+});
+
+describe("TRD-042/043: Verlustlimit hält", () => {
+  const tagMit = (i0: number, bar: Partial<Bar>): Bar[] => Array.from({ length: 390 }, (_, i) => i === i0 ? { t: "", o: 100, h: 100, l: 100, c: 100, v: 1000, ...bar } : { t: "", o: 100, h: 100.05, l: 99.95, c: 100, v: 1000 });
+  it("ein Stopp in derselben Minute wie das Limit wird zum Stopp-Kurs geschlossen", async () => {
+    const z = leererZustand(); z.simUhr = { datum: "2026-10-26", minute: 49 };
+    const b = simBroker(z, 10000, { quelle: () => tagMit(50, { o: 100, h: 100, l: 90, c: 90 }) });
+    const e = { ...neueEinstellungen(10000), symbole: ["X"], tagesverlust: 15, tagesziel: 500 };
+    await b.sende({ symbol: "X", seite: "kauf", qty: 10, grund: "t" });
+    z.tag = { datum: "2026-10-26", start: 10000, ende: null, trades: 1, status: "laeuft" };
+    z.gefuehrt = [{ symbol: "X", richtung: "long", qty: 10, einstieg: 100, stopp: 99, ziel: 110, seit: "", grund: "", staerke: 1, strategie: "ausbruch" }];
+    z.simUhr.minute = 50; await takt(e, z, b);
+    const k = await b.konto();
+    expect(k.equity - 10000).toBeGreaterThan(-15); // Stopp bei 99 statt Schluss bei 90 (−100 €)
+    expect(z.tag!.status).toBe("laeuft");
+  });
+  it("neuer Trade wird verkleinert oder gesperrt, wenn sein Risiko nicht mehr ins Limit passt", async () => {
+    const z = leererZustand(); z.simUhr = { datum: "2026-10-26", minute: 100 };
+    const b = simBroker(z, 10000, { quelle: () => tagMit(500, {}) });
+    const e = { ...neueEinstellungen(10000), symbole: ["X"], tagesverlust: 60, tagesziel: 500 };
+    z.tag = { datum: "2026-10-26", start: 10058.8, ende: null, trades: 0, status: "laeuft" }; // schon −58,80 € heute
+    z.aktiv = true;
+    // Signal von Hand: über ausfuehren nicht direkt erreichbar, daher Strategie mit Signal simulieren
+    const { STRATEGIEN } = await import("../src");
+    const alt = STRATEGIEN.ausbruch.fn;
+    (STRATEGIEN.ausbruch as { fn: unknown }).fn = (s: string) => ({ symbol: s, richtung: "long", kurs: 100, stopp: 98, ziel: 106, grund: "Test", staerke: 1 });
+    try { await takt({ ...e, modus: "auto" }, z, b); } finally { (STRATEGIEN.ausbruch as { fn: unknown }).fn = alt; }
+    const pos = Object.values(z.sim!.positionen);
+    const risiko = pos.reduce((a, p) => a + p.qty * 2, 0);
+    expect(risiko).toBeLessThanOrEqual(1.21);
+    expect(z.log.some(l => /Verlustlimit/.test(l.text))).toBe(true);
   });
 });

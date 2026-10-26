@@ -85,7 +85,7 @@ export interface Agentzustand {
   /** Uhr der Simulation: virtueller Handelstag im Zeitraffer */
   simUhr?: { datum: string; minute: number };
   /** Manueller Broker: vom Nutzer bestätigte Bestände */
-  manuell?: { cash: number; positionen: Record<string, { qty: number; einstand: number }> };
+  manuell?: { cash: number; positionen: Record<string, { qty: number; einstand: number; /** Kurs in der App ÷ umgerechneter Kurs beim Kauf (Abweichung des Handelsplatzes) */ faktor?: number }> };
   /** Manueller Broker in Euro mit Dollar-Kursen: EZB-Referenzkurs (US-Dollar je Euro) */
   wechselkurs?: { usdJeEur: number; stand: string; abgerufen: number };
   /** Abgeschlossene Trades, neueste zuerst */

@@ -20,7 +20,8 @@ export const GRENZEN = {
   zielR: [0.5, 10],
   schwelle: [0.05, 10],
 } as const;
-const SYMBOL = /^[A-Z][A-Z0-9.]{0,9}$/;
+/** US-Börsenkürzel wie AAPL oder BRK.B (Kursquelle Alpaca: nur US-Werte) */
+const SYMBOL = /^[A-Z]{1,5}(\.[A-Z])?$/;
 const BROKER: BrokerArt[] = ["simulation", "alpaca-paper", "alpaca-live", "manuell", "ibkr"];
 
 const NAMEN: Record<string, string> = { startkapital: "Startkapital", tagesziel: "Tagesziel", tagesverlust: "Verlustlimit", risikoProTrade: "Risiko je Trade", maxPosition: "Höchstens je Position", maxTradesTag: "Trades je Tag", maxPositionen: "Positionen gleichzeitig", schlussVorEnde: "Schluss vor Handelsende" };
@@ -76,7 +77,7 @@ export function pruefeEinstellungen(roh: unknown, opts: { basis?: AgentEinstellu
   const falsch = symbole.filter(x => !SYMBOL.test(x));
   if (!symbole.length) f("symbole", "Mindestens einen Wert angeben.");
   if (symbole.length > 30) f("symbole", "Höchstens 30 Werte.");
-  if (falsch.length) f("symbole", `Ungültige Kürzel: ${falsch.join(", ")} (Großbuchstaben, Ziffern, Punkt, höchstens 10 Zeichen).`);
+  if (falsch.length) f("symbole", `Ungültige Kürzel: ${falsch.join(", ")} (US-Kürzel wie AAPL oder BRK.B; deutsche Werte wie SAP.DE liefert die Kursquelle nicht).`);
 
   const name = typeof r.name === "string" ? r.name.trim().slice(0, 60) : basis.name;
   if (!name) f("name", "Bitte einen Namen angeben.");
