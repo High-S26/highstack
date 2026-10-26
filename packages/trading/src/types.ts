@@ -53,6 +53,8 @@ export interface AgentEinstellungen {
   marktlage?: boolean;
   /** Nachrichten, Insider-Käufe und Short-Anteil als Filter; Standard an */
   kontext?: boolean;
+  /** Wirtschaftskalender: Einstiegspausen um wichtige Daten, Regeln an Tagen mit Unternehmenszahlen; Standard an */
+  termine?: boolean;
 }
 
 export interface Signal { symbol: string; richtung: "long" | "short"; kurs: number; stopp: number; ziel: number; staerke: number; grund: string }
@@ -90,6 +92,8 @@ export interface Agentzustand {
   wechselkurs?: { usdJeEur: number; stand: string; abgerufen: number };
   /** Abgeschlossene Trades, neueste zuerst */
   abschluesse?: Abschluss[];
+  /** Zuletzt protokollierte Terminpause, damit sie nur einmal im Protokoll erscheint */
+  terminPause?: string;
   /** Zuletzt protokolliertes Umfeld, damit es nur bei Änderung im Protokoll erscheint */
   umfeld?: string;
 }

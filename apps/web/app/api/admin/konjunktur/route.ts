@@ -1,4 +1,4 @@
-import { bilanz, INDIKATOREN, leseTabelle, MECHANISMEN, rueckblick, type Ereignis, type Prognose } from "@highstack/prognose";
+import { leseTermine, bilanz, INDIKATOREN, leseTabelle, MECHANISMEN, rueckblick, type Ereignis, type Prognose } from "@highstack/prognose";
 import { istAdmin, keinAdmin, protokolliere } from "@/lib/admin";
 import { abrufAlle, ereignisse, lagebild, reihen, rueckblickGespeichert, stand, taeglich, uebernimm, umfeldVergessen, type Reihendatensatz, type Rueckblick } from "@/lib/konjunktur";
 import { speicher } from "@/lib/speicher";
@@ -30,6 +30,8 @@ type Aktion =
   | { aktion: "lauf" }
   | { aktion: "ereignis"; ereignis: Omit<Ereignis, "id"> }
   | { aktion: "ereignis-loeschen"; id: string }
+  | { aktion: "termine-import"; text: string; jahr?: number; quelle?: string; vorschau?: boolean }
+  | { aktion: "termine-alte-loeschen" }
   | { aktion: "reihe-loeschen"; id: string }
   | { aktion: "rueckblick"; von: string; bis: string; schrittTage?: number };
 
@@ -67,7 +69,26 @@ export async function POST(req: Request) {
       case "ereignis": {
         const e = b.ereignis; if (!e?.datum || !/^\d{4}-\d{2}-\d{2}$/.test(e.datum) || !e.titel?.trim()) throw new Error("Datum (JJJJ-MM-TT) und Titel angeben");
         const x: Ereignis = { ...e, id: neueId(), titel: e.titel.trim(), ...(e.symbol ? { symbol: e.symbol.trim().toUpperCase() } : {}) };
+        if (x.zeit != null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(x.zeit)) delete x.zeit;
         await s.speichereGlobal("ereignis", x.id, x); umfeldVergessen(); await protokolliere(s, req, "Termin angelegt", x.titel, x.datum); return Response.json(x);
+      }
+      case "termine-import": {
+        // Wirtschaftskalender aus eingefügtem Text: Vorschau, dann übernehmen; gleiche Termine (Datum, Uhrzeit, Titel) nicht doppelt
+        if (typeof b.text !== "string" || !b.text.trim()) throw new Error("Bitte den Text der Terminliste einfügen.");
+        const jahr = Number.isInteger(b.jahr) && b.jahr! >= 2000 && b.jahr! <= 2100 ? b.jahr : undefined;
+        const quelle = typeof b.quelle === "string" ? b.quelle.trim().slice(0, 80) : undefined;
+        const { termine, ohneTag } = leseTermine(b.text.slice(0, 200_000), { jahr, quelle: quelle || undefined });
+        const vorhanden = await ereignisse(s); const schluessel = (e: { datum: string; zeit?: string; titel: string }) => `${e.datum}|${e.zeit ?? ""}|${e.titel.toLowerCase()}`;
+        const bekannt = new Set(vorhanden.map(schluessel)); const neu = termine.filter(t => !bekannt.has(schluessel(t)));
+        if (b.vorschau) return Response.json({ termine, neu: neu.length, doppelt: termine.length - neu.length, ohneTag });
+        for (const t of neu) { const x: Ereignis = { ...t, id: neueId() }; await s.speichereGlobal("ereignis", x.id, x); }
+        umfeldVergessen(); await protokolliere(s, req, "Termine importiert", quelle || "Kalender", `${neu.length} neu, ${termine.length - neu.length} schon vorhanden`);
+        return Response.json({ neu: neu.length, doppelt: termine.length - neu.length });
+      }
+      case "termine-alte-loeschen": {
+        const grenze = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10); const alt = (await ereignisse(s)).filter(e => e.datum < grenze);
+        for (const e of alt) await s.loescheGlobal("ereignis", e.id); umfeldVergessen(); await protokolliere(s, req, "Alte Termine entfernt", undefined, `${alt.length} vor ${grenze}`);
+        return Response.json({ geloescht: alt.length });
       }
       case "ereignis-loeschen": { const e = (await ereignisse(s)).find(x => x.id === b.id); await s.loescheGlobal("ereignis", b.id); umfeldVergessen(); await protokolliere(s, req, "Termin entfernt", e?.titel, e?.datum); return Response.json({ ok: true }); }
       case "reihe-loeschen": await s.loescheGlobal("konjunktur", b.id); umfeldVergessen(); await protokolliere(s, req, "Konjunkturreihe gelöscht", b.id); return Response.json({ ok: true });

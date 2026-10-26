@@ -89,7 +89,9 @@ export function pruefeEinstellungen(roh: unknown, opts: { basis?: AgentEinstellu
   if ("kontext" in r && typeof r.kontext !== "boolean") f("kontext", "Nachrichten und Insider: true oder false.");
   const marktlage = typeof r.marktlage === "boolean" ? r.marktlage : basis.marktlage ?? true;
   const kontext = typeof r.kontext === "boolean" ? r.kontext : basis.kontext ?? true;
+  if ("termine" in r && typeof r.termine !== "boolean") f("termine", "Wirtschaftskalender: true oder false.");
+  const termine = typeof r.termine === "boolean" ? r.termine : basis.termine ?? true;
 
-  const e: AgentEinstellungen = { name, broker, ...(brokerApp ? { brokerApp } : {}), startkapital, tagesziel, tagesverlust, risikoProTrade, maxPosition, maxTradesTag, maxPositionen, symbole, strategie, werte, richtung, schlussVorEnde, modus, marktlage, kontext };
+  const e: AgentEinstellungen = { name, broker, ...(brokerApp ? { brokerApp } : {}), startkapital, tagesziel, tagesverlust, risikoProTrade, maxPosition, maxTradesTag, maxPositionen, symbole, strategie, werte, richtung, schlussVorEnde, modus, marktlage, kontext, termine };
   return { e, fehler };
 }

@@ -1,3 +1,4 @@
+import { terminlage } from "@highstack/trading";
 import { abrufen, bewerte, bilanz, gewichteAus, INDIKATOREN, lage, ordne, prognosen, punktAktuell, risikolage, wahrscheinlichkeit, type Bilanz, type Ereignis, type Prognose, type Punkt, type Reihen } from "@highstack/prognose";
 import type { Speicher } from "./speicher";
 
@@ -19,6 +20,8 @@ export async function reihen(s: Speicher): Promise<Reihen> {
   const r: Reihen = {}; for (const x of await s.global<Reihendatensatz>("konjunktur")) r[x.id] = x.punkte; return r;
 }
 export const ereignisse = (s: Speicher) => s.global<Ereignis>("ereignis");
+/** Wirtschaftskalender für einen Handelstag (Datum New York) und die beobachteten Werte des Agenten */
+export async function terminlageFuer(s: Speicher, datum: string, symbole: string[]) { return terminlage(await ereignisse(s), datum, symbole); }
 export const stand = async (s: Speicher): Promise<Stand> => (await s.globalEins<Stand>("konjunktur-stand", "stand")) ?? { id: "stand", letzterLauf: null, gewichte: {} };
 
 /** Neue Punkte in eine Reihe übernehmen (gleicher Tag: neuer Wert gewinnt) */

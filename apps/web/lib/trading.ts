@@ -1,6 +1,6 @@
-import { alpacaBroker, leererZustand, manuellerBroker, simBroker, simWeiter, takt, type AgentEinstellungen, type Agentzustand, type Broker, type BrokerArt, type Kennzahlen, type Rueckblickergebnis } from "@highstack/trading";
+import { alpacaBroker, leererZustand, manuellerBroker, simBroker, simWeiter, takt, usUhr, type AgentEinstellungen, type Agentzustand, type Broker, type BrokerArt, type Kennzahlen, type Rueckblickergebnis } from "@highstack/trading";
 import { entschluessele } from "./geheim";
-import { umfeld } from "./konjunktur";
+import { terminlageFuer, umfeld } from "./konjunktur";
 import { kontextFuer } from "./kontext";
 import type { Speicher } from "./speicher";
 
@@ -62,12 +62,16 @@ export async function taktFuer(s: Speicher, id: string, schritte = 1) {
     const sim = a.einstellungen.broker === "simulation";
     const umfeldAm = async () => a.einstellungen.marktlage === false ? undefined : await umfeld(s, sim ? a.zustand.simUhr?.datum : undefined).catch(() => undefined);
     let u = await umfeldAm(); let umfeldTag = a.zustand.simUhr?.datum;
+    // Wirtschaftskalender für den Handelstag (Simulation: der simulierte Tag)
+    const tagNy = () => sim ? a.zustand.simUhr?.datum ?? new Date().toISOString().slice(0, 10) : usUhr(new Date()).datum;
+    const termineAm = async () => a.einstellungen.termine === false ? undefined : await terminlageFuer(s, tagNy(), a.einstellungen.symbole).catch(() => undefined);
+    let tl = await termineAm();
     // Nachrichten, Insider und Short-Anteil nur für echte Kurse; die Simulation hat künstliche Kurse
     const k = a.einstellungen.kontext === false || a.einstellungen.broker === "simulation" ? undefined : (await kontextFuer(a).catch(() => null))?.lage;
     for (let i = 0; i < schritte; i++) {
       // Simulation: neuer simulierter Tag, neues Marktumfeld
-      if (sim && a.zustand.simUhr?.datum !== umfeldTag) { umfeldTag = a.zustand.simUhr?.datum; u = await umfeldAm(); }
-      try { letzter = await takt(a.einstellungen, a.zustand, b, new Date(), u, k); }
+      if (sim && a.zustand.simUhr?.datum !== umfeldTag) { umfeldTag = a.zustand.simUhr?.datum; u = await umfeldAm(); tl = await termineAm(); }
+      try { letzter = await takt(a.einstellungen, a.zustand, b, new Date(), u, k, tl); }
       catch (err) { fehlerLog(a.zustand, (err as Error).message); break; }
       if (a.einstellungen.broker === "simulation") { simWeiter(a.zustand); if (a.zustand.simUhr!.minute === 0) break; }
     }

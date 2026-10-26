@@ -6,3 +6,4 @@ export * from "./pruefung";
 export * from "./format";
 export * from "./rueckblick";
 export * from "./kontext";
+export * from "./termine";

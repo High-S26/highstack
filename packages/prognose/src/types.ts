@@ -29,11 +29,21 @@ export type Ziel = "aktien-us" | "aktien-eu" | "zins-lang" | "immo-wert" | "vola
 export interface Ereignis {
   id: string;
   datum: string;
-  art: "zinsentscheid" | "inflation" | "arbeitsmarkt" | "zahlen" | "index-aufnahme" | "lockup-ende" | "ipo" | "sonstiges";
+  art: "zinsentscheid" | "inflation" | "arbeitsmarkt" | "konjunktur" | "zahlen" | "hauptversammlung" | "index-aufnahme" | "lockup-ende" | "ipo" | "sonstiges";
   titel: string;
   /** Betroffener Wert bei Einzelereignissen, z. B. NVDA */
   symbol?: string;
   wichtig?: boolean;
+  /** Uhrzeit in deutscher Ortszeit (HH:MM); ohne Uhrzeit gilt der ganze Tag */
+  zeit?: string;
+  /** Land oder Region: DE, US, EU, GB, JP, CN … */
+  land?: string;
+  /** Erwartung und Vorwert bei Konjunkturdaten, wie in der Quelle notiert */
+  prognose?: string;
+  vorwert?: string;
+  /** Unternehmen bei Unternehmensterminen */
+  unternehmen?: string;
+  quelle?: string;
 }
 
 /** Ergebnis eines Mechanismus zu einem Stichtag */

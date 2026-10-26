@@ -1,4 +1,5 @@
 "use client";
+import { Termine } from "@/components/trading/Termine";
 import { geld, geldPm, kurs as kf, STRATEGIEN, stueck, trefferbilanz, type Konto, type Position } from "@highstack/trading";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
   const [umfeld, setUmfeld] = useState<{ lage: string; faktor: number; gruende: string[] } | null>(null);
   useEffect(() => { const hole = () => fetch("/api/trading/umfeld").then(r => r.ok ? r.json() : null).then(setUmfeld).catch(() => null); hole(); const t = setInterval(hole, 30_000); return () => clearInterval(t); }, []);
   const setzeKontext = async (an: boolean) => { try { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ kontext: an }) }); if (r.ok) { meldung(an ? "Nachrichten und Insider werden als Filter genutzt" : "Nachrichten und Insider werden ignoriert"); lade(); } else { const d = await r.json().catch(() => ({})); meldung(`Nicht gespeichert: ${d.fehler ?? `Fehler ${r.status}`}`); } } catch { meldung("Nicht gespeichert: keine Verbindung zum Server"); } };
+  const setzeTermine = async (an: boolean) => { try { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ termine: an }) }); if (r.ok) { meldung(an ? "Termine werden berücksichtigt" : "Termine werden ignoriert"); lade(); } else { const d = await r.json().catch(() => ({})); meldung(`Nicht gespeichert: ${d.fehler ?? `Fehler ${r.status}`}`); } } catch { meldung("Nicht gespeichert: keine Verbindung zum Server"); } };
   const setzeMarktlage = async (an: boolean) => { try { const r = await fetch(`/api/trading/${params.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ marktlage: an }) }); if (r.ok) { meldung(an ? "Marktumfeld wird berücksichtigt" : "Marktumfeld wird ignoriert"); lade(); } else { const d = await r.json().catch(() => ({})); meldung(`Nicht gespeichert: ${d.fehler ?? `Fehler ${r.status}`}`); } } catch { meldung("Nicht gespeichert: keine Verbindung zum Server"); } };
   const aktion = async (b: object, text?: string) => {
     setLaeuft(JSON.stringify(b));
@@ -62,6 +64,7 @@ export default function Cockpit({ params }: { params: { id: string } }) {
         <div className="ph"><h2>Heute</h2><span className="tag">{({ laeuft: "läuft", ziel: "Tagesziel erreicht", limit: "Verlustlimit erreicht", notaus: "Not-Aus", beendet: "beendet" } as Record<string, string>)[t.status]}</span></div>
         <div className="tr-balken"><span>Verlustlimit −{g$(e.tagesverlust)}</span><div className="tr-spur"><i className="neg" style={{ width: balken(-tagesGV, e.tagesverlust) }} /></div><div className="tr-spur"><i style={{ width: balken(tagesGV, e.tagesziel) }} /></div><span>Tagesziel +{g$(e.tagesziel)}</span></div>
       </section>}
+      <Termine symbole={e.symbole} datum={sim ? z.simUhr?.datum : undefined} an={e.termine !== false} umschalten={setzeTermine} />
       {umfeld && <div className={`tr-umfeld ${e.marktlage === false ? "" : umfeld.lage}`}>
         <b>Marktumfeld: {({ "risk-on": "Risikobereitschaft", neutral: "neutral", "risk-off": "Vorsicht" } as Record<string, string>)[umfeld.lage]}</b>
         <span>{e.marktlage === false ? "wird ignoriert, volle Positionsgröße" : `Positionsgröße ${Math.round(umfeld.faktor * 100)} %`}</span>

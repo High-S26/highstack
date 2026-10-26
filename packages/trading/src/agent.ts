@@ -1,6 +1,7 @@
 import type { Broker } from "./broker";
 import { geld, geldPm, kurs as kf, stueck, zahl } from "./format";
 import { kontextSperre, type Kontextlage } from "./kontext";
+import { pauseBei, type Terminlage } from "./termine";
 import { STRATEGIEN } from "./strategien";
 import type { Abschluss, AgentEinstellungen, Agentzustand, Gefuehrt, Logeintrag, OrderAntrag, Signal, StrategieTyp, StrategieWerte, Umfeld, Vorschlag } from "./types";
 
@@ -67,7 +68,7 @@ export function stueckzahl(e: AgentEinstellungen, s: Signal, equity: number, cas
 
 export interface Taktergebnis { gehandelt: number; vorgeschlagen: number; status: string }
 
-export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, jetzt = new Date(), umfeld?: Umfeld, kontext?: Record<string, Kontextlage>): Promise<Taktergebnis> {
+export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, jetzt = new Date(), umfeld?: Umfeld, kontext?: Record<string, Kontextlage>, termine?: Terminlage): Promise<Taktergebnis> {
   const erg: Taktergebnis = { gehandelt: 0, vorgeschlagen: 0, status: "" };
   const uhr = await b.uhr(); const zeit = uhr.zeit; z.letzterTakt = jetzt.toISOString();
   const log = (art: Logeintrag["art"], text: string) => protokoll(z, art, text, zeit);
@@ -153,6 +154,15 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
     if (minuten > VORSCHLAG_GUELTIG || jenseits) { v.status = "verfallen"; v.meldung = jenseits ? "Kurs schon jenseits von Stopp oder Ziel" : `nach ${VORSCHLAG_GUELTIG} Minuten veraltet`; log("info", `Vorschlag ${v.antrag.symbol} verfallen (${v.meldung})`); }
   }
 
+  // Wirtschaftskalender: Einstiegspause um wichtige Daten (Ausstiege laufen weiter)
+  const tl = e.termine === false ? undefined : termine;
+  const pause = pauseBei(tl, uhr.minutenSeitOeffnung);
+  if (pause) {
+    const bisUhr = (() => { const x = 9 * 60 + 30 + pause.bis; return `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`; })();
+    const key = `${tag.datum} ${pause.titel}`; if (z.terminPause !== key) { z.terminPause = key; log("sperre", `Termin: ${pause.titel}. Keine neuen Einstiege bis ${bisUhr} New York`); }
+    erg.status = `Terminpause bis ${bisUhr}`; return erg;
+  }
+
   // 3. Neue Signale
   const offen = new Set([...positionen.map(p => p.symbol), ...z.gefuehrt.map(g => g.symbol), ...z.vorschlaege.filter(v => v.status === "offen").map(v => v.antrag.symbol)]);
   const offeneEinstiege = z.vorschlaege.filter(v => v.status === "offen" && v.art === "einstieg").length;
@@ -179,9 +189,13 @@ export async function takt(e: AgentEinstellungen, z: Agentzustand, b: Broker, je
     const gleich = z.gefuehrt.filter(g => g.richtung === s.richtung && (korrelation(bars[s.symbol] ?? [], bars[g.symbol] ?? []) ?? 0) > 0.7).map(g => g.symbol);
     if (gleich.length >= 2) { log("sperre", `${s.symbol}: läuft fast gleich wie ${gleich.join(" und ")} (Korrelation über 0,7), kein weiteres Risiko in dieselbe Richtung`); continue; }
     const korrFaktor = gleich.length ? 0.5 : 1;
+    // Unternehmenszahlen: halbe Größe oder keine Einstiege kurz vor Zahlen nach Handelsschluss
+    const regel = tl?.werte[s.symbol];
+    if (regel?.keinEinstiegAb != null && uhr.minutenSeitOeffnung >= regel.keinEinstiegAb) { log("sperre", `${s.symbol}: ${regel.text}`); continue; }
+    if (regel && regel.faktor < 1) log("info", `${s.symbol}: ${regel.text}`);
     if (gleich.length) log("info", `${s.symbol}: läuft fast gleich wie ${gleich[0]} (Korrelation über 0,7), halbe Positionsgröße`);
     // Marktumfeld verkleinert die fertige Stückzahl, egal ob Risiko oder Höchstposition sie begrenzt
-    const voll = stueckzahl(e, s, konto.equity, konto.cash, b.bruchstuecke); const f = faktor * korrFaktor;
+    const voll = stueckzahl(e, s, konto.equity, konto.cash, b.bruchstuecke); const f = faktor * korrFaktor * (regel?.faktor ?? 1);
     let q = f >= 1 ? voll : b.bruchstuecke && s.richtung === "long" ? Math.floor(voll * f * 1000) / 1000 : Math.floor(voll * f);
     // Restbudget bis zum Verlustlimit: heutiger Stand, Schließkosten und das Risiko offener Positionen bis zu ihren Stopps (TRD-043)
     const offenesRisiko = z.gefuehrt.reduce((a, g) => { const k = bars[g.symbol]?.at(-1)?.c ?? g.einstieg; return a + Math.max(0, (g.richtung === "long" ? k - g.stopp : g.stopp - k)) * Math.abs(g.qty); }, 0)

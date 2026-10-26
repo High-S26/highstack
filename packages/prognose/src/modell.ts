@@ -106,13 +106,15 @@ export function risikolage(l: Lagebild): { lage: Risikolage; faktor: number; gru
   if (vp) { const v = vp.w; const t = `${de(v)}, ${stand(vp.d)}`; if (v < 20) { s += 1; g.push(`VIX ruhig (${t})`); } else if (v > 30) { s -= 2; g.push(`VIX hoch (${t})`); } else { s -= 1; g.push(`VIX erhöht (${t})`); } }
   const h = lies(l.reihen, "hy-spread", l.stichtag), h0 = lies(l.reihen, "hy-spread", l.stichtag, 90);
   if (h != null && h0 != null) { if (h - h0 > 0.75) { s -= 1; g.push("Kreditaufschläge steigen"); } else if (h - h0 < -0.5) { s += 0.5; g.push("Kreditaufschläge sinken"); } }
-  const wichtig = l.ereignisse.filter(e => e.wichtig && !e.symbol && e.datum >= l.stichtag && e.datum <= plusTage(l.stichtag, 1));
-  if (wichtig.length) g.push(`Termin: ${wichtig.map(e => e.titel).join(", ")}`);
+  // Termine mit Uhrzeit zählen nur an ihrem Tag (die Intraday-Pause im Trading deckt den Zeitpunkt ab), ohne Uhrzeit auch am Vortag
+  const wichtig = l.ereignisse.filter(e => e.wichtig && !e.symbol && (e.datum === l.stichtag || (!e.zeit && e.datum === plusTage(l.stichtag, 1))));
+  const terminFaktor = !wichtig.length ? 1 : wichtig.some(e => !e.zeit) ? 0.5 : 0.75;
+  if (wichtig.length) g.push(`Termin: ${wichtig.map(e => e.zeit ? `${e.titel} (${e.zeit} Uhr)` : e.titel).join(", ")}`);
   if (!g.length) return { lage: "neutral", faktor: 1, gruende: ["Keine aktuellen Marktdaten; Positionsgröße unverändert"] };
   // Fehlt der VIX oder ist er veraltet, gibt es keine Entwarnung: höchstens „neutral“
   if (!vp) g.push("VIX fehlt oder ist veraltet");
   let lage: Risikolage = s >= 1 ? "risk-on" : s <= -2 ? "risk-off" : "neutral"; if (!vp && lage === "risk-on") lage = "neutral";
-  const faktor = (lage === "risk-on" ? 1 : lage === "neutral" ? 0.75 : 0.5) * (wichtig.length ? 0.5 : 1);
+  const faktor = (lage === "risk-on" ? 1 : lage === "neutral" ? 0.75 : 0.5) * terminFaktor;
   return { lage, faktor, gruende: g };
 }
 

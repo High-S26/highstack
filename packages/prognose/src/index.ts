@@ -5,3 +5,4 @@ export * from "./modell";
 export * from "./pruefung";
 export * from "./rueckblick";
 export * from "./quellen";
+export * from "./termine";
