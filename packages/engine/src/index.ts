@@ -1,5 +1,6 @@
 export * from "./types";
 export * from "./core";
+export * from "./mietrecht";
 export * from "./module/projekt";
 export * from "./module/index";
 export * from "./analyse";

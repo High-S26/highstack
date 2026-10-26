@@ -16,6 +16,7 @@ import { Grundrissvorschau } from "./Ansicht";
 import { Info } from "../Info";
 import { erklaerung } from "@/lib/erklaerungen";
 import { expertMeta } from "../Experten";
+import { MietFelder, MietpfadPanel } from "./Mietpfad";
 
 type Setze = (patch: Partial<Objektdatensatz>) => void;
 
@@ -38,6 +39,7 @@ export function Daten({ o, a, setze, zuUnterlagen }: { o: Objektdatensatz; a: An
         {!ob.leer && <Zahl label="Ist-Kaltmiete" einheit="€/Monat" wert={ob.miete} onChange={v => set({ miete: v })} schritt={10} />}
         <Zahl voll label={ob.asset === "ETW" ? "Hausgeld, nicht umlagefähig inkl. Rücklage" : "Nicht umlagefähige Kosten"} einheit="€/Monat" wert={ob.hausgeldNichtUmlagefaehig} onChange={v => set({ hausgeldNichtUmlagefaehig: v })} schritt={5} hinweis={ob.hausgeldGesamt ? `Hausgeld gesamt laut Exposé ${eur(ob.hausgeldGesamt)}; angesetzt ${ob.hausgeldNichtUmlagefaehig && Math.round(ob.hausgeldGesamt * 0.4) === ob.hausgeldNichtUmlagefaehig ? "40 % als nicht umlagefähig" : "der genannte nicht umlagefähige Teil"}` : undefined} />
       </div>
+      <MietFelder ob={ob} set={set} />
       <div className="grp">Grundriss</div>
       <Grundrissvorschau o={o} zuUnterlagen={zuUnterlagen ?? (() => undefined)} />
       <div className="grp">Stellplatz</div>
@@ -79,6 +81,7 @@ export function Playbook({ o, a, zuDurchspielen }: { o: Objektdatensatz; a: Anal
       <ul className="sr-liste"><li><span className="sr-punkt m-angebot" aria-hidden="true" /><span>Angebotspreis{o.objekt.stellplaetze?.some(x => x.erwerben && x.preis === "separat") ? " inkl. Stellplatz" : ""}</span><b>{eur(angebot)}</b><span /></li>{da.map(([l, v, c]) => <li key={c}><span className={`sr-punkt m-${c}`} aria-hidden="true" /><span>{l}</span><b>{eur(v)}</b><span className={v >= angebot ? "up" : "dn"}>{v >= angebot ? `${eur(v - angebot)} Luft` : `${eur(angebot - v)} darüber`}</span></li>)}</ul>
       <p className="say-k">{verhandeln == null ? "Für Zielpreise fehlt noch die Miete." : verhandeln <= 0 ? `Das Angebot liegt in allen Grenzen, ${eur(-verhandeln)} unter der engsten.` : `Damit alles aufgeht, müsste der Preis um ${eur(verhandeln)} (${pct(verhandeln / angebot, 0)}) sinken, oder Eigenkapital, Zins oder Miete ändern sich.`}
         {zuDurchspielen && <> <button type="button" className="linkbtn" onClick={zuDurchspielen}>Durchspielen</button></>}</p>
+      <MietpfadPanel o={o.objekt} a={a} />
     </section>
   );
 }
@@ -235,7 +238,10 @@ export function Durchspielen({ o, a, setze }: { o: Objektdatensatz; a: Analyse; 
         <div className="ph"><h2>Durchspielen</h2><Zuruecksetzen o={o} setze={setze} /></div>
         <Strategien o={o} a={a} setze={setze} vorlage={vorlage} />
         <div className="simgrid">
-          <div className="sliders">{REGLER.map(r => <Reglerzeile key={r.key} r={r} a={a} wert={s[r.key] as number} setze={v => setzeWert(r.key, v)} maxEk={Math.max(p.eigenkapital * 1.5, m?.gesamtinvestition ?? 0)} />)}</div>
+          <div className="sliders">
+            <Auswahl label="Mietentwicklung" wert={s.mietentwicklung ?? "mietrecht"} optionen={[["mietrecht", "nach Mietrecht"], ["pauschal", "pauschal"]]} onChange={v => setze({ szenario: { ...o.szenario, mietentwicklung: v } })} />
+            {s.mietentwicklung !== "pauschal" && !a.mietrecht && <p className="note">Ohne Vergleichsmiete steigt die Miete pauschal.</p>}
+            {REGLER.map(r => <Reglerzeile key={r.key} r={r.key === "mietsteigerung" && s.mietentwicklung !== "pauschal" && a.mietrecht ? { ...r, label: "Vergleichsmiete p. a." } : r} a={a} wert={s[r.key] as number} setze={v => setzeWert(r.key, v)} maxEk={Math.max(p.eigenkapital * 1.5, m?.gesamtinvestition ?? 0)} />)}</div>
           <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
             {m ? <div className="res">{([["Cashflow Jahr 1 / Monat", eur(m.cashflowJahr1Monat)], ["Ø Cashflow / Monat", eur(m.cashflowSchnittMonat)], ["Zuzahlung gesamt", m.cashflowSumme + Math.min(0, m.beimKauf) < 0 ? eur(-(m.cashflowSumme + Math.min(0, m.beimKauf))) : "keine"], ["Nettovermögen am Ende", teur(m.nettovermoegenEnde)], ["Eigenkapitalrendite vor Steuern", pct(m.irr)], ["DSCR Jahr 1", num(m.dscrJahr1)]] as const).map(([l, v]) => <div key={l}><span>{l}</span><strong>{v}</strong></div>)}</div> : <div className="empty">Für das Durchspielen fehlen Kaufpreis oder Miete.</div>}
             <Verlauf a={a} />

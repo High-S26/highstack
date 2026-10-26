@@ -1,6 +1,7 @@
 import type { Anlageprofil, Investorenprofil, Objekt, Szenario } from "./types";
 import { bewerte, params, simuliere, spielraum, standardSzenario, steuern, VORLAGEN, zielpreis, type Simulation, mitStellplaetzen } from "./core";
 import { MODULE, rechneModul } from "./module/index";
+import { flaechen, mietpfad, type Mietpfad } from "./mietrecht";
 
 export interface Analyseeingabe {
   investor: Investorenprofil;
@@ -10,6 +11,20 @@ export interface Analyseeingabe {
   szenario?: Partial<Szenario>;
   /** Aktivierte Gestaltungsmodule mit Parametern */
   module?: Record<string, Record<string, number | string | boolean>>;
+  /** Monat des Übergangs (JJJJ-MM) für Fristen; Standard: aktueller Monat */
+  stichtag?: string;
+}
+
+/** Was der Mietpfad für die Kalkulation bedeutet: mit gesetzlicher Anpassung gegenüber eingefrorener Miete */
+export interface Mietwirkung {
+  pfad: Mietpfad;
+  cashflow: { jahr: number; mit: number; ohne: number }[];
+  irrMit: number | null; irrOhne: number | null;
+  mehrMieteSumme: number;
+  /** Kaufpreis für Cashflow ± 0, wenn die Miete die Vergleichsmiete erreicht hat */
+  zielpreisVergleichsmiete: number | null;
+  /** Kaufpreis für Cashflow ± 0 bei Neuvermietung zum zulässigen Höchstwert */
+  zielpreisNeuvermietung: number | null;
 }
 
 const r0 = (v: number | null | undefined) => v != null && Number.isFinite(v) ? Math.round(v) : null;
@@ -26,6 +41,7 @@ export function analyse(e: Analyseeingabe) {
   const o = mitStellplaetzen(e.objekt);
   const bewertung = bewerte(p, o);
   const s: Szenario = { ...standardSzenario(p), ...(e.szenario ?? {}) };
+  s.stichtag = e.stichtag ?? s.stichtag ?? new Date().toISOString().slice(0, 7);
   const sim = simuliere(p, o, bewertung.miete, s);
   const vorlagen = Object.fromEntries(Object.entries(VORLAGEN).map(([k, v]) => [k, simuliere(p, o, bewertung.miete, { ...s, ...v })]));
   const variationen: [string, Partial<Szenario>, Partial<Szenario> | null][] = [
@@ -46,8 +62,28 @@ export function analyse(e: Analyseeingabe) {
     dscr: zp("dscr", e.investor.minDscr),
   };
   const st = sim ? steuern(sim, p, o) : null;
+  const mietrecht = mietwirkung(p, o, bewertung.miete, s, sim);
   const module = Object.fromEntries(Object.entries(e.module ?? {}).map(([id, werte]) => [id, rechneModul(id, werte, o, p)]));
-  return { params: p, spielraum: spielraum(p), bewertung, szenario: s, simulation: sim, vorlagen, sensitivitaet, zielpreise, steuern: st, module };
+  return { params: p, spielraum: spielraum(p), bewertung, szenario: s, simulation: sim, vorlagen, sensitivitaet, zielpreise, steuern: st, module, mietrecht };
+}
+
+function mietwirkung(p: ReturnType<typeof params>, o: Objekt, miete: number | null, s: Szenario, sim: Simulation | null): Mietwirkung | null {
+  if (!miete || !sim) return null;
+  const pfad = mietpfad(o, { jahre: s.haltedauer, vmSteigerung: s.mietsteigerung, inflation: s.kostensteigerung, stichtag: s.stichtag });
+  if (!pfad) return null;
+  // Vergleich: Miete bleibt eingefroren (keine Anpassung)
+  const ohne = simuliere(p, o, miete, { ...s, mietentwicklung: "pauschal", mietsteigerung: 0 })!;
+  const mit = s.mietentwicklung === "pauschal" ? simuliere(p, o, miete, { ...s, mietentwicklung: "mietrecht" })! : sim;
+  const extra = Math.max(0, miete - pfad.start);
+  const pauschal = { ...s, mietentwicklung: "pauschal" as const };
+  return {
+    pfad,
+    cashflow: [1, 2, 3, 5, 10].filter(j => j <= mit.jahre.length).map(j => ({ jahr: j, mit: mit.jahre[j - 1]!.cashflow / 12, ohne: ohne.jahre[j - 1]!.cashflow / 12 })),
+    irrMit: mit.irr, irrOhne: ohne.irr,
+    mehrMieteSumme: mit.jahre.reduce((a, j, i) => a + j.miete - ohne.jahre[i]!.miete, 0),
+    zielpreisVergleichsmiete: zielpreis(p, o, pfad.vergleichsmiete + extra, pauschal, "cashflow", 0),
+    zielpreisNeuvermietung: pfad.zulaessigNeuvermietung ? zielpreis(p, o, Math.min(pfad.zulaessigNeuvermietung, Math.max(pfad.vergleichsmiete, o.neuvermietungQm ? o.neuvermietungQm * pfad.flaeche : 0)) + extra, pauschal, "cashflow", 0) : null,
+  };
 }
 export type Analyse = ReturnType<typeof analyse>;
 
@@ -59,6 +95,8 @@ export function agentenkontext(e: Analyseeingabe, a: Analyse = analyse(e)) {
     anlageprofil: { name: ap.name, strategie: ap.strategie, regionen: ap.regionen, assetklassen: ap.assetklassen, minBruttorendite: ap.minBruttorendite, maxFaktor: ap.maxFaktor, minCashflow: ap.minCashflow, haltedauer: ap.haltedauer },
     spielraum: { kaufpreisBis: r0(a.spielraum.kpMax), rateMonat: r0(a.spielraum.rate), noetigeRenditeFuerCashflowNull: r3(a.spielraum.noetigeRendite) },
     objekt: e.objekt,
+    flaeche: (() => { const f = flaechen(e.objekt); return f.angerechnet ? { wohnflaeche: f.wohnflaeche, aussenflaeche: f.aussen, angerechnet: r3(f.angerechnet), gerechnetMit: r3(f.gesamt) } : undefined; })(),
+    mietpfad: a.mietrecht ? { regulierung: a.mietrecht.pfad.regulierung.text, vertrag: a.mietrecht.pfad.vertrag, istMiete: r0(a.mietrecht.pfad.start), istQm: r3(a.mietrecht.pfad.istQm), vergleichsmiete: r0(a.mietrecht.pfad.vergleichsmiete), potenzialMonat: r0(a.mietrecht.pfad.potenzialMonat), zulaessigBeiNeuvermietung: r0(a.mietrecht.pfad.zulaessigNeuvermietung), ersteErhoehung: a.mietrecht.pfad.ersteErhoehung && { ab: a.mietrecht.pfad.ersteErhoehung.datum, auf: r0(a.mietrecht.pfad.ersteErhoehung.miete), grund: a.mietrecht.pfad.ersteErhoehung.grund }, vergleichsmieteErreicht: a.mietrecht.pfad.vergleichErreicht, cashflowMitUndOhneAnpassung: a.mietrecht.cashflow.map(c => ({ jahr: c.jahr, mit: r0(c.mit), ohne: r0(c.ohne) })), irrMit: r3(a.mietrecht.irrMit), irrOhne: r3(a.mietrecht.irrOhne), kaufpreisCashflowNullBeiVergleichsmiete: r0(a.mietrecht.zielpreisVergleichsmiete), hinweise: a.mietrecht.pfad.hinweise } : undefined,
     bewertung: { score: r0(a.bewertung.score), einstufung: a.bewertung.einstufung, kennzahlen: Object.fromEntries(Object.entries(a.bewertung.kennzahlen).map(([k, v]) => [k, r3(v)])), hinweise: a.bewertung.hinweise.map(h => h.text) },
     einstellungDurchspielen: { annahmen: a.szenario, ergebnis: simKurz(a.simulation) },
     vergleich: Object.fromEntries(Object.entries(a.vorlagen).map(([k, v]) => [k, simKurz(v)])),

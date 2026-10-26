@@ -10,8 +10,9 @@ const ZAHLEN: Partial<Record<keyof Objekt, [number, number, string]>> = {
   marktmieteQm: [0, 500, "Vergleichsmiete je m²"], vergleichspreisQm: [0, 200_000, "Vergleichspreis je m²"],
   hausgeldNichtUmlagefaehig: [0, 1e7, "Hausgeld nicht umlagefähig"], hausgeldGesamt: [0, 1e7, "Hausgeld gesamt"],
   ruecklageAnteil: [0, 1e9, "Rücklage, Ihr Anteil"], bodenrichtwert: [0, 200_000, "Bodenrichtwert"], gebaeudeanteil: [0, 1, "Gebäudeanteil"],
-  baujahr: [0, new Date().getFullYear() + 10, "Baujahr"],
+  baujahr: [0, new Date().getFullYear() + 10, "Baujahr"], neuvermietungQm: [0, 500, "Neuvermietung je m²"],
 };
+const AUSSENARTEN = ["balkon", "loggia", "terrasse", "dachterrasse", "garten", "wintergarten"];
 const TEXTE: (keyof Objekt)[] = ["titel", "ort", "asset", "wohnlage"];
 const JANEIN: (keyof Objekt)[] = ["leer", "erbbaurecht", "sonderumlage"];
 export const ENERGIEKLASSEN = ["A+", "A", "B", "C", "D", "E", "F", "G", "H"];
@@ -35,6 +36,26 @@ export function bereinige(o: Record<string, unknown>): { objekt: Partial<Objekt>
       if (ok.length !== w.length) v.push("Stellplätze: ungültige Einträge nicht übernommen");
       out[k] = ok; continue;
     }
+    if (k === "aussenflaeche") {
+      if (w == null) { out[k] = null; continue; }
+      const a = w as Record<string, unknown>;
+      const qm = a.qm == null ? null : typeof a.qm === "number" && a.qm >= 0 && a.qm <= 10000 ? a.qm : undefined;
+      if (typeof a !== "object" || !AUSSENARTEN.includes(String(a.art)) || qm === undefined) { v.push("Außenfläche: ungültig"); continue; }
+      out[k] = { art: a.art, qm, anrechnung: typeof a.anrechnung === "number" ? Math.min(0.5, Math.max(0, a.anrechnung)) : 0.25, inWohnflaeche: a.inWohnflaeche === true, ausrichtung: typeof a.ausrichtung === "string" ? a.ausrichtung.slice(0, 40) : null, ...(typeof a.anbieterAnrechnung === "number" ? { anbieterAnrechnung: Math.min(0.5, Math.max(0, a.anbieterAnrechnung)) } : {}) };
+      continue;
+    }
+    if (k === "mietvertrag") {
+      if (w == null) { out[k] = null; continue; }
+      const m = w as Record<string, unknown>;
+      if (typeof m !== "object" || !["standard", "staffel", "index"].includes(String(m.art))) { v.push("Mietvertrag: Art ungültig"); continue; }
+      const datum = m.letzteErhoehung == null || m.letzteErhoehung === "" ? null : typeof m.letzteErhoehung === "string" && /^(19|20)\d\d-(0[1-9]|1[0-2])$/.test(m.letzteErhoehung) ? m.letzteErhoehung : undefined;
+      if (datum === undefined) { v.push("Letzte Mieterhöhung: Monat als JJJJ-MM"); continue; }
+      const sp = typeof m.staffelProzent === "number" && Math.abs(m.staffelProzent) <= 0.2 ? m.staffelProzent : null;
+      const wj = typeof m.mieterwechselJahr === "number" && m.mieterwechselJahr >= 1 && m.mieterwechselJahr <= 60 ? Math.round(m.mieterwechselJahr) : null;
+      out[k] = { art: m.art, letzteErhoehung: datum, staffelProzent: sp, mieterwechselJahr: wj };
+      continue;
+    }
+    if (k === "mietregulierung") { if (w == null || w === "angespannt" || w === "normal") out[k] = w ?? null; else v.push("Mietregulierung: angespannt oder normal"); continue; }
     if (k === "gefragt" || k === "herkunft") { if (w && typeof w === "object" && !Array.isArray(w)) out[k] = w; else v.push(`${k}: ungültig`); continue; }
     // unbekannte Felder werden nicht gespeichert
   }

@@ -42,7 +42,10 @@ export async function POST(req: Request) {
     const r = await fuehreAus<{ objekte: Extrakt[] }>("datenanalyst", { client, modelle, eingabe: { investor: p.investor, anlageprofil: ap, objekt: { ...BEISPIEL_OBJEKT, titel: "Erfassung" } }, signal: req.signal, ...(bild ? { bilder: [bild] } : {}) }, bild ? `Erkenne das Objekt auf diesem Foto einer Anzeige bzw. eines Aushangs und extrahiere die Daten. Es ist genau ein Objekt. Zur Kontrolle der Text aus der automatischen Texterkennung (kann Lesefehler enthalten):\n"""${text.slice(0, 20000)}"""` : `Erkenne das Objekt in diesem Exposé bzw. Inserat und extrahiere die Daten. Es ist genau ein Objekt. Text:\n"""${text.slice(0, 60000)}"""`);
     const x = r.ergebnis.objekte?.[0];
     if (!x) return Response.json({ ...muster, text: text.slice(0, 20000), hinweis });
-    const felder = { ...muster.felder, ...ausExtrakt(x) };
+    const ki = ausExtrakt(x);
+    // Anrechnungsanteil der Außenfläche (aus der Gesamtfläche im Inserat) kennt nur die Mustererkennung
+    if (ki.aussenflaeche && muster.felder.aussenflaeche?.art === ki.aussenflaeche.art) ki.aussenflaeche = { ...ki.aussenflaeche, anrechnung: muster.felder.aussenflaeche.anrechnung, ...(muster.felder.aussenflaeche.anbieterAnrechnung != null ? { anbieterAnrechnung: muster.felder.aussenflaeche.anbieterAnrechnung } : {}), qm: ki.aussenflaeche.qm ?? muster.felder.aussenflaeche.qm, inWohnflaeche: muster.felder.aussenflaeche.qm ? muster.felder.aussenflaeche.inWohnflaeche : ki.aussenflaeche.inWohnflaeche };
+    const felder = { ...muster.felder, ...ki };
     const gefunden = (Object.keys(felder) as (keyof typeof felder)[]).filter(k => !["asset", "titel", "gefragt", "hausgeldGesamt"].includes(k));
     return Response.json({ felder, gefunden, quelle: "ki", text: text.slice(0, 20000), hinweis });
   } catch { return Response.json({ ...muster, text: text.slice(0, 20000), hinweis: "Der Daten-Analyst war nicht erreichbar; die Werte stammen aus der Mustererkennung." }); }

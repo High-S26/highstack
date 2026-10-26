@@ -51,7 +51,9 @@ export const EXTRAKTION_SCHEMA = {
       kaufpreis: { type: ["number", "null"] }, wohnflaeche: { type: ["number", "null"] }, vermietet: { type: ["boolean", "null"] },
       kaltmieteMonat: { type: ["number", "null"] }, hausgeldNichtUmlagefaehig: { type: ["number", "null"] }, hausgeldGesamt: { type: ["number", "null"] },
       ruecklageAnteil: { type: ["number", "null"] }, baujahr: { type: ["number", "null"] }, energieklasse: { type: ["string", "null"] },
-      erbbaurecht: { type: ["boolean", "null"] }, sonderumlage: { type: ["boolean", "null"] }, provisionProzent: { type: ["number", "null"] }, auszug: str,
+      erbbaurecht: { type: ["boolean", "null"] }, sonderumlage: { type: ["boolean", "null"] },
+      aussenflaeche: { type: ["object", "null"], properties: { art: { type: "string", enum: ["balkon", "loggia", "terrasse", "dachterrasse", "garten", "wintergarten"] }, qm: { type: ["number", "null"] }, inWohnflaeche: { type: ["boolean", "null"], description: "true, wenn in der genannten Wohnfläche enthalten; false bei „zzgl.“" }, ausrichtung: { type: ["string", "null"], description: "z. B. Süd, Südwest" } }, required: ["art"] },
+      mietvertragArt: { type: ["string", "null"], enum: ["standard", "staffel", "index", null] }, letzteMieterhoehung: { type: ["string", "null"], description: "JJJJ-MM" }, provisionProzent: { type: ["number", "null"] }, auszug: str,
       stellplaetze: { type: "array", items: { type: "object", properties: {
         art: { type: "string", enum: ["tiefgarage", "aussen", "garage", "carport", "duplex"] },
         preis: { type: "string", enum: ["inklusive", "separat", "unbekannt"] }, kaufpreis: { type: ["number", "null"] },

@@ -81,3 +81,25 @@ describe("Nachtest Welle 2 Investments", () => {
     expect(r.verworfen.length).toBe(4);
   });
 });
+
+describe("Außenfläche und Mietvertrag (Aushang Dachterrasse)", async () => {
+  const { aussenflaecheAusText, mietvertragAusText, musterErkennung } = await import("../lib/erfassung");
+  it("erkennt Dachterrasse mit Größe, Ausrichtung und Anbieter-Anrechnung", () => {
+    const t = "Charmante Dachgeschosswohnung in Düsseldorf-Mitte\nca. 41,3 m² (Wohnfläche 33,5 m² zzgl. 15,6 m² Dachterrasse mıt Südausrichtung)\nDie Wohnung ist derzeit vermietet. Kaltmiete aktuell: 422 €\nKaufpreis: 165.200 €";
+    const f = musterErkennung(t).felder;
+    expect(f.wohnflaeche).toBe(33.5);
+    expect(f.aussenflaeche).toEqual({ art: "dachterrasse", qm: 15.6, anrechnung: 0.25, inWohnflaeche: false, ausrichtung: "Süd", anbieterAnrechnung: 0.5 });
+  });
+  it("Balkon inklusive, verneint, ohne Größe", () => {
+    expect(aussenflaecheAusText("Wohnfläche 72 m² inkl. Balkon (6 m²), Westbalkon.", 72)).toMatchObject({ art: "balkon", qm: 6, inWohnflaeche: true, ausrichtung: "West" });
+    expect(aussenflaecheAusText("Die Wohnung hat keinen Balkon.", 50)).toBeNull();
+    expect(aussenflaecheAusText("Schöne Wohnung mit Loggia nach Süden.", 50)).toMatchObject({ art: "loggia", qm: null, ausrichtung: "Süd" });
+    expect(aussenflaecheAusText("Wohnung in der Gartenstraße 5", 50)).toBeNull();
+  });
+  it("Staffel-, Indexmiete und letzte Mieterhöhung", () => {
+    expect(mietvertragAusText("Indexmietvertrag, letzte Mieterhöhung 03/2025")).toEqual({ art: "index", letzteErhoehung: "2025-03" });
+    expect(mietvertragAusText("Staffelmiete mit 2,5 % pro Jahr")).toMatchObject({ art: "staffel", staffelProzent: 0.025 });
+    expect(mietvertragAusText("Mieterhöhung zuletzt 2024")).toEqual({ art: "standard", letzteErhoehung: "2024-01" });
+    expect(mietvertragAusText("Kaltmiete 500 €")).toBeNull();
+  });
+});

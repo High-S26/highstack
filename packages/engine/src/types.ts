@@ -70,6 +70,40 @@ export interface Objekt {
   hausgeldGesamt?: number | null;
   /** Woher ein Wert stammt, wenn er ermittelt und nicht eingegeben wurde */
   herkunft?: Record<string, { quelle: string; von: number; bis: number; am: number }>;
+  /** Balkon, Loggia, Terrasse, Dachterrasse, Garten */
+  aussenflaeche?: Aussenflaeche | null;
+  /** Mietvertrag: Art und Stand der letzten Erhöhung (für den Mietpfad nach Mietrecht) */
+  mietvertrag?: Mietvertrag | null;
+  /** Gilt am Ort Mietpreisbremse und abgesenkte Kappungsgrenze? null = nach Ort ermitteln */
+  mietregulierung?: "angespannt" | "normal" | null;
+  /** Angestrebte Kaltmiete je m² bei Neuvermietung; ohne Angabe die ortsübliche Vergleichsmiete */
+  neuvermietungQm?: number | null;
+}
+
+export type Aussenart = "balkon" | "loggia" | "terrasse" | "dachterrasse" | "garten" | "wintergarten";
+/**
+ * Außenfläche. Nach Wohnflächenverordnung zählen Balkone, Loggien, Dachgärten und Terrassen in der Regel zu einem Viertel,
+ * höchstens zur Hälfte zur Wohnfläche; Gärten zählen nicht.
+ */
+export interface Aussenflaeche {
+  art: Aussenart;
+  qm: number | null;
+  /** Anteil, mit dem die Fläche zur Wohnfläche zählt (0,25 Regelfall, bis 0,5) */
+  anrechnung: number;
+  /** schon in der angegebenen Wohnfläche enthalten */
+  inWohnflaeche: boolean;
+  ausrichtung?: string | null;
+  /** Anteil, mit dem der Anbieter die Fläche in seiner Gesamtangabe ansetzt (nur Hinweis) */
+  anbieterAnrechnung?: number;
+}
+export interface Mietvertrag {
+  art: "standard" | "staffel" | "index";
+  /** Monat, ab dem die letzte Erhöhung galt (JJJJ-MM); unbekannt = gerade erst erhöht (vorsichtig) */
+  letzteErhoehung?: string | null;
+  /** Staffel pro Jahr (Staffelmiete) */
+  staffelProzent?: number | null;
+  /** Angenommener Mieterwechsel im Haltejahr x (Neuvermietung), sonst keiner */
+  mieterwechselJahr?: number | null;
 }
 
 /** Einstellung im Durchspielen. Prozentwerte als Dezimalzahl. */
@@ -86,6 +120,10 @@ export interface Szenario {
   wertentwicklung: number;
   haltedauer: number;
   hausgeldFaktor?: number;
+  /** „mietrecht“: Miete folgt den gesetzlichen Erhöhungsregeln Richtung Vergleichsmiete (mietsteigerung = Entwicklung der Vergleichsmiete); „pauschal“: Miete steigt jedes Jahr um mietsteigerung */
+  mietentwicklung?: "mietrecht" | "pauschal";
+  /** Monat des Übergangs (JJJJ-MM), Bezug für Fristen im Mietpfad */
+  stichtag?: string;
   /** Eigene Positionen: z. B. Stellplatz, Küche, Sondertilgung */
   positionen?: Position[];
 }

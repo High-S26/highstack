@@ -170,3 +170,10 @@ Der Forecast-Teil (Version 0.13) war nicht Gegenstand dieses Laufs. Im nächsten
 - Unterlagen: Fotos mit Anzeigenmerkmalen landen unter „Exposé & Inserat“ statt „Fotos“, der erkannte Text steht den Experten zur Verfügung.
 - HEIC (iPhone) wird mit Hinweis abgelehnt: bitte als JPG teilen.
 - Geprüft mit dem Aushang „Dachgeschosswohnung Düsseldorf-Mitte“ im Test, im Server und im eigenständigen Paket (ca. 5 s je Foto).
+
+## 0.19.0: Außenfläche und Mietpfad nach Mietrecht
+- Außenfläche (Balkon, Loggia, Terrasse, Dachterrasse, Wintergarten, Garten) mit Größe, Ausrichtung, „in Wohnfläche enthalten“ und Anrechnung nach Wohnflächenverordnung (Regelfall ein Viertel, höchstens die Hälfte). Gerechnet wird mit Wohnfläche + angerechnetem Anteil (Marktmiete, Preis je m²). Setzt der Anbieter mehr an (Aushang: 41,3 m² = Terrasse zur Hälfte), steht das als Hinweis dabei.
+- Mietvertrag: Art (normal, Staffel, Index), letzte Mieterhöhung, angenommener Mieterwechsel, Regulierung am Ort, Ziel bei Neuvermietung. Erkennung aus Exposé, Text und Foto; Concierge fragt nach der letzten Erhöhung.
+- Mietpfad (Rechenkern `mietrecht.ts`): § 558 mit 15 Monaten Sperrfrist (frühestens ab dem dritten Monat nach Übergang), Kappungsgrenze 15 % bzw. 20 % in drei Jahren, Obergrenze Vergleichsmiete; Neuvermietung mit Mietpreisbremse höchstens Vergleichsmiete + 10 % oder Vormiete; Index jährlich nach Inflation, Staffel nach Vertrag. Stand Oktober 2026 (NRW-Mieterschutzverordnung, Mietpreisbremse bis 2029; Mietrecht II nur als Hinweis).
+- Kalkulation: Durchspielen rechnet standardmäßig „nach Mietrecht“ (Mietsteigerung = Entwicklung der Vergleichsmiete), umschaltbar auf „pauschal“. Playbook zeigt Mietpotenzial, Termine, Cashflow mit und ohne Anpassung, Eigenkapitalrendite mit/ohne, Kaufpreis für Cashflow ± 0 bei erreichter Vergleichsmiete und bei Neuvermietung.
+- Experten Verwalter, Recht, Vermögen und Datenanalyst kennen Mietpfad und Außenfläche.

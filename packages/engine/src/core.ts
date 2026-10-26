@@ -1,4 +1,5 @@
 import type { Anlageprofil, Einstufung, Investorenprofil, Objekt, Params, Position, Stellplatz, Szenario } from "./types";
+import { AUSSENART, flaechen, mietpfad } from "./mietrecht";
 
 export const GRUNDERWERBSTEUER: Record<string, number> = {
   NW: 0.065, BW: 0.05, BY: 0.035, BE: 0.06, BB: 0.065, HB: 0.05, HH: 0.055, HE: 0.06,
@@ -83,9 +84,10 @@ export function bewerte(p: Params, o: Objekt) {
     rate = darlehen * (p.sollzins + p.tilgung) / 12;
     Object.assign(k, { nebenkosten: o.kaufpreis * nk, gesamtinvestition: invest, darlehen, finanzierungsluecke: luecke, rateMonat: rate, beleihungsauslauf: darlehen / (o.kaufpreis * (1 - p.beleihungsabschlag)), ekQuote: Math.min(p.eigenkapital, invest) / invest });
   }
+  const fl = flaechen(o);
   let miete = o.leer ? null : o.miete;
-  if (!miete && o.marktmieteQm && o.wohnflaeche) {
-    miete = o.marktmieteQm * o.wohnflaeche;
+  if (!miete && o.marktmieteQm && fl.gesamt) {
+    miete = o.marktmieteQm * fl.gesamt;
     hinweise.push({ art: "info", text: `Keine Ist-Miete: Marktmiete laut Mietspiegel angesetzt (${eurDe(miete)} € pro Monat).` });
   }
   const sp = stellplatzSumme(o);
@@ -103,9 +105,17 @@ export function bewerte(p: Params, o: Objekt) {
     const nettoJ = jm * (1 - p.mietausfall) - (o.hausgeldNichtUmlagefaehig ?? 0) * 12;
     Object.assign(k, { bruttorendite: jm / o.kaufpreis, faktor: o.kaufpreis / jm, nettomietrendite: nettoJ / invest, cashflowMonat: miete * (1 - p.mietausfall) - (o.hausgeldNichtUmlagefaehig ?? 0) - rate, dscr: rate > 0 ? nettoJ / (rate * 12) : null });
   }
-  if (o.kaufpreis && o.wohnflaeche) k.preisQm = o.kaufpreis / o.wohnflaeche;
+  if (o.kaufpreis && fl.gesamt) k.preisQm = o.kaufpreis / fl.gesamt;
   if (k.preisQm && o.vergleichspreisQm) k.preisVsMarkt = k.preisQm / o.vergleichspreisQm - 1;
-  if (o.miete && o.wohnflaeche && o.marktmieteQm && !o.leer) k.mietpotenzial = o.marktmieteQm / (o.miete / o.wohnflaeche) - 1;
+  if (o.miete && fl.gesamt && o.marktmieteQm && !o.leer) { k.mietpotenzial = o.marktmieteQm / (o.miete / fl.gesamt) - 1; k.mietpotenzialMonat = o.marktmieteQm * fl.gesamt - o.miete; }
+  const au = o.aussenflaeche;
+  if (au?.qm && au.qm > 0) {
+    const name = AUSSENART[au.art]?.label ?? "Außenfläche"; const ri = au.ausrichtung ? ` (${au.ausrichtung})` : "";
+    const qmDe = (v: number) => v.toLocaleString("de-DE", { maximumFractionDigits: 1 });
+    if (au.art === "garten") hinweise.push({ art: "good", text: `${name} ${qmDe(au.qm)} m²${ri}: zählt nicht zur Wohnfläche, steigert aber Vermietbarkeit und Wiederverkauf.` });
+    else if (au.inWohnflaeche) hinweise.push({ art: "good", text: `${name} ${qmDe(au.qm)} m²${ri} ist in der Wohnfläche enthalten. Prüfen, mit welchem Anteil: Regelfall ein Viertel, höchstens die Hälfte (Wohnflächenverordnung).` });
+    else hinweise.push({ art: "good", text: `${name} ${qmDe(au.qm)} m²${ri}: angerechnet ${qmDe(fl.angerechnet)} m² (${au.anrechnung >= 0.5 ? "zur Hälfte, Höchstwert nach Wohnflächenverordnung" : `zu ${Math.round(au.anrechnung * 100)} %`}), gerechnet mit ${qmDe(fl.gesamt ?? 0)} m². ${au.anrechnung < 0.5 ? `${au.anbieterAnrechnung && au.anbieterAnrechnung > au.anrechnung ? `Der Anbieter setzt sie zur Hälfte an (${qmDe((o.wohnflaeche ?? 0) + au.qm / 2)} m²). Für Mieterhöhungen zählt die tatsächliche Wohnfläche, meist mit einem Viertel; der Preis je m² wirkt mit der Anbieterfläche günstiger.` : `Zur Hälfte angesetzt wären es ${qmDe((o.wohnflaeche ?? 0) + au.qm / 2)} m² (Höchstwert, z. B. bei besonders hochwertiger Terrasse).`}` : "Für die Miete zählt die im Mietvertrag vereinbarte Fläche."}` });
+  }
 
   const teil = {
     rendite: fin(k.bruttorendite) ? lin(k.bruttorendite, ap.minBruttorendite * 0.6, 0, ap.minBruttorendite * 1.4, 100) : null,
@@ -142,7 +152,7 @@ export function bewerte(p: Params, o: Objekt) {
 }
 
 export function standardSzenario(p: Params): Szenario {
-  return { kaufpreisAenderung: 0, eigenkapital: p.eigenkapital, sollzins: p.sollzins, tilgung: p.tilgung, anschlusszinsAufschlag: 0.005, mietFaktor: 1, mietsteigerung: 0.02, kostensteigerung: 0.02, leerstandZusatz: 0, wertentwicklung: 0.015, haltedauer: p.anlageprofil.haltedauer };
+  return { kaufpreisAenderung: 0, eigenkapital: p.eigenkapital, sollzins: p.sollzins, tilgung: p.tilgung, anschlusszinsAufschlag: 0.005, mietFaktor: 1, mietsteigerung: 0.02, kostensteigerung: 0.02, leerstandZusatz: 0, wertentwicklung: 0.015, haltedauer: p.anlageprofil.haltedauer, mietentwicklung: "mietrecht" };
 }
 export const VORLAGEN = {
   konservativ: { kaufpreisAenderung: 0, mietsteigerung: 0.01, kostensteigerung: 0.03, wertentwicklung: 0, anschlusszinsAufschlag: 0.02, leerstandZusatz: 0.03, mietFaktor: 1 },
@@ -174,6 +184,9 @@ export function simuliere(p: Params, o: Objekt, mieteMonat: number | null, s: Sz
   const ausfall = Math.min(0.95, p.mietausfall + s.leerstandZusatz);
   const hausgeld = (o.hausgeldNichtUmlagefaehig ?? 0) * (s.hausgeldFaktor ?? 1);
   const miete0 = mieteMonat * s.mietFaktor;
+  // Mietpfad nach Mietrecht: Wohnungsmiete folgt den gesetzlichen Erhöhungsregeln; Stellplatzmieten steigen pauschal
+  const pfad = s.mietentwicklung !== "pauschal" ? mietpfad(o, { jahre: s.haltedauer, vmSteigerung: s.mietsteigerung, inflation: s.kostensteigerung, stichtag: s.stichtag }) : null;
+  const extra = pfad ? Math.max(0, mieteMonat - pfad.start) : 0;
   let rest = darlehen, z = s.sollzins, annuitaet = darlehen * (s.sollzins + s.tilgung);
   const pos = (s.positionen ?? []).filter(x => Number.isFinite(x.betrag) && x.betrag !== 0);
   // Jahr 0: einmalige Positionen beim Kauf verändern den Eigenkapitaleinsatz
@@ -181,7 +194,7 @@ export function simuliere(p: Params, o: Objekt, mieteMonat: number | null, s: Sz
   const jahre: Jahr[] = [];
   for (let t = 1; t <= s.haltedauer; t++) {
     if (t === p.zinsbindung + 1 && rest > 0) { z = s.sollzins + s.anschlusszinsAufschlag; annuitaet = rest * (z + s.tilgung); }
-    const miete = miete0 * 12 * Math.pow(1 + s.mietsteigerung, t - 1) * (1 - ausfall);
+    const miete = (pfad ? (pfad.jahre[t - 1]! + extra * 12 * Math.pow(1 + s.mietsteigerung, t - 1)) * s.mietFaktor : miete0 * 12 * Math.pow(1 + s.mietsteigerung, t - 1)) * (1 - ausfall);
     const kosten = hausgeld * 12 * Math.pow(1 + s.kostensteigerung, t - 1);
     const zins = rest * z;
     const tilgung = Math.max(0, Math.min(rest, annuitaet - zins));
@@ -198,7 +211,7 @@ export function simuliere(p: Params, o: Objekt, mieteMonat: number | null, s: Sz
   flows[flows.length - 1]! += ende.wert - ende.restschuld;
   const dscrs = jahre.map(j => j.dscr).filter(fin);
   return {
-    kaufpreis: kp, gesamtinvestition: invest, beimKauf, nebenkostenSatz: nk, darlehen, ekEinsatz, jahre, miete0, ausfall, hausgeld,
+    kaufpreis: kp, gesamtinvestition: invest, beimKauf, nebenkostenSatz: nk, darlehen, ekEinsatz, jahre, miete0, ausfall, hausgeld, mietrecht: !!pfad,
     rateMonat: darlehen * (s.sollzins + s.tilgung) / 12,
     nettovermoegenStart: kp - darlehen,
     cashflowJahr1Monat: jahre[0]!.cashflow / 12,

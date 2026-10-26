@@ -1,5 +1,5 @@
 import { Gesperrt, holeSicher, type Antwort } from "./sicherHolen";
-import type { Assetklasse, Objekt, Stellplatz } from "@highstack/engine";
+import type { Assetklasse, Aussenart, Aussenflaeche, Mietvertrag, Objekt, Stellplatz } from "@highstack/engine";
 
 /** Ergebnis des Auslesens: gefundene Felder und woher sie stammen */
 export interface Erfassung { felder: Partial<Objekt>; gefunden: (keyof Objekt)[]; quelle: "ki" | "muster" | "keine"; text: string; hinweis?: string }
@@ -117,6 +117,8 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
   if (/bezugsfrei|leerstehend|sofort frei|\bunvermietet\b/i.test(t) || vermietet === "nein") f.leer = true; else if (vermietet === "ja") f.leer = false;
   const erb = merkmal(t, /Erbbaurecht/i); if (erb) f.erbbaurecht = erb === "ja";
   const su = merkmal(t, /Sonderumlage/i); if (su) f.sonderumlage = su === "ja";
+  const au = aussenflaecheAusText(t, f.wohnflaeche ?? null); if (au) f.aussenflaeche = au;
+  const mv = mietvertragAusText(t); if (mv && !f.leer) f.mietvertrag = mv;
   const sp = stellplatzAusText(t, [f.kaufpreis, hg, nu, f.miete].filter((x): x is number => !!x));
   if (sp.length) { f.stellplaetze = sp; f.gefragt = { stellplatz: "ja", "sp-art": "ja" }; }
   else if (saetze(t).some(stellplatzVerneint)) f.gefragt = { stellplatz: "nein" };
@@ -126,6 +128,54 @@ export function musterErkennung(text: string, titel?: string): Erfassung {
   f.titel = tit || [zimmer ? `${zimmer}-Zi.-${asset}` : asset, f.ort].filter(Boolean).join(", ");
   const gefunden = (Object.keys(f) as (keyof Objekt)[]).filter(k => !["asset", "titel", "gefragt", "hausgeldGesamt"].includes(k));
   return { felder: f, gefunden, quelle: gefunden.length ? "muster" : "keine", text };
+}
+
+const AUSSEN: [RegExp, Aussenart][] = [[/Dachterrasse|Dachgarten/i, "dachterrasse"], [/Wintergarten/i, "wintergarten"], [/Loggia/i, "loggia"], [/Terrasse/i, "terrasse"], [/Balkon/i, "balkon"], [/Garten(?!anteil)|Gartenanteil/i, "garten"]];
+const AUSSEN_WORT = /Dachterrasse|Dachgarten|Wintergarten|Loggia|Terrasse|Balkon|Garten/i;
+const RICHTUNG: [RegExp, string][] = [[/S(ü|ue)dwest/i, "Südwest"], [/S(ü|ue)dost/i, "Südost"], [/Nordwest/i, "Nordwest"], [/Nordost/i, "Nordost"], [/S(ü|ue)d/i, "Süd"], [/West/i, "West"], [/Ost(?!er)/i, "Ost"], [/Nord/i, "Nord"]];
+const qmZahl = (s: string) => { const n = Number(s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s); return Number.isFinite(n) && n > 0 && n < 2000 ? Math.round(n * 10) / 10 : null; };
+
+/**
+ * Außenfläche aus dem Text: Art, Größe, Ausrichtung und ob sie in der Wohnfläche steckt.
+ * „Wohnfläche 33,5 m² zzgl. 15,6 m² Dachterrasse“ → nicht enthalten; „inkl. Balkon“ → enthalten.
+ * Nennt das Inserat eine Gesamtfläche (z. B. „ca. 41,3 m²“), wird daraus der Anrechnungsanteil abgeleitet.
+ */
+export function aussenflaecheAusText(t: string, wohnflaeche: number | null): Aussenflaeche | null {
+  const s = saetze(t).filter(x => AUSSEN_WORT.test(x) && !/Gartenstadt|Gartenstra|Terrassenstra|Balkonien/i.test(x));
+  const bejaht = s.filter(x => !verneintBei(x, AUSSEN_WORT));
+  if (!bejaht.length) return null;
+  // bevorzugt der Satz mit Größe
+  const mitQm = bejaht.map(x => { const m = x.match(/(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:m²|qm|m2)\s*(?:große?r?\s*)?(?:[A-ZÄÖÜ][a-zäöüß]+-)?(Dachterrasse|Dachgarten|Wintergarten|Loggia|Terrasse|Balkon|Garten)/i) ?? x.match(/(Dachterrasse|Dachgarten|Wintergarten|Loggia|Terrasse|Balkon|Garten)[^.\d]{0,30}?(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:m²|qm|m2)/i); return m ? { x, qm: qmZahl(/\d/.test(m[1]!) ? m[1]! : m[2]!), wort: /\d/.test(m[1]!) ? m[2]! : m[1]! } : null; }).find(Boolean);
+  const satz = mitQm?.x ?? bejaht[0]!;
+  const wort = mitQm?.wort ?? satz.match(AUSSEN_WORT)![0];
+  const art = AUSSEN.find(([r]) => r.test(wort))?.[1] ?? "balkon";
+  const qm = mitQm?.qm ?? null;
+  const umfeld = bejaht.join(" ");
+  const ri = umfeld.match(/(S(?:ü|ue)d(?:west|ost)?|Nord(?:west|ost)?|West|Ost)(?:-|\s)?(?:ausrichtung|ausgerichtet|seite|lage|balkon|terrasse|loggia)|nach\s+(S(?:ü|ue)d(?:west|ost)?en|Westen|Osten|Norden)|(S(?:ü|ue)d(?:west|ost)?|West)(?:balkon|terrasse|loggia)/i);
+  const ausrichtung = ri ? RICHTUNG.find(([r]) => r.test(ri[0]))?.[1] ?? null : null;
+  // in der Wohnfläche enthalten? „zzgl.“ / „zusätzlich“ → nein; „inkl.“ / „davon“ → ja; ohne Hinweis: ja (vorsichtig, keine Fläche doppelt)
+  const zus = /\b(zzgl|zuzüglich|zusätzlich|plus|außerdem)\b\.?[^.]{0,40}(Dachterrasse|Dachgarten|Wintergarten|Loggia|Terrasse|Balkon)/i.test(satz) || /(Dachterrasse|Terrasse|Balkon|Loggia)[^.]{0,20}\b(zusätzlich|nicht (in der|enthalten))/i.test(satz);
+  const inkl = /\b(inkl|inklusive|davon|einschließlich)\b\.?[^.]{0,30}(Dachterrasse|Dachgarten|Wintergarten|Loggia|Terrasse|Balkon)/i.test(satz);
+  const inWohnflaeche = art === "garten" ? false : zus ? false : inkl ? true : true;
+  // gerechnet wird mit dem Regelfall (ein Viertel); setzt der Anbieter mehr an, steht das als Hinweis dabei
+  const anrechnung = art === "garten" ? 0 : art === "wintergarten" ? 0.5 : 0.25; let anbieterAnrechnung: number | undefined;
+  // Gesamtfläche im Inserat („ca. 41,3 m² (Wohnfläche 33,5 m² zzgl. 15,6 m² Dachterrasse)“) verrät den Anteil
+  if (qm && wohnflaeche && !inWohnflaeche) {
+    const gesamt = [...t.matchAll(/(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:m²|qm)/gi)].map(m => qmZahl(m[1]!)).filter((v): v is number => v != null && v > wohnflaeche && v <= wohnflaeche + qm);
+    const g = gesamt.find(v => Math.abs(v - (wohnflaeche + qm / 2)) <= 0.15 || Math.abs(v - (wohnflaeche + qm / 4)) <= 0.15);
+    if (g != null) anbieterAnrechnung = Math.abs(g - (wohnflaeche + qm / 2)) <= 0.15 ? 0.5 : 0.25;
+  }
+  return { art, qm, anrechnung, inWohnflaeche, ausrichtung, ...(anbieterAnrechnung != null && anbieterAnrechnung !== anrechnung ? { anbieterAnrechnung } : {}) };
+}
+
+/** Mietvertrag aus dem Text: Staffel- oder Indexmiete, letzte Mieterhöhung */
+export function mietvertragAusText(t: string): Mietvertrag | null {
+  const art: Mietvertrag["art"] | null = /Indexmiet|indexiert|Index-Miet|Indexmietvertrag/i.test(t) ? "index" : /Staffelmiet/i.test(t) ? "staffel" : null;
+  const e = t.match(/(?:letzte\s+)?Mieterh(?:ö|oe)hung[^.\d]{0,25}?(?:(\d{1,2})[./](\d{4})|(\d{4}))/i);
+  const letzteErhoehung = e ? (e[3] ? `${e[3]}-01` : `${e[2]}-${e[1]!.padStart(2, "0")}`) : null;
+  const staffel = art === "staffel" ? t.match(/Staffel[^.]{0,40}?(\d(?:[.,]\d)?)\s*%/i) : null;
+  if (!art && !letzteErhoehung) return null;
+  return { art: art ?? "standard", letzteErhoehung: letzteErhoehung && /^(19|20)\d\d-(0[1-9]|1[0-2])$/.test(letzteErhoehung) ? letzteErhoehung : null, ...(staffel ? { staffelProzent: Number(staffel[1]!.replace(",", ".")) / 100 } : {}) };
 }
 
 const SP_ART: [RegExp, Stellplatz["art"]][] = [[/Duplex/i, "duplex"], [/Tiefgarage|TG-(?:Stell)?platz/i, "tiefgarage"], [/Carport/i, "carport"], [/\bGarage\b/i, "garage"], [/(?:Au(?:ß|ss)en|Frei)?[Ss]tellplatz|Parkplatz/i, "aussen"]];
@@ -153,7 +203,7 @@ export function stellplatzAusText(t: string, ausschliessen: number[] = []): Stel
 }
 
 /** Ausgabe des Daten-Analysten in Objektfelder übersetzen */
-export interface Extrakt { titel: string; ort: string; asset: Assetklasse; kaufpreis: number | null; wohnflaeche: number | null; vermietet?: boolean | null; kaltmieteMonat?: number | null; hausgeldNichtUmlagefaehig?: number | null; hausgeldGesamt?: number | null; ruecklageAnteil?: number | null; baujahr?: number | null; energieklasse?: string | null; erbbaurecht?: boolean | null; sonderumlage?: boolean | null; stellplaetze?: { art: Stellplatz["art"]; preis: "inklusive" | "separat" | "unbekannt"; kaufpreis?: number | null; recht?: Stellplatz["recht"]; miete?: number | null }[] }
+export interface Extrakt { titel: string; ort: string; asset: Assetklasse; kaufpreis: number | null; wohnflaeche: number | null; vermietet?: boolean | null; kaltmieteMonat?: number | null; hausgeldNichtUmlagefaehig?: number | null; hausgeldGesamt?: number | null; ruecklageAnteil?: number | null; baujahr?: number | null; energieklasse?: string | null; erbbaurecht?: boolean | null; sonderumlage?: boolean | null; aussenflaeche?: { art: Aussenart; qm?: number | null; inWohnflaeche?: boolean | null; ausrichtung?: string | null } | null; mietvertragArt?: Mietvertrag["art"] | null; letzteMieterhoehung?: string | null; stellplaetze?: { art: Stellplatz["art"]; preis: "inklusive" | "separat" | "unbekannt"; kaufpreis?: number | null; recht?: Stellplatz["recht"]; miete?: number | null }[] }
 export function ausExtrakt(x: Extrakt): Partial<Objekt> {
   const f: Partial<Objekt> = { titel: x.titel || undefined, ort: x.ort || undefined, asset: x.asset || "ETW" };
   if (x.kaufpreis) f.kaufpreis = x.kaufpreis; if (x.wohnflaeche) f.wohnflaeche = x.wohnflaeche;
@@ -162,6 +212,8 @@ export function ausExtrakt(x: Extrakt): Partial<Objekt> {
   if (x.hausgeldGesamt) f.hausgeldGesamt = x.hausgeldGesamt;
   if (x.ruecklageAnteil) f.ruecklageAnteil = x.ruecklageAnteil; if (x.baujahr) f.baujahr = x.baujahr; if (x.energieklasse) f.energieklasse = x.energieklasse;
   if (x.erbbaurecht) f.erbbaurecht = true; if (x.sonderumlage) f.sonderumlage = true;
+  if (x.aussenflaeche?.art) f.aussenflaeche = { art: x.aussenflaeche.art, qm: x.aussenflaeche.qm ?? null, inWohnflaeche: x.aussenflaeche.inWohnflaeche ?? true, anrechnung: x.aussenflaeche.art === "garten" ? 0 : x.aussenflaeche.art === "wintergarten" ? 0.5 : 0.25, ausrichtung: x.aussenflaeche.ausrichtung ?? null };
+  if (x.vermietet !== false && (x.mietvertragArt || x.letzteMieterhoehung)) f.mietvertrag = { art: x.mietvertragArt ?? "standard", letzteErhoehung: x.letzteMieterhoehung && /^\d{4}-\d{2}$/.test(x.letzteMieterhoehung) ? x.letzteMieterhoehung : null };
   if (x.stellplaetze?.length) { f.stellplaetze = stellplaetzeAusExtrakt(x.stellplaetze); f.gefragt = { stellplatz: "ja", "sp-art": "ja" }; }
   return Object.fromEntries(Object.entries(f).filter(([, v]) => v !== undefined));
 }

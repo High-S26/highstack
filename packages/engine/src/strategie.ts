@@ -26,8 +26,12 @@ export function strategieVorschlag(e: Analyseeingabe): Strategievorschlag | null
   // Tilgung nach Risikoneigung
   s.tilgung = r === "vorsichtig" ? 0.03 : r === "offensiv" ? 0.01 : 0.02;
   gruende.push(`Tilgung ${pz(s.tilgung, 1)} passend zur Risikoneigung „${r}“.`);
-  // Miete Richtung Mietspiegel, vermietet höchstens +15 % (Kappungsgrenze)
-  if (o.marktmieteQm && o.wohnflaeche) {
+  // Miete: nach Mietrecht steckt die Anpassung schon im Mietpfad; sonst pauschal Richtung Mietspiegel, vermietet höchstens +15 %
+  const mp = s.mietentwicklung !== "pauschal" ? a.mietrecht?.pfad : null;
+  if (mp) {
+    if (mp.ersteErhoehung && mp.potenzialMonat > 0) gruende.push(`Miete nach Mietrecht anpassen: ab ${mp.ersteErhoehung.datum} auf ${eur(mp.ersteErhoehung.miete)}${mp.vergleichErreicht ? `, Vergleichsmiete ${eur(mp.vergleichsmiete)} ab ${mp.vergleichErreicht}` : ""} (${mp.regulierung.angespannt ? "Kappungsgrenze 15 %" : "Kappungsgrenze 20 %"}).`);
+    else if (mp.abstand > 0.005) gruende.push("Die Miete liegt über der Vergleichsmiete: keine Erhöhung nach § 558, mit stagnierender Miete rechnen.");
+  } else if (o.marktmieteQm && o.wohnflaeche) {
     const markt = o.marktmieteQm * o.wohnflaeche; const ist = a.bewertung.miete;
     if (markt > ist * 1.02) { s.mietFaktor = Math.min(markt / ist, o.leer ? markt / ist : 1.15); gruende.push(`Miete auf ${eur(ist * s.mietFaktor)} heben (${o.leer ? "Neuvermietung zum Mietspiegel" : "höchstens 15 % wegen Kappungsgrenze"}).`); }
   }

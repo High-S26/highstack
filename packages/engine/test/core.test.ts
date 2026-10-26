@@ -26,7 +26,7 @@ describe("Bewertung", () => {
 });
 
 describe("Simulation und Zielpreise", () => {
-  const s = standardSzenario(p);
+  const s = { ...standardSzenario(p), mietentwicklung: "pauschal" as const };
   it("rechnet die Basis über 15 Jahre wie der Prototyp", () => {
     const m = simuliere(p, OBJ, 720, s)!;
     expect(Math.round(m.cashflowJahr1Monat)).toBe(-490);
@@ -44,7 +44,7 @@ describe("Simulation und Zielpreise", () => {
 
 describe("Analyse", () => {
   it("liefert Steuern für alle Strukturen und Sensitivitäten", () => {
-    const a = analyse({ investor: INV, anlageprofil: AP, objekt: OBJ });
+    const a = analyse({ investor: INV, anlageprofil: AP, objekt: OBJ, szenario: { mietentwicklung: "pauschal" } });
     expect(Math.round(a.steuern!.privat.zuwachsNachSteuern / 1000)).toBe(64);
     expect(a.sensitivitaet).toHaveLength(7);
   });
