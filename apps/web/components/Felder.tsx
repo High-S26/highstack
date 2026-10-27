@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { erklaerung } from "@/lib/erklaerungen";
 import { Info } from "./Info";
 
@@ -8,14 +8,8 @@ const Beschriftung = ({ htmlFor, label, info }: { htmlFor?: string; label: React
   return <div className="lrow"><label htmlFor={htmlFor}>{label}</label>{t && <Info text={t} label={typeof label === "string" ? label : undefined} />}</div>;
 };
 
-/** Deutsche Zahl lesen: „245.000“, „3,8“, „1.250,50“ */
-export function leseZahl(t: string): number | null {
-  const x = t.replace(/\s|€|%|m²/g, "").trim(); if (!x) return null;
-  // Nur Ziffern, Punkt, Komma und Minus; keine Exponenten („1e6“), kein „Infinity“
-  if (!/^-?[\d.,]+$/.test(x) || !/\d/.test(x)) return null;
-  const norm = x.includes(",") ? x.replace(/\./g, "").replace(",", ".") : /^\d{1,3}(\.\d{3})+$/.test(x) ? x.replace(/\./g, "") : x;
-  const v = Number(norm); return Number.isFinite(v) ? v : null;
-}
+export { leseZahl } from "@/lib/zahl";
+import { leseZahl } from "@/lib/zahl";
 const zeige = (v: number, gruppe = true) => v.toLocaleString("de-DE", { maximumFractionDigits: 3, useGrouping: gruppe });
 
 /** Zahlenfeld mit Tausenderpunkten, Einheit im Feld und Hilfetext darunter. `prozent`: gespeichert als Dezimalzahl. */
@@ -23,6 +17,8 @@ export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, l
   const id = useId();
   const intern = wert == null ? null : prozent ? Math.round(wert * 100000) / 1000 : wert;
   const [fokus, setFokus] = useState(false); const [roh, setRoh] = useState(""); const [verworfen, setVerworfen] = useState<string | null>(null);
+  // Kurze Bestätigung nach dem Verlassen des Felds: die Eingabe ist angekommen
+  const [ok, setOk] = useState<string | null>(null); const okTimer = useRef<ReturnType<typeof setTimeout>>();
   // Wert beim Betreten des Felds: ist die Eingabe am Ende ungültig, gilt wieder dieser (nicht ein Zwischenstand beim Tippen)
   const [vorher, setVorher] = useState<number | null>(null);
   const gruppe = !(typeof label === "string" && /Baujahr|Jahr$/.test(label));
@@ -39,12 +35,13 @@ export function Zahl({ label, wert, onChange, prozent, einheit, voll, hinweis, l
       <Beschriftung htmlFor={id} label={label} info={info} />
       <div className="adorn">
         <input id={id} type="text" inputMode="decimal" autoComplete="off" value={anzeige} aria-describedby={hinweis || fehler ? `${id}-h` : undefined} aria-invalid={!!fehler}
-          onFocus={e => { setRoh(intern == null ? "" : zeige(intern, gruppe)); setVorher(wert ?? null); setFokus(true); setVerworfen(null); requestAnimationFrame(() => e.target.select()); }}
-          onBlur={() => { setFokus(false); const n = leseZahl(roh); if (roh.trim() && (n == null || ausserhalb(n))) { const alt = vorher == null ? null : prozent ? Math.round(vorher * 100000) / 1000 : vorher; if (vorher !== (wert ?? null)) onChange(vorher); setVerworfen(`„${roh.trim()}“ nicht übernommen (${n == null ? "keine Zahl" : `erlaubt ${lo != null ? zeige(lo) : "…"} bis ${hi != null ? zeige(hi) : "…"}`}); es gilt weiter ${alt == null ? "kein Wert" : zeige(alt, gruppe)}.`); } }}
+          onFocus={e => { setRoh(intern == null ? "" : zeige(intern, gruppe)); setVorher(wert ?? null); setFokus(true); setVerworfen(null); setOk(null); requestAnimationFrame(() => e.target.select()); }}
+          onBlur={() => { setFokus(false); const n = leseZahl(roh); if (roh.trim() && (n == null || ausserhalb(n))) { const alt = vorher == null ? null : prozent ? Math.round(vorher * 100000) / 1000 : vorher; if (vorher !== (wert ?? null)) onChange(vorher); setVerworfen(`„${roh.trim()}“ nicht übernommen (${n == null ? "keine Zahl" : `erlaubt ${lo != null ? zeige(lo) : "…"} bis ${hi != null ? zeige(hi) : "…"}`}); es gilt weiter ${alt == null ? "kein Wert" : zeige(alt, gruppe)}.`); }
+            else if ((wert ?? null) !== vorher) { setOk((wert ?? null) == null ? "✓ Gelöscht" : `✓ Übernommen: ${zeige(intern!, gruppe)}${suffix ? ` ${suffix}` : ""}`); clearTimeout(okTimer.current); okTimer.current = setTimeout(() => setOk(null), 4000); } }}
           onChange={e => { const t = e.target.value; setRoh(t); if (t.trim() === "") { onChange(leerErlaubt === false ? 0 : null); return; } const n = leseZahl(t); if (n != null && !ausserhalb(n)) onChange(prozent ? n / 100 : n); }} />
         {suffix && <span className="sfx" aria-hidden="true">{suffix}</span>}
       </div>
-      {(fehler || verworfen || hinweis) && <div id={`${id}-h`} className={fehler || verworfen ? "hint bad" : "hint"} role={verworfen ? "alert" : undefined}>{fehler ?? verworfen ?? hinweis}</div>}
+      {(fehler || verworfen || ok || hinweis) && <div id={`${id}-h`} className={fehler || verworfen ? "hint bad" : ok ? "hint ok" : "hint"} role={verworfen ? "alert" : ok ? "status" : undefined}>{fehler ?? verworfen ?? ok ?? hinweis}</div>}
     </div>
   );
 }

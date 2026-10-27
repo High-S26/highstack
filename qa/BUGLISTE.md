@@ -237,3 +237,13 @@ Einzelheiten: [nachtest-welle3-investments.md](nachtest-welle3-investments.md), 
 | ✅ INV-051 (Rest) | „1 Werte übernehmen“, „1,09“ statt „1,0856“ | Einzahl im Knopf und Protokoll, Vorschau mit vier Nachkommastellen |
 
 Offen bleibt: echte Stopp-Orders beim Broker (Produktthema), Testdaten vor dem Betrieb löschen.
+
+## Rückmeldung Markus (27.10.2026): Hausgeld wird nicht gespeichert, unklar ob Eingabe angekommen ist (0.25.0)
+
+| ID | Befund | Ursache | Lösung |
+|---|---|---|---|
+| ✅ INV-067 (Hoch) | Hausgeld eingetragen, später wieder weg | Unterlage hochladen dauert durch die Texterkennung Sekunden. Der Server speicherte danach das ganze Objekt im Stand vom Upload-Beginn und überschrieb Eingaben aus der Zwischenzeit. Gleiches im Browser nach Experten-, Kurzurteil- und Upload-Läufen: der Serverstand ersetzte die lokale Eingabe, die nächste Änderung schrieb den alten Wert zurück | Server lädt vor dem Speichern frisch und setzt nur die Unterlagen; der Browser übernimmt von Läufen nur deren Ergebnisse, die eigenen Eingaben bleiben |
+| ✅ INV-068 | Concierge: 300 € Hausgeld eingegeben, im Feld stehen 120 € | Für ETW wird der nicht umlagefähige Teil (40 %) gespeichert, die Bestätigung sagte nur „Übernommen.“ | Bestätigung nennt Wert und Aufteilung und wo beides steht; jede Concierge-Antwort nennt den übernommenen Wert |
+| ✅ INV-069 | Nur ein Feld für den nicht umlagefähigen Teil, Hinweis „laut Exposé“ auch bei eigener Eingabe | Kein Feld für das Hausgeld insgesamt | Bei ETW zwei Felder: „Hausgeld gesamt“ (schätzt den Teil mit 40 %, solange er nicht selbst eingetragen ist) und „Davon nicht umlagefähig“ mit Anteil in % |
+| ✅ INV-070 | „185,-“, „185 EUR“, „ca. 185“, „mtl. 185 €“ wurden nicht übernommen | Zahlenleser kannte nur „€“ | Übliche Schreibweisen werden gelesen (Test) |
+| ✅ INV-071 | Unklar, ob eine Eingabe angenommen wurde | Status „Gespeichert“ nur klein in der Kopfzeile, beim Scrollen unsichtbar | Zahlenfelder zeigen nach dem Verlassen kurz „✓ Übernommen: 300 €/Monat“; Speicherstatus zusätzlich als Hinweis unten am Rand („Wird gespeichert …“, „✓ Gespeichert“, Fehler bleibt stehen) |

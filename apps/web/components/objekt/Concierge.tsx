@@ -36,7 +36,8 @@ export function Concierge({ o, a, setze, zuUnterlagen, aus }: { o: Objektdatensa
         <button type="button" className="linkbtn" onClick={aus}>Concierge ausblenden</button></div>
     </section>
   );
-  const absenden = (v: string | number) => anwenden(f.antwort(v), "Übernommen.");
+  // Bestätigung nennt den Wert, damit klar ist, was angekommen ist
+  const absenden = (v: string | number) => anwenden(f.antwort(v), f.bestaetigung?.(v) ?? (typeof v === "number" ? `Übernommen: ${v.toLocaleString("de-DE", { maximumFractionDigits: 2 })}${f.einheit ? ` ${f.einheit}` : ""}.` : `Übernommen: ${f.optionen?.find(([w]) => w === v)?.[1] ?? v}.`));
   const zahlOk = leseZahl(eingabe) != null && (leseZahl(eingabe) ?? 0) > 0;
   const unbekannt = () => { const u = f.unbekannt?.(); anwenden(merke(f.id, "unbekannt", u?.patch), u ? `${u.text}. Sie können sie jederzeit ändern.` : "Gemerkt. Die Experten weisen auf die Lücke hin."); };
   return (

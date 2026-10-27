@@ -18,12 +18,15 @@ export interface Frage {
   /** Vorschlag im Eingabefeld */
   vorschlag?: number | null;
   antwort: (v: number | string) => Partial<Objekt>;
+  /** Bestätigung nach dem Übernehmen: was genau gespeichert wurde und wo es steht */
+  bestaetigung?: (v: number | string) => string;
   /** Annahme bei „Weiß ich nicht“: Felder plus kurzer Text, oder null = nur merken */
   unbekannt?: () => { patch: Partial<Objekt>; text: string } | null;
   /** Wert lässt sich ermitteln (Vergleichswerte) */
   ermitteln?: boolean;
 }
 
+const euro = (n: number) => `${n.toLocaleString("de-DE", { maximumFractionDigits: 2 })} €`;
 const neuerStellplatz = (preis: Stellplatz["preis"]): Stellplatz => ({ id: `sp-${Math.random().toString(36).slice(2, 8)}`, art: "tiefgarage", preis, kaufpreis: null, recht: "unbekannt", nutzung: "mieter", miete: null, hausgeld: null, erwerben: true });
 const mitSp = (o: Objekt, p: Partial<Stellplatz>): Partial<Objekt> => { const l = [...(o.stellplaetze ?? [])]; l[0] = { ...l[0]!, ...p }; return { stellplaetze: l }; };
 const g = (o: Objekt, id: string, w: "ja" | "nein" | "unbekannt" = "ja"): Partial<Objekt> => ({ gefragt: { ...(o.gefragt ?? {}), [id]: w } });
@@ -48,6 +51,7 @@ export function fragen(o: Objekt): Frage[] {
   if ((o.leer || (q.miete === "unbekannt")) && o.marktmieteQm == null && offen("marktmiete")) f.push({ id: "marktmiete", thema: "Marktmiete", frage: "Welche Miete pro m² ist dort üblich?", warum: "Ohne Ist-Miete rechnen wir mit der ortsüblichen Miete.", wo: "Mietspiegel der Stadt oder vergleichbare Inserate.", typ: "zahl", einheit: "€/m²", ermitteln: true, antwort: v => ({ marktmieteQm: Number(v) }) });
   if (o.hausgeldNichtUmlagefaehig == null && offen("hausgeld")) f.push({ id: "hausgeld", thema: "Kosten", frage: etw ? "Wie hoch ist das Hausgeld im Monat?" : "Welche Kosten tragen Sie selbst im Monat?", warum: etw ? "Etwa 40 % des Hausgelds (Verwaltung, Rücklage, Instandhaltung) bleiben bei Ihnen und schmälern den Cashflow." : "Verwaltung, Instandhaltung und nicht umlegbare Kosten schmälern den Cashflow.", wo: etw ? "Exposé, Wirtschaftsplan oder Hausgeldabrechnung." : "Nebenkostenabrechnung oder Angaben des Verkäufers.", typ: "zahl", einheit: "€/Monat",
     antwort: v => ({ hausgeldNichtUmlagefaehig: etw ? Math.round(Number(v) * 0.4) : Number(v), ...(etw ? { hausgeldGesamt: Number(v) } : {}), ...g(o, "hausgeld") }),
+    bestaetigung: v => etw ? `Übernommen: Hausgeld ${euro(Number(v))} im Monat. Davon rechnen wir ${euro(Math.round(Number(v) * 0.4))} (40 %) als nicht umlagefähig. Beides steht unter Objektdaten → Das Wichtigste und lässt sich dort anpassen.` : `Übernommen: ${euro(Number(v))} nicht umlagefähige Kosten im Monat (Objektdaten → Das Wichtigste).`,
     unbekannt: () => o.wohnflaeche ? { patch: { hausgeldNichtUmlagefaehig: Math.round(o.wohnflaeche * 1.3) }, text: `Annahme: ${Math.round(o.wohnflaeche * 1.3)} € nicht umlagefähig (1,30 € pro m²)` } : null });
   // Stellplatz: Kette von kurzen Fragen
   const sp = o.stellplaetze?.[0];

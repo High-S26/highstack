@@ -40,6 +40,8 @@ const E: Record<string, string> = {
   "Wohnfläche": "Laut Exposé oder besser laut Wohnflächenberechnung.",
   "Ist-Kaltmiete": "Miete ohne Nebenkosten, die heute gezahlt wird.",
   "Hausgeld, nicht umlagefähig inkl. Rücklage": "Der Teil des Hausgelds, den Sie nicht auf den Mieter umlegen können: Verwaltung, Instandhaltung, Rücklage. Meist 30 bis 40 % des Hausgelds.",
+  "Davon nicht umlagefähig inkl. Rücklage": "Der Teil des Hausgelds, den Sie nicht auf den Mieter umlegen können: Verwaltung, Instandhaltung, Rücklage. Meist 30 bis 40 % des Hausgelds. Nur dieser Teil geht in den Cashflow ein.",
+  "Hausgeld gesamt": "Der monatliche Betrag an die Eigentümergemeinschaft laut Exposé oder Wirtschaftsplan. Einen Teil davon (Heizung, Wasser, Müll) zahlt der Mieter über die Nebenkosten zurück.",
   "Nicht umlagefähige Kosten": "Kosten, die Sie nicht auf Mieter umlegen können: Verwaltung, Instandhaltung, Rücklagen.",
   "Marktmiete laut Mietspiegel": "Ortsübliche Miete je m². Zeigt, ob die Miete steigen kann. Quelle: Mietspiegel der Stadt.",
   "Vergleichspreis Kauf": "Üblicher Kaufpreis je m² für vergleichbare Objekte, z. B. aus dem Capital-Immobilienkompass oder Gutachterausschuss.",

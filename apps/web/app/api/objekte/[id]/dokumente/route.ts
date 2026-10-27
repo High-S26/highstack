@@ -62,9 +62,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (gs.length) ablegen("grundriss", { id: dateiId, name: f.name, mime, seiten: gs, aus: art.schluessel, erkannt: { sicher: false, grund: `Seite ${gs.join(", ")} sieht nach Grundriss aus` }, am: Date.now() });
     ergebnis.push({ datei: f.name, schluessel: art.schluessel, titel: titel(art.schluessel), zeichen: text.length, sicher: art.sicher, grundriss: gs.length ? gs : undefined });
   }
-  o.geaendert = Date.now();
-  await s.speichereObjekt(t, o);
-  return Response.json({ ergebnis, abgelehnt, dokumente: o.dokumente });
+  // Texterkennung dauert: frisch laden und nur die Unterlagen setzen, damit Eingaben aus der Zwischenzeit (z. B. Hausgeld) bleiben
+  const frisch = (await s.objekt(t, params.id)) ?? o;
+  frisch.dokumente = o.dokumente; frisch.geaendert = Date.now();
+  await s.speichereObjekt(t, frisch);
+  return Response.json({ ergebnis, abgelehnt, dokumente: frisch.dokumente });
 }
 
 /** Datei entfernen: aus allen Punkten (auch verlinkte Grundriss-Seiten) und aus dem Speicher */
@@ -79,6 +81,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     return { ...d, dateien, dateiId: letzte?.id, dateiname: letzte?.name, text: textAus({ dateien }), status: dateien.length ? d.status : "offen" };
   });
   if (!gefunden) return Response.json({ fehler: "Datei gehört nicht zu diesem Objekt" }, { status: 404 });
-  await s.loescheDatei(t, id); o.geaendert = Date.now(); await s.speichereObjekt(t, o);
-  return Response.json({ dokumente: o.dokumente });
+  await s.loescheDatei(t, id);
+  const frisch = (await s.objekt(t, params.id)) ?? o; frisch.dokumente = o.dokumente; frisch.geaendert = Date.now(); await s.speichereObjekt(t, frisch);
+  return Response.json({ dokumente: frisch.dokumente });
 }

@@ -24,7 +24,10 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
   const { objekte, profil, anlageprofil, setzeObjekt, entferneObjekt, meldung, loesche, frage, setzeProfil } = useApp(); const router = useRouter();
   const [o, setO] = useState<Objektdatensatz | null>(objekte.find(x => x.id === params.id) ?? null);
   const [tab, setTab] = useState<Tab>("ergebnis");
-  const [gespeichert, setGespeichert] = useState(""); const [fehlt, setFehlt] = useState(false);
+  const [gespeichert, setGespeichertRoh] = useState(""); const [fehlt, setFehlt] = useState(false);
+  // Sichtbare Rückmeldung unten am Rand (auch wenn die Kopfzeile weggescrollt ist); „Gespeichert“ verschwindet nach kurzer Zeit
+  const [blitz, setBlitz] = useState(""); const blitzTimer = useRef<ReturnType<typeof setTimeout>>();
+  const setGespeichert = (t: string) => { setGespeichertRoh(t); setBlitz(t); clearTimeout(blitzTimer.current); if (t === "Gespeichert") blitzTimer.current = setTimeout(() => setBlitz(""), 2500); };
   const timer = useRef<ReturnType<typeof setTimeout>>(); const offen = useRef<Partial<Objektdatensatz>>({});
 
   useEffect(() => { api.objekt(params.id).then(x => { setO(x); setTab(x.objekt.kaufpreis ? "ergebnis" : "daten"); const t = new URLSearchParams(window.location.search).get("tab"); if (t && TABS.some(([k]) => k === t)) setTab(t as Tab); }).catch(() => setFehlt(true)); }, [params.id]);
@@ -77,7 +80,12 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
     offen.current = { ...offen.current, ...patch }; setGespeichert("Ungespeichert …"); clearTimeout(timer.current);
     timer.current = setTimeout(async () => { const p = offen.current; offen.current = {}; try { const r = await api.aendereObjekt(o.id, p) as typeof o & { hinweise?: string[] }; if (r.hinweise?.length) { setGespeichert("Teilweise gespeichert"); meldung(`Nicht übernommen: ${r.hinweise.join("; ")}`); const { hinweise: _h, ...x } = r; if (!Object.keys(offen.current).length) { setO(x); setzeObjekt(x); } } else setGespeichert("Gespeichert"); } catch (e) { setGespeichert("Nicht gespeichert"); meldung(`Nicht gespeichert: ${(e as Error).message}`); } }, 600);
   };
-  const neuVomServer = (x: Objektdatensatz) => { setO(x); setzeObjekt(x); };
+  // Ergebnisse vom Server (Experten, Unterlagen) übernehmen, ohne Eingaben zu überschreiben, die während des Laufs gemacht wurden
+  const neuVomServer = (x: Objektdatensatz) => {
+    const cur = aktuell.current;
+    const m: Objektdatensatz = cur ? { ...x, objekt: cur.objekt, szenario: cur.szenario, module: cur.module, status: cur.status, anlageprofilId: cur.anlageprofilId, expose: cur.expose, besucht: { ...(x.besucht ?? {}), ...(cur.besucht ?? {}) } } : x;
+    aktuell.current = m; setO(m); setzeObjekt(m);
+  };
   const b = a.bewertung;
   const { schritt: SCHRITT, schritte, erledigt, naechster } = fortschritt(o, a);
   const begleitet = (profil.modus ?? "unterstuetzt") === "unterstuetzt";
@@ -95,9 +103,10 @@ export default function ObjektSeite({ params }: { params: { id: string } }) {
           <div className="check-t"><span className="lrow"><b>Objekt-Check</b><Info label="Objekt-Check" text="Ein grüner Haken heißt erledigt: Ergebnis, Durchspielen, Gestaltung und Steuern, sobald Sie sie angesehen haben; Unterlagen, sobald eine hochgeladen ist; Experten, sobald das Komitee geurteilt hat. Ein halber Kreis heißt begonnen. Die Reihenfolge ist eine Empfehlung." /></span>{naechster ? <button type="button" className="linkbtn" onClick={() => zeige(naechster)}>Weiter: {SCHRITT[naechster].tun}</button> : <span className="note">Alles geprüft</span>}</div>
         </div>
         <button type="button" className={`btn sm ${begleitet ? "" : "ghost"}`} aria-pressed={begleitet} onClick={() => setzeModus(begleitet ? "selbst" : "unterstuetzt")} title="Unterstützter Modus: Ein Concierge fragt fehlende Angaben einzeln ab">Concierge</button>
-        <span className="note">{gespeichert}</span>
+        <span className={`speichern s-${gespeichert === "Gespeichert" ? "ok" : gespeichert.startsWith("Nicht") || gespeichert.startsWith("Teil") ? "bad" : "laeuft"}`}>{gespeichert === "Gespeichert" ? "✓ Gespeichert" : gespeichert}</span>
         <button type="button" className="btn sm danger" onClick={async () => { if (!await frage({ titel: "Objekt löschen?", text: (() => { const nd = o.dokumente.filter(d => d.dateiId).length, ne = Object.keys(o.experten).length; const mit = [nd ? `${nd} ${nd === 1 ? "Unterlage" : "Unterlagen"}` : "", ne ? `${ne} ${ne === 1 ? "Expertenergebnis" : "Expertenergebnissen"}` : ""].filter(Boolean).join(" und "); return `„${o.objekt.titel || "Objekt"}“ wird${mit ? ` mit ${mit}` : ""} gelöscht. Direkt danach können Sie es noch rückgängig machen.`; })(), ja: "Löschen", gefahr: true })) return; offen.current = {}; aktuell.current = null; const ziel = o.status === "kandidat" && o.suchId ? `/suchen/${o.suchId}` : o.status === "bestand" ? "/portfolio" : "/pruefen"; loesche([o.id], `„${o.objekt.titel || "Objekt"}“ gelöscht`, () => router.push(ziel)); }}>Löschen</button>
       </div>
+      {blitz && <div className={`speicherpunkt s-${blitz === "Gespeichert" ? "ok" : blitz.startsWith("Nicht") || blitz.startsWith("Teil") ? "bad" : "laeuft"}`} role="status" aria-live="polite">{blitz === "Gespeichert" ? "✓ Gespeichert" : blitz === "Ungespeichert …" ? "Wird gespeichert …" : blitz}</div>}
       <nav className="tabs" role="tablist" aria-label="Schritte">
         {TABS.map(([k, l]) => { const z = SCHRITT[k]; return <button key={k} type="button" role="tab" className={`tab${k === "daten" && !datenZu ? " only-m" : ""}`} aria-selected={tab === k} onClick={() => zeige(k)} title={`${z.was}: ${z.z}`}><span className={`st st-${z.z}`} aria-label={z.z === "erledigt" ? "erledigt" : z.z === "begonnen" ? "begonnen" : "offen"} />{l}</button>; })}
         <button type="button" className="btn ghost sm einklapp" onClick={schalteDaten} aria-pressed={!datenZu} title="Objektdaten links ein- oder ausblenden">{datenZu ? "Daten einblenden" : "Daten ausblenden"}</button>
