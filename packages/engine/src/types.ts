@@ -80,6 +80,12 @@ export interface Objekt {
   maklerProvision?: number | null;
   /** Angestrebte Kaltmiete je m² bei Neuvermietung; ohne Angabe die ortsübliche Vergleichsmiete */
   neuvermietungQm?: number | null;
+  /** Ertragswert: Liegenschaftszins (Dezimalzahl) laut Gutachterausschuss; ohne Angabe Standard je Objektart */
+  liegenschaftszins?: number | null;
+  /** Ertragswert: Restnutzungsdauer in Jahren; ohne Angabe aus dem Baujahr */
+  restnutzungsdauer?: number | null;
+  /** Grundstücksanteil in m² (bei ETW: Grundstücksfläche × Miteigentumsanteil), für den Bodenwert */
+  grundstueckAnteilQm?: number | null;
 }
 
 export type Aussenart = "balkon" | "loggia" | "terrasse" | "dachterrasse" | "garten" | "wintergarten";

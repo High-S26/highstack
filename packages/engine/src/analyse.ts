@@ -2,6 +2,7 @@ import type { Anlageprofil, Investorenprofil, Objekt, Szenario } from "./types";
 import { bewerte, params, simuliere, spielraum, standardSzenario, steuern, VORLAGEN, zielpreis, type Simulation, mitStellplaetzen } from "./core";
 import { MODULE, rechneModul } from "./module/index";
 import { flaechen, mietpfad, type Mietpfad } from "./mietrecht";
+import { kaufpreisCheck } from "./kaufpreis";
 
 export interface Analyseeingabe {
   investor: Investorenprofil;
@@ -70,7 +71,9 @@ export function analyse(e: Analyseeingabe) {
   const st = sim ? steuern(sim, p, o) : null;
   const mietrecht = mietwirkung(p, o, bewertung.miete, s, sim);
   const module = Object.fromEntries(Object.entries(e.module ?? {}).map(([id, werte]) => [id, rechneModul(id, werte, o, p)]));
-  return { params: p, spielraum: spielraum(p), bewertung, szenario: s, simulation: sim, vorlagen, sensitivitaet, zielpreise, steuern: st, module, mietrecht };
+  // Kaufpreis-Check mit der Wohnung allein (Stellplätze nur im Faktor auf die Gesamtinvestition)
+  const kaufpreis = kaufpreisCheck(p, e.objekt, mietrecht?.pfad);
+  return { params: p, spielraum: spielraum(p), bewertung, szenario: s, simulation: sim, vorlagen, sensitivitaet, zielpreise, steuern: st, module, mietrecht, kaufpreis };
 }
 
 function mietwirkung(p: ReturnType<typeof params>, o: Objekt, miete: number | null, s: Szenario, sim: Simulation | null): Mietwirkung | null {
@@ -108,6 +111,15 @@ export function agentenkontext(e: Analyseeingabe, a: Analyse = analyse(e)) {
     vergleich: Object.fromEntries(Object.entries(a.vorlagen).map(([k, v]) => [k, simKurz(v)])),
     sensitivitaetCashflowJahr1: a.sensitivitaet.map(x => ({ faktor: x.label, schlechter: r0(x.schlechter?.cashflowJahr1Monat), besser: r0(x.besser?.cashflowJahr1Monat) })),
     zielpreise: Object.fromEntries(Object.entries(a.zielpreise).map(([k, v]) => [k, r0(v)])),
+    kaufpreisCheck: a.kaufpreis ? (() => { const c = a.kaufpreis; const ew = c.ertragswert; return {
+      preisQm: r0(c.preisQm), vergleichspreisQm: c.vergleichspreisQm, preisGegenVergleich: r3(c.preisAbw), mieteGegenVergleich: r3(c.mietAbw),
+      faktorIst: r3(c.faktorIst), faktorAufVergleichsmiete: r3(c.faktorVergleich), faktorGesamtinvestition: r3(c.faktorGesamt), marktfaktor: r3(c.marktfaktor),
+      faktorGegenMarkt: r3(c.faktorAbw), preislage: c.lage, ursache: c.ursache,
+      faktorNachMietanpassung: c.faktorNachAnpassung && { faktor: r3(c.faktorNachAnpassung.faktor), wann: c.faktorNachAnpassung.wann },
+      preisBeiMarktfaktor: r0(c.preisMarktfaktor), preisNachVergleichspreis: r0(c.preisVergleich),
+      ertragswert: ew && { wert: r0(ew.wert), spanne: [r0(ew.von), r0(ew.bis)], angebotGegenErtragswert: r3(ew.abweichung), liegenschaftszins: ew.liegenschaftszins, restnutzungsdauer: ew.restnutzungsdauer, reinertrag: r0(ew.reinertrag), annahmen: ew.annahmen },
+      aussagen: c.aussagen, fehlt: c.fehlt,
+    }; })() : undefined,
     steuern: a.steuern && { erwerbsstruktur: inv.struktur, abschreibungJahr: r0(a.steuern.afaJahr), privatOderGbrGesamt: { zuwachsNachSteuern: r0(a.steuern.privat.zuwachsNachSteuern), irr: r3(a.steuern.privat.irr) }, gmbhImMantel: { zuwachsNachSteuern: r0(a.steuern.gmbh.zuwachsNachSteuern), irr: r3(a.steuern.gmbh.irr) }, gmbhAusgeschuettet: { zuwachsNachSteuern: r0(a.steuern.gmbhAusgeschuettet.zuwachsNachSteuern), irr: r3(a.steuern.gmbhAusgeschuettet.irr) } },
     gestaltung: Object.fromEntries(Object.entries(a.module).map(([id, r]) => [id, { modul: MODULE.find(m => m.id === id)?.name, kennzahlen: r.kennzahlen.map(k => ({ [k.label]: k.einheit === "%" ? r3(k.wert) : r0(k.wert), einheit: k.einheit })), hinweise: r.hinweise.map(h => h.text) }])),
   };

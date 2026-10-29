@@ -4,6 +4,7 @@ export * from "./mietrecht";
 export * from "./module/projekt";
 export * from "./module/index";
 export * from "./analyse";
+export * from "./kaufpreis";
 export * from "./beispiel";
 export * from "./strategie";
 export * from "./extern";

@@ -128,7 +128,7 @@ function Markt({ o, set }: { o: Objektdatensatz; set: (p: Partial<Objektdatensat
   );
 }
 
-export function Ergebnisbereich({ a, apName, spielraum, passung }: { a: Analyse; apName: string; spielraum?: React.ReactNode; passung?: React.ReactNode }) {
+export function Ergebnisbereich({ a, apName, spielraum, passung, kaufpreis }: { a: Analyse; apName: string; spielraum?: React.ReactNode; passung?: React.ReactNode; kaufpreis?: React.ReactNode }) {
   const b = a.bewertung; const k = b.kennzahlen; const p = a.params; const ap = p.anlageprofil;
   const reihenfolge = { crit: 0, warn: 1, good: 2, info: 3 } as const;
   const h = [...b.hinweise].sort((x, y) => reihenfolge[x.art] - reihenfolge[y.art]);
@@ -140,6 +140,7 @@ export function Ergebnisbereich({ a, apName, spielraum, passung }: { a: Analyse;
     ["Cashflow / Monat", eur(k.cashflowMonat), `≥ ${eur(ap.minCashflow)}`, st(k.cashflowMonat == null ? null : k.cashflowMonat >= ap.minCashflow, (k.cashflowMonat ?? 0) >= ap.minCashflow - 100)],
     ["DSCR", num(k.dscr), `≥ ${num(p.minDscr)}`, st(k.dscr == null ? null : k.dscr >= p.minDscr, (k.dscr ?? 0) >= p.minDscr * 0.9)],
     ["Beleihungsauslauf", pct(k.beleihungsauslauf, 0), `≤ ${pct(p.maxBeleihungsauslauf, 0)}`, st(k.beleihungsauslauf == null ? null : k.beleihungsauslauf <= p.maxBeleihungsauslauf, false)],
+    ["Faktor vs. Markt", a.kaufpreis?.faktorAbw == null ? "–" : vorzeichen(a.kaufpreis.faktorAbw, x => pct(x, 0)), a.kaufpreis?.marktfaktor ? `Marktfaktor ${num(a.kaufpreis.marktfaktor, 1)}` : "Vergleichswerte", st(a.kaufpreis?.faktorAbw == null ? null : a.kaufpreis.faktorAbw <= 0.1, (a.kaufpreis?.faktorAbw ?? 1) <= 0.25)],
     ["Preis vs. Markt", k.preisVsMarkt == null ? "–" : vorzeichen(k.preisVsMarkt, x => pct(x, 0)), "Vergleichspreis", st(k.preisVsMarkt == null ? null : k.preisVsMarkt <= 0.05, (k.preisVsMarkt ?? 1) <= 0.15)],
     ["Mietpotenzial", k.mietpotenzial == null ? "–" : vorzeichen(k.mietpotenzial, x => pct(x, 0)), "vs. Mietspiegel", st(k.mietpotenzial == null ? null : k.mietpotenzial >= 0, false)],
   ];
@@ -154,6 +155,7 @@ export function Ergebnisbereich({ a, apName, spielraum, passung }: { a: Analyse;
         <ul className="flags">{h.slice(0, 3).map(x => <li key={x.text} className={x.art === "warn" ? "" : x.art}>{x.text}</li>)}</ul>
         {h.length > 3 && <details><summary>{h.length - 3} weitere Hinweise</summary><ul className="flags">{h.slice(3).map(x => <li key={x.text} className={x.art === "warn" ? "" : x.art}>{x.text}</li>)}</ul></details>}
       </section>
+      {kaufpreis}
       {passung}
       {spielraum}
       <section className="panel"><h2>Budget &amp; Finanzierung</h2><Kacheln eintraege={[["Kaufpreis bis", eur(k.kpMax)], ["Nebenkosten", `${eur(k.nebenkosten)} · ${pct(k.nebenkostenSatz)}`], ["Gesamtinvestition", eur(k.gesamtinvestition)], ["Darlehen", eur(k.darlehen)], ["Rate / Monat", eur(k.rateMonat)], ["Finanzierungslücke", (k.finanzierungsluecke ?? 0) > 0 ? eur(k.finanzierungsluecke) : "keine"]]} /></section>

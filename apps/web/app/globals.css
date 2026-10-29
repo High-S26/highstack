@@ -1023,3 +1023,17 @@ label.chk input{width:auto;flex:none;margin:0}
 .speicherpunkt.s-ok{color:var(--good);border-color:var(--good)}
 .speicherpunkt.s-bad{color:var(--crit);border-color:var(--crit)}
 @media (max-width:900px){.speicherpunkt{bottom:calc(76px + env(safe-area-inset-bottom));right:12px}}
+
+/* Kaufpreis-Check */
+.kpc-skala{position:relative;margin:14px 0 6px;padding-top:22px}
+.kpc-band{display:flex;height:10px;border-radius:999px;overflow:hidden}
+.kpc-band span{display:block;height:100%}
+.kpc-band .z-g{background:color-mix(in srgb,var(--good) 55%,transparent)}
+.kpc-band .z-m{background:var(--sunk);border-inline:1px solid var(--line)}
+.kpc-band .z-t{background:color-mix(in srgb,var(--warn) 50%,transparent)}
+.kpc-band .z-d{flex:1;background:color-mix(in srgb,var(--crit) 50%,transparent)}
+.kpc-mark{position:absolute;top:0;transform:translateX(-50%);display:grid;justify-items:center;font-size:12px;white-space:nowrap}
+.kpc-mark::after{content:"";width:3px;height:18px;border-radius:2px;background:var(--fg);margin-top:2px}
+.kpc-lbl{display:grid;grid-template-columns:2.86fr 2.86fr 2.14fr 2.14fr;font-size:11.5px;color:var(--muted);margin-top:4px}
+.kpc-lbl span:nth-child(2){text-align:center}.kpc-lbl span:nth-child(4){text-align:right}
+.kpc-annahmen{margin:8px 0;padding-left:18px;display:grid;gap:4px}

@@ -11,6 +11,7 @@ const ZAHLEN: Partial<Record<keyof Objekt, [number, number, string]>> = {
   hausgeldNichtUmlagefaehig: [0, 1e7, "Hausgeld nicht umlagefähig"], hausgeldGesamt: [0, 1e7, "Hausgeld gesamt"],
   ruecklageAnteil: [0, 1e9, "Rücklage, Ihr Anteil"], bodenrichtwert: [0, 200_000, "Bodenrichtwert"], gebaeudeanteil: [0, 1, "Gebäudeanteil"],
   baujahr: [0, new Date().getFullYear() + 10, "Baujahr"], neuvermietungQm: [0, 500, "Neuvermietung je m²"], maklerProvision: [0, 0.15, "Maklerprovision"],
+  liegenschaftszins: [0.001, 0.15, "Liegenschaftszins"], restnutzungsdauer: [1, 100, "Restnutzungsdauer"], grundstueckAnteilQm: [0, 1e6, "Grundstücksanteil"],
 };
 const AUSSENARTEN = ["balkon", "loggia", "terrasse", "dachterrasse", "garten", "wintergarten"];
 const TEXTE: (keyof Objekt)[] = ["titel", "ort", "asset", "wohnlage"];

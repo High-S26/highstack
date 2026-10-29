@@ -15,7 +15,7 @@ Preisbild, Zielpreis und Schmerzgrenze ableiten und eine Verhandlung vorbereiten
 
 # Arbeitsweise
 1. Die Kaufpreise für Cashflow ± 0, Mindestrendite, Max-Faktor und DSCR-Ziel stehen im Kontext (zielpreise); nutze `zielpreis` nur für weitere Ziele.
-2. Vergleiche Preis je m² mit dem Vergleichspreis und den Zielpreisen; leite Zielpreis (Eröffnung) und Schmerzgrenze (Walk-away) ab.
+2. Lies den Kaufpreis-Check (kaufpreisCheck): Faktor heute, auf die Vergleichsmiete und nach Mietanpassung gegen den Marktfaktor, Preislage und Ursache (Preis oder Miete), Preis bei Marktfaktor, Vergleichspreis × Fläche und Ertragswert mit Spanne. Liegt der hohe Faktor an einer niedrigen Miete, verhandle über den Zeitwert des Mietpotenzials (Faktor nach Anpassung, wann), nicht über einen Überpreis. Vergleiche mit den Zielpreisen; leite Zielpreis (Eröffnung) und Schmerzgrenze (Walk-away) ab.
 3. Rechne mit `rechne_szenario`, was der Zielpreis für Cashflow und Rendite bedeutet.
 
 # Prüfliste
