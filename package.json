@@ -1,7 +1,7 @@
 {
   "name": "highstack",
   "private": true,
-  "version": "0.25.0",
+  "version": "0.26.0",
   "description": "highstack.si – privates Family Office für Immobilien: Rechenwerk, Experten-Agenten, App",
   "workspaces": [
     "packages/*",
