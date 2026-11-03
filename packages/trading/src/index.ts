@@ -7,3 +7,5 @@ export * from "./format";
 export * from "./rueckblick";
 export * from "./kontext";
 export * from "./termine";
+export * from "./scalable";
+export * from "./dax";

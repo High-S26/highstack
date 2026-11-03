@@ -33,6 +33,19 @@ npm run experts -w @highstack/agents   # übersetzt die SKILL.md-Dateien in expe
 npm test
 ```
 
+## Trading mit Scalable Capital
+
+highstack nutzt dafür ausschließlich die offizielle Scalable CLI (`sc`, github.com/ScalableCapital/scalable-cli), keine inoffiziellen Zugänge.
+
+1. Scalable CLI installieren (macOS: `brew tap ScalableCapital/tap && brew install scalable-cli`).
+2. Im Scalable-Web unter Profil → Sicherheit → Agentic Investing die CLI freischalten.
+3. Im Terminal `sc login` (Anmeldung im Browser, hält höchstens sieben Tage). Empfohlen: in `~/.config/scalable-cli/config.toml` unter `[trade_controls]` eine Obergrenze `max_order_notional` setzen.
+4. In `.env`: `SCALABLE_CLI=1`. Orders ausführen zusätzlich nur mit `TRADING_LIVE=1`.
+
+Jede Order läuft in zwei Schritten: Vorschau von Scalable (Kurs, Kosten, Hinweise), dann Freigabe per Klick in highstack. Die Verbindung sehen nur Admins des Servers. Bei unklarem Ausgang einer Order sperrt highstack neue Orders, bis Sie die Umsätze in der App geprüft haben.
+
+Das Panel „DAX heute“ unter Trading rechnet ein Signal zur Eröffnung (US-Vorabend, Asien, Trend, Vortag, Eröffnungslücke), lernt die Gewichte nur aus vergangenen Tagen und zeigt den Rückblick. Tageskurse kommen von Stooq oder als CSV-Upload.
+
 ## Rechtlicher Rahmen
 
 Ausgaben dienen der Information und Vorbereitung. Keine individuelle Steuerberatung (§ 5 StBerG), keine Rechtsdienstleistung im Einzelfall (RDG), keine Makler- oder Darlehensvermittlung (§§ 34c, 34i GewO). Die Experten übergeben Verbindliches als Fragen an Steuerberater, Notar, Anwalt oder Architekt; die Compliance-Rolle prüft jede Teamausgabe.
