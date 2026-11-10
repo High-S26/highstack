@@ -217,3 +217,142 @@ export function leseKerzenCsv(csv: string): Tageskerze[] {
     .filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k.d) && [k.o, k.h, k.l, k.c].every(v => Number.isFinite(v) && v > 0))
     .sort((a, b) => a.d.localeCompare(b.d));
 }
+
+export interface Ideevariante {
+  id: "etf" | "ko-gleich" | "ko-voll";
+  titel: string; text: string;
+  hebel: number; einsatz: number;
+  /** Ausgewogen: Barriere des Knock-outs (Punkte), nur bei Knock-outs */
+  barriere: number | null;
+  /** Verlust bzw. Gewinn in Euro (inkl. Gebühren) */
+  amStopp: number; amZiel: number; beiPlus1: number; beiMinus1: number;
+  /** Wertänderung des Produkts am Stopp bzw. Ziel (Anteil, für Stopp- und Ziel-Kurs im Produkt) */
+  stoppProdukt: number; zielProdukt: number;
+  /** Ab dieser DAX-Bewegung (gegen die Idee) ist der Einsatz ganz weg */
+  totalverlustBei: number | null;
+}
+
+/**
+ * Eigene Idee „DAX steigt/fällt, Betrag X“ in drei Umsetzungen:
+ * ETF mit dem Betrag, Knock-out mit gleicher Marktgröße (Einsatz = Betrag ÷ Hebel), Knock-out mit dem vollen Betrag.
+ * Stopp eine halbe Tagesspanne, Ziel eine ganze (Chance zu Risiko 2 : 1), Ausstieg spätestens zum Schluss.
+ */
+export function ideeVarianten(p: { dax: number; richtung: "long" | "short"; atr: number; betrag: number; gebuehrJeOrder?: number; maxHebel?: number }): Ideevariante[] {
+  const geb = (p.gebuehrJeOrder ?? 0.99) * 2; const plan = produktplan({ dax: p.dax, richtung: p.richtung, atr: p.atr, budget: p.betrag, risikoProzent: 1, gebuehrJeOrder: 0, maxHebel: p.maxHebel });
+  const h = plan.ko.hebel; const sp = plan.stoppProzent; const zp = 2 * sp;
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  const v = (id: Ideevariante["id"], titel: string, text: string, hebel: number, einsatz: number): Ideevariante => ({
+    id, titel, text, hebel, einsatz: r2(einsatz), barriere: hebel > 1 ? plan.ko.barriere : null,
+    amStopp: r2(-einsatz * sp * hebel - geb), amZiel: r2(einsatz * zp * hebel - geb), beiPlus1: r2(einsatz * Math.min(1, 0.01 * hebel) * (p.richtung === "long" ? 1 : -1) - geb), beiMinus1: r2(-einsatz * Math.min(1, 0.01 * hebel) * (p.richtung === "long" ? 1 : -1) - geb),
+    stoppProdukt: Math.min(0.95, sp * hebel), zielProdukt: zp * hebel, totalverlustBei: hebel > 1 ? plan.ko.abstandProzent : null,
+  });
+  return [
+    v("etf", "DAX-ETF", "Bewegt sich wie der DAX. Kein Totalverlust, kleinste Schwankung.", 1, p.betrag),
+    v("ko-gleich", `Knock-out, Hebel ${h}`, "Gleiche Marktgröße wie der ETF mit einem Bruchteil des Geldes; der Rest bleibt frei.", h, p.betrag / h),
+    v("ko-voll", `Knock-out, Hebel ${h}, voller Betrag`, `Der ganze Betrag mit Hebel: ${h}-fache Wirkung, an der Barriere Totalverlust.`, h, p.betrag),
+  ];
+}
+
+/** Einordnung einer eigenen Idee gegen Modell und Grundrate */
+export function ideeEinordnung(richtung: "long" | "short", s: Tagessignal | null, r: DaxRueckblick | null) {
+  const grund = r ? (richtung === "long" ? r.immerLong.trefferquote : 1 - r.immerLong.trefferquote) : null;
+  const modell = !s || s.richtung === "keine" ? "neutral" : s.richtung === richtung ? "dafuer" : "dagegen";
+  const text = modell === "dafuer" ? "Das Modell sieht heute dieselbe Richtung." : modell === "dagegen" ? "Das Modell sieht heute die Gegenrichtung. Prüfen, was Sie wissen, das die Zahlen nicht zeigen." : "Das Modell sieht heute keinen belegten Vorteil in eine Richtung.";
+  return { modell, text, grundrate: grund, modellTreffer: modell === "dafuer" && r ? r.trefferquote : null };
+}
+
+export interface Chancen { tage: number; ziel: number; stopp: number; schluss: number; schlussSchnitt: number; erwartung: number; von: string; bis: string }
+
+/**
+ * Wie oft wurde im Lauf eines Tages (Eröffnung bis Schluss) das Ziel vor dem Stopp erreicht?
+ * Ziel und Stopp in Tagesspannen (ATR der 14 Tage davor). Aus Tageskerzen ist die Reihenfolge im Tag unbekannt:
+ * Wurden beide berührt, zählt vorsichtig der Stopp. `erwartung`: Ergebnis je Trade in % des Basiswerts, vor Kosten.
+ */
+export function tagesChancen(k: Tageskerze[], richtung: "long" | "short", zielAtr = 1, stoppAtr = STOPP_ATR, jahre = 8): Chancen | null {
+  const ab = k.length - jahre * 252; const r: { e: number; z: "ziel" | "stopp" | "schluss" }[] = []; let von = "";
+  for (let i = Math.max(15, ab); i < k.length; i++) {
+    const a = atr(k.slice(i - 15, i)); if (!a) continue; const t = k[i]!; if (!von) von = t.d;
+    const zp = zielAtr * a, sp = stoppAtr * a;
+    const up = richtung === "long" ? t.h - t.o : t.o - t.l, down = richtung === "long" ? t.o - t.l : t.h - t.o;
+    if (down >= sp) r.push({ e: -sp / t.o, z: "stopp" });
+    else if (up >= zp) r.push({ e: zp / t.o, z: "ziel" });
+    else r.push({ e: (richtung === "long" ? t.c - t.o : t.o - t.c) / t.o, z: "schluss" });
+  }
+  if (r.length < 100) return null;
+  const n = r.length; const sch = r.filter(x => x.z === "schluss");
+  return { tage: n, ziel: r.filter(x => x.z === "ziel").length / n, stopp: r.filter(x => x.z === "stopp").length / n, schluss: sch.length / n, schlussSchnitt: sch.length ? sch.reduce((a, x) => a + x.e, 0) / sch.length : 0, erwartung: r.reduce((a, x) => a + x.e, 0) / n, von, bis: k.at(-1)!.d };
+}
+
+export interface Verdopplung { faelle: number; verdoppelt: number; ausgeknockt: number; offen: number; offenSchnitt: number; bewegung: number; tage: number }
+
+/**
+ * „Rally“: Mit einem Knock-out mit Hebel h verdoppelt sich der Einsatz bei einer Bewegung von etwa 1/h in die eigene Richtung,
+ * der Totalverlust kommt bei 1/h dagegen. Wie oft geschah was innerhalb von `tage` Handelstagen (Kerzenhoch/-tief, vorsichtig: beides am selben Tag = Knock-out)?
+ */
+export function verdopplungsChance(k: Tageskerze[], richtung: "long" | "short", hebel: number, tage: number, jahre = 10): Verdopplung | null {
+  const a = 1 / hebel; const ab = Math.max(0, k.length - jahre * 252 - tage); let dop = 0, ko = 0, off = 0, offSum = 0, n = 0;
+  for (let i = ab; i + tage <= k.length; i++) {
+    const s = k[i]!.o; const ziel = richtung === "long" ? s * (1 + a) : s * (1 - a); const barr = richtung === "long" ? s * (1 - a) : s * (1 + a);
+    let erg: "d" | "k" | null = null;
+    for (let j = i; j < i + tage; j++) {
+      const t = k[j]!; const gegen = richtung === "long" ? t.l <= barr : t.h >= barr; const fuer = richtung === "long" ? t.h >= ziel : t.l <= ziel;
+      if (gegen) { erg = "k"; break; } if (fuer) { erg = "d"; break; }
+    }
+    n++; if (erg === "d") dop++; else if (erg === "k") ko++; else { off++; const c = k[i + tage - 1]!.c; offSum += Math.max(-1, (richtung === "long" ? c / s - 1 : 1 - c / s) * hebel); }
+  }
+  if (n < 50) return null;
+  return { faelle: n, verdoppelt: dop / n, ausgeknockt: ko / n, offen: off / n, offenSchnitt: off ? offSum / off : 0, bewegung: a, tage };
+}
+
+export type Ziel = "tagestrade" | "rally";
+export interface Option {
+  nr: 1 | 2 | 3; titel: string; text: string; produkt: "etf" | "ko"; richtung: "long" | "short"; hebel: number; einsatz: number;
+  barriere: number | null; stoppProdukt: number; zielProdukt: number;
+  /** Wahrscheinlichkeiten aus der Historie */
+  pZiel: number | null; pStopp: number | null; pOffen: number | null;
+  /** erwartetes Ergebnis in Euro vor Gebühren und nach Gebühren */
+  erwartung: number | null; erwartungNetto: number | null;
+  zielEuro: number; stoppEuro: number;
+  hinweis: string;
+}
+
+/**
+ * Optionen 1–3 für den Assistenten.
+ * Tagestrade: Hebel so, dass das Ziel (eine Tagesspanne) die Zielrendite bringt; vorsichtige Variante mit halbem Hebel; ETF zum Vergleich.
+ * Rally: Knock-outs mit Hebel 10, 20 und 40 auf „Einsatz verdoppeln“ innerhalb des Horizonts.
+ */
+export function optionen(p: { kerzen: Tageskerze[]; dax: number; richtung: "long" | "short"; betrag: number; ziel: Ziel; zielRendite?: number; horizontTage?: number; gebuehrJeOrder?: number; maxHebel?: number }): Option[] {
+  const geb = (p.gebuehrJeOrder ?? 0.99) * 2; const a = atr(p.kerzen) ?? p.dax * 0.01; const atrP = a / p.dax; const maxH = p.maxHebel ?? 50;
+  const r2 = (v: number) => Math.round(v * 100) / 100; const barriere = (h: number) => Math.round(p.richtung === "long" ? p.dax * (1 - 1 / h) : p.dax * (1 + 1 / h));
+  if (p.ziel === "tagestrade") {
+    const c = tagesChancen(p.kerzen, p.richtung);
+    const zr = p.zielRendite ?? 0.075; const hZiel = Math.max(2, Math.min(maxH, Math.round(zr / atrP))); const hVor = Math.max(2, Math.round(hZiel / 2));
+    // Barriere muss weit hinter dem Stopp liegen (mind. 3 × Stopp): sonst Hebel senken
+    const hSicher = (h: number) => Math.min(h, Math.floor(1 / (3 * STOPP_ATR * atrP)));
+    const mk = (nr: 1 | 2 | 3, titel: string, text: string, produkt: "etf" | "ko", hebel: number): Option => {
+      const zielP = atrP * hebel, stoppP = STOPP_ATR * atrP * hebel; const e = c ? c.erwartung * hebel * p.betrag : null;
+      return { nr, titel, text, produkt, richtung: p.richtung, hebel, einsatz: p.betrag, barriere: produkt === "ko" ? barriere(hebel) : null, stoppProdukt: Math.min(0.95, stoppP), zielProdukt: zielP,
+        pZiel: c?.ziel ?? null, pStopp: c?.stopp ?? null, pOffen: c?.schluss ?? null, erwartung: e != null ? r2(e) : null, erwartungNetto: e != null ? r2(e - geb) : null,
+        zielEuro: r2(p.betrag * zielP - geb), stoppEuro: r2(-p.betrag * stoppP - geb),
+        hinweis: produkt === "etf" ? `Ohne Hebel sind an einem Tag realistisch ${(atrP * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 })} % drin, nicht ${Math.round(zr * 100)} %.` : `Ziel bei DAX ${p.richtung === "long" ? "+" : "−"}${(atrP * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 })} %, Stopp bei ${p.richtung === "long" ? "−" : "+"}${(STOPP_ATR * atrP * 100).toLocaleString("de-DE", { maximumFractionDigits: 2 })} %.` };
+    };
+    const h2 = hSicher(hZiel), h1 = hSicher(hVor);
+    return [
+      mk(1, `Vorsichtig: Knock-out Hebel ${h1}`, `Halbe Zielrendite (etwa ${Math.round(atrP * h1 * 100)} %), halbes Risiko.`, "ko", h1),
+      mk(2, `Passend zum Ziel: Knock-out Hebel ${h2}`, `Eine typische Tagesbewegung bringt etwa ${Math.round(atrP * h2 * 100)} %.`, "ko", h2),
+      mk(3, "Ohne Hebel: DAX-ETF", "Zum Vergleich: kleinstes Risiko, kleinste Wirkung.", "etf", 1),
+    ];
+  }
+  const T = p.horizontTage ?? 5;
+  return ([10, 20, 40] as const).filter(h => h <= maxH).slice(0, 3).map((h, i) => {
+    const v = verdopplungsChance(p.kerzen, p.richtung, h, T);
+    const e = v ? (v.verdoppelt * 1 + v.ausgeknockt * -1 + v.offen * v.offenSchnitt) * p.betrag : null;
+    return {
+      nr: (i + 1) as 1 | 2 | 3, titel: `Knock-out Hebel ${h}`, text: `Verdopplung bei DAX ${p.richtung === "long" ? "+" : "−"}${Math.round(100 / h * 10) / 10} %, Totalverlust bei ${p.richtung === "long" ? "−" : "+"}${Math.round(100 / h * 10) / 10} %.`,
+      produkt: "ko", richtung: p.richtung, hebel: h, einsatz: p.betrag, barriere: barriere(h), stoppProdukt: 0.95, zielProdukt: 1,
+      pZiel: v?.verdoppelt ?? null, pStopp: v?.ausgeknockt ?? null, pOffen: v?.offen ?? null, erwartung: e != null ? r2(e) : null, erwartungNetto: e != null ? r2(e - geb) : null,
+      zielEuro: r2(p.betrag - geb), stoppEuro: r2(-p.betrag - geb),
+      hinweis: `Innerhalb von ${T} Handelstagen; sonst Verkauf zum Kurs am Ende.`,
+    };
+  });
+}

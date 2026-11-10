@@ -1050,3 +1050,34 @@ label.chk input{width:auto;flex:none;margin:0}
 .dax-daten select{width:auto}
 .sc-radio{display:flex;gap:8px;align-items:center;font-size:14px}
 .m-wahl{display:flex;flex-wrap:wrap;gap:8px 18px;margin:6px 0 10px}
+
+/* Startklar, Positionen, Journal */
+.startklar{margin:8px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--sunk)}
+.startklar-l{list-style:none;padding:0;margin:8px 0;display:grid;gap:6px}
+.startklar-l li{display:grid;gap:2px}.startklar-l li.ok b{color:var(--good)}
+.positionen{margin:10px 0}
+.pos{display:grid;gap:6px;padding:10px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.pos-ziel,.pos-ziel-nah{border-color:var(--good)}.pos-stopp,.pos-stopp-nah{border-color:var(--crit)}
+.good-t{color:var(--good)}
+.dax-seg{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.dax-seg button{padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;font:inherit;cursor:pointer}
+.dax-seg button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface));font-weight:600}
+.pos-kurs{width:110px;text-align:right}
+
+/* Assistent */
+.assistent{border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line))}
+.as-nav{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+.as-schritt{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:inherit;font-size:13px;cursor:pointer}
+.as-schritt b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--sunk);font-size:12px}
+.as-schritt.an{color:var(--fg);border-color:var(--accent)}.as-schritt.an b{background:var(--accent);color:var(--surface)}
+.as-schritt.fertig b{background:var(--good);color:var(--surface)}.as-schritt:disabled{cursor:default;opacity:.6}
+.as-karten,.as-optionen{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.as-karte,.as-option{display:grid;gap:6px;text-align:left;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:inherit;font:inherit;cursor:pointer;align-content:start}
+.as-karte.an,.as-option.an{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
+.as-karte:disabled{opacity:.6;cursor:default}
+.as-nr{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.as-zahlen{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px}.as-zahlen b{font-variant-numeric:tabular-nums}
+.as-anleitung{list-style:none;padding:0;margin:10px 0;display:grid;gap:10px}
+.as-anl{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
+.as-anl.ok{border-color:var(--good)}.as-anl.ok b{color:var(--good)}.as-anl.zu{opacity:.55}
+.as-anl-i{display:grid;gap:8px;margin-top:8px}

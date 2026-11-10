@@ -5,6 +5,7 @@ import type { Agentansicht } from "@/lib/trading";
 import { BROKER_NAMEN } from "@/lib/tradingTexte";
 import { Thesen } from "@/components/trading/Thesen";
 import { DaxTag } from "@/components/trading/DaxTag";
+import { Assistent } from "@/components/trading/Assistent";
 import { eur } from "@/lib/format";
 import { geld, geldPm } from "@highstack/trading";
 
@@ -16,6 +17,7 @@ export default function Trading() {
   return (
     <div className="view">
       <div className="start-kopf"><h1>Trading</h1><p className="lead">Agenten, die Märkte beobachten, Signale begründen und innerhalb Ihrer Grenzen handeln oder vorschlagen.</p></div>
+      <Assistent />
       {fehler && <p className="hint bad" role="status">{fehler}</p>}
       {!l && fehler && <p className="note">Agenten konnten nicht geladen werden.</p>}
       {l && !l.length && <section className="panel tr-leer">

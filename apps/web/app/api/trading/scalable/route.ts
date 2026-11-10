@@ -1,6 +1,6 @@
 import { DAX_ISIN, istIsin, ScFehler, type ScOrder } from "@highstack/trading";
 import { speicher } from "@/lib/speicher";
-import { darfScalable, echtgeldAn, entsperren, freigeben, sc, scalableAn, sperre, verwerfen, vorbereiten } from "@/lib/scalable";
+import { darfScalable, echtgeldAn, entsperren, freigeben, sc, scalableAn, sperre, verwerfen, vorbereiten, type Orderkontext } from "@/lib/scalable";
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;
 
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 type Anfrage =
   | { aktion: "kurs"; isin: string } | { aktion: "suche"; q: string } | { aktion: "bestand" }
   | { aktion: "derivate"; basis?: string; richtung: "long" | "short"; hebelMin?: number; hebelMax?: number; barriereMin?: number; barriereMax?: number }
-  | { aktion: "vorschau"; order: ScOrder; zweck?: string } | { aktion: "freigeben"; id: string; angemessenheit?: boolean }
+  | { aktion: "vorschau"; order: ScOrder; zweck?: string; kontext?: Orderkontext } | { aktion: "freigeben"; id: string; angemessenheit?: boolean }
   | { aktion: "verwerfen"; id: string } | { aktion: "stornieren"; orderId: string } | { aktion: "entsperren" };
 
 const zahlOk = (v: unknown) => v == null || (typeof v === "number" && Number.isFinite(v) && v >= 0);
@@ -33,6 +33,18 @@ function pruefeOrder(o: unknown): ScOrder {
   const max = Number(process.env.SCALABLE_MAX_ORDER ?? "5000");
   if (x.seite === "kauf" && x.betrag != null && x.betrag > max) throw new ScFehler("invalid_input", `Höchstens ${max.toLocaleString("de-DE")} € je Order (SCALABLE_MAX_ORDER).`);
   return { seite: x.seite!, isin: x.isin, betrag: x.betrag ?? null, stueck: x.stueck ?? null, art: x.art!, limit: x.limit ?? null, stopp: x.stopp ?? null, boerse: x.boerse ?? null };
+}
+
+/** Kontext fürs Journal streng übernehmen */
+function pruefeKontext(k: unknown): Orderkontext | undefined {
+  const x = k as Orderkontext | null; if (!x || typeof x !== "object") return undefined;
+  const anteil = (v: unknown) => typeof v === "number" && v > 0 && v < 20;
+  if (x.neu) {
+    const n = x.neu; if (!["long", "short"].includes(n.richtung) || !["eigene", "modell"].includes(n.quelle) || !["etf", "ko", "aktie"].includes(n.art) || !anteil(n.stoppProdukt) || !anteil(n.zielProdukt) || !(n.hebel >= 1 && n.hebel <= 200)) return undefined;
+    return { neu: { basis: String(n.basis ?? "DAX").slice(0, 30), richtung: n.richtung, quelle: n.quelle, idee: typeof n.idee === "string" ? n.idee.slice(0, 300) : null, einsatz: Number(n.einsatz) || 0, stoppProdukt: n.stoppProdukt, zielProdukt: n.zielProdukt, art: n.art, hebel: n.hebel, modell: n.modell && typeof n.modell === "object" ? { richtung: String(n.modell.richtung).slice(0, 10), punkte: Number(n.modell.punkte) || 0 } : null } };
+  }
+  if (typeof x.journalId === "string" && ["stopp", "schliessen"].includes(String(x.rolle))) return { journalId: x.journalId.slice(0, 40), rolle: x.rolle };
+  return undefined;
 }
 
 export async function POST(req: Request) {
@@ -50,7 +62,7 @@ export async function POST(req: Request) {
         if (![b.hebelMin, b.hebelMax, b.barriereMin, b.barriereMax].every(zahlOk)) return nein("Ungültige Grenzen");
         return Response.json({ items: await c.derivate({ basis: b.basis && istIsin(b.basis) ? b.basis : DAX_ISIN, richtung: b.richtung, hebelMin: b.hebelMin, hebelMax: b.hebelMax, barriereMin: b.barriereMin, barriereMax: b.barriereMax, anzahl: 15 }) });
       }
-      case "vorschau": return Response.json(await vorbereiten(s, pruefeOrder(b.order), typeof b.zweck === "string" ? b.zweck.slice(0, 40) : undefined));
+      case "vorschau": return Response.json(await vorbereiten(s, pruefeOrder(b.order), typeof b.zweck === "string" ? b.zweck.slice(0, 40) : undefined, pruefeKontext(b.kontext)));
       case "freigeben": if (typeof b.id !== "string") return nein("ID fehlt"); return Response.json(await freigeben(s, b.id, b.angemessenheit === true));
       case "verwerfen": if (typeof b.id !== "string") return nein("ID fehlt"); await verwerfen(s, b.id); return Response.json({ ok: true });
       case "stornieren": return Response.json(await c.stornieren(String(b.orderId)));

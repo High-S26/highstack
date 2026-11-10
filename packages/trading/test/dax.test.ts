@@ -83,3 +83,44 @@ describe("Kerzen-CSV", () => {
     expect(leseKerzenCsv("Datum;Eröffnung;Hoch;Tief;Schluss\n30.10.2026;24.000,5;24.200;23.900;24.100,25")[0]).toEqual({ d: "2026-10-30", o: 24000.5, h: 24200, l: 23900, c: 24100.25 });
   });
 });
+
+import { ideeEinordnung, ideeVarianten } from "../src/dax";
+describe("Eigene Idee", () => {
+  it("drei Varianten mit gleicher Marktgröße bzw. vollem Betrag", () => {
+    const v = ideeVarianten({ dax: 25000, richtung: "long", atr: 250, betrag: 500, gebuehrJeOrder: 0, maxHebel: 20 });
+    const [etf, gleich, voll] = v;
+    expect(etf!.einsatz).toBe(500); expect(gleich!.einsatz).toBeCloseTo(500 / gleich!.hebel, 1); expect(voll!.einsatz).toBe(500);
+    // Stopp 0,5 % DAX: ETF −2,50 €, KO gleich ebenfalls −2,50 €, KO voll −2,50 € × Hebel
+    expect(etf!.amStopp).toBeCloseTo(-2.5, 2); expect(gleich!.amStopp).toBeCloseTo(-2.5, 1); expect(voll!.amStopp).toBeCloseTo(-2.5 * voll!.hebel, 1);
+    expect(voll!.amZiel).toBeCloseTo(-2 * voll!.amStopp, 1);
+    expect(voll!.beiMinus1).toBeCloseTo(-500 * 0.01 * voll!.hebel, 1);
+    expect(voll!.totalverlustBei).toBeCloseTo(1 / voll!.hebel, 6);
+  });
+  it("Einordnung gegen Modell und Grundrate", () => {
+    const r = { immerLong: { trefferquote: 0.53 }, trefferquote: 0.56 } as unknown as Parameters<typeof ideeEinordnung>[2];
+    expect(ideeEinordnung("short", { richtung: "long" } as never, r)).toMatchObject({ modell: "dagegen", grundrate: 0.47 });
+    expect(ideeEinordnung("long", { richtung: "long" } as never, r)).toMatchObject({ modell: "dafuer", modellTreffer: 0.56 });
+    expect(ideeEinordnung("long", null, null).modell).toBe("neutral");
+  });
+});
+
+import { optionen, tagesChancen, verdopplungsChance } from "../src/dax";
+describe("Chancen aus der Historie", () => {
+  const k: Tageskerze[] = Array.from({ length: 400 }, (_, i) => ({ d: `2020-${String(1 + Math.floor(i / 28) % 12).padStart(2, "0")}-${String(1 + i % 28).padStart(2, "0")}-${i}`, o: 100, h: i % 2 ? 101.2 : 100.2, l: i % 2 ? 99.8 : 99.4, c: 100 }));
+  it("Ziel vor Stopp, vorsichtig bei beidem", () => {
+    const c = tagesChancen(k, "long", 1, 0.5)!;
+    // ATR ≈ 1,1: ungerade Tage: hoch +1,2 ≥ 1,1 und tief −0,2 < 0,55 → Ziel; gerade: tief −0,6 ≥ 0,55 → Stopp
+    expect(c.ziel).toBeCloseTo(0.5, 1); expect(c.stopp).toBeCloseTo(0.5, 1); expect(c.ziel + c.stopp + c.schluss).toBeCloseTo(1, 9);
+  });
+  it("Verdopplung: Bewegung 1/Hebel in beide Richtungen", () => {
+    const steigt: Tageskerze[] = Array.from({ length: 300 }, (_, i) => { const x = 100 * 1.01 ** i; return { d: `d${String(i).padStart(4, "0")}`, o: x, h: x * 1.009, l: x * 0.999, c: x * 1.008 }; });
+    const v = verdopplungsChance(steigt, "long", 20, 10)!; expect(v.verdoppelt).toBeGreaterThan(0.9); expect(v.bewegung).toBe(0.05);
+    expect(verdopplungsChance(steigt, "short", 20, 10)!.ausgeknockt).toBeGreaterThan(0.9);
+  });
+  it("Optionen für Tagestrade und Rally", () => {
+    const o = optionen({ kerzen: k, dax: 100, richtung: "long", betrag: 250, ziel: "tagestrade", zielRendite: 0.075, gebuehrJeOrder: 0 });
+    expect(o.map(x => x.produkt)).toEqual(["ko", "ko", "etf"]); expect(o[1]!.hebel).toBeGreaterThan(o[0]!.hebel); expect(o[2]!.hinweis).toMatch(/nicht 8 %|nicht 7 %|realistisch/);
+    const r = optionen({ kerzen: k, dax: 100, richtung: "long", betrag: 500, ziel: "rally", horizontTage: 5, gebuehrJeOrder: 0 });
+    expect(r.map(x => x.hebel)).toEqual([10, 20, 40]); expect(r[0]!.zielEuro).toBe(500); expect(r[0]!.stoppEuro).toBe(-500);
+  });
+});

@@ -33,6 +33,10 @@ npm run experts -w @highstack/agents   # übersetzt die SKILL.md-Dateien in expe
 npm test
 ```
 
+## Trading-Assistent („Los geht’s“)
+
+Einstieg im Trading-Modul: Ziel wählen (Tagestrade oder Rally), Spielgeld, Zielrendite bzw. Horizont und Richtung angeben, analysieren. highstack zeigt drei Optionen mit Wahrscheinlichkeiten aus der DAX-Historie (Ziel, Stopp, dazwischen) und dem Erwartungswert nach Gebühren. Umsetzen entweder automatisch über Scalable (Vorschau, Freigabe per Klick) oder Schritt für Schritt in jeder Broker-App (Suche, Kauforder mit Stückzahl und Limit, Stopp und Ziel). Offene Positionen werden überwacht und im Journal mit Ergebnis festgehalten.
+
 ## Lokales KI-Modell (Ollama)
 
 Einzelne Experten können statt Claude ein lokales Modell nutzen, z. B. Qwen auf dem eigenen Mac. Die Daten verlassen den Rechner dann nicht.
