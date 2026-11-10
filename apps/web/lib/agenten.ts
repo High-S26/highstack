@@ -1,4 +1,5 @@
-import { ausUmgebung, type Dokumentquelle, type Ereignis } from "@highstack/agents";
+import { type Dokumentquelle, type Ereignis } from "@highstack/agents";
+import { modellUmgebung } from "@/lib/modelle";
 import { analyse, type Analyseeingabe } from "@highstack/engine";
 import type { Objektdatensatz, Profil } from "./typen";
 import type { Speicher } from "./speicher";
@@ -23,7 +24,7 @@ export function dokumentquelle(o: Objektdatensatz): Dokumentquelle {
   };
 }
 export function laufoptionen(p: Profil, o: Objektdatensatz, signal?: AbortSignal, zusatz?: Record<string, unknown>) {
-  const { client, modelle, testmodus } = ausUmgebung();
+  const { client, modelle, testmodus } = modellUmgebung();
   const eingabe = eingabeFuer(p, o);
   return { client, modelle, testmodus, eingabe, analyse: analyse(eingabe), dokumente: dokumentquelle(o), signal, zusatz };
 }

@@ -10,6 +10,8 @@ export interface Werkzeugdefinition { name: string; description: string; input_s
 export interface LlmAnfrage {
   model: string; max_tokens: number; system: string; messages: Nachricht[];
   tools?: Werkzeugdefinition[]; tool_choice?: { type: "auto" } | { type: "any" } | { type: "tool"; name: string };
+  /** Nur intern für die Modellwahl je Experte; wird nicht an den Anbieter geschickt */
+  experte?: string; klasse?: "expert" | "fast";
 }
 export interface LlmAntwort { content: Block[]; stop_reason: string | null; usage?: { input_tokens: number; output_tokens: number } }
 /** Verbrauch eines Laufs; wird von der Laufzeit hochgezählt. */
@@ -22,7 +24,8 @@ export function anthropicClient(apiKey: string): LlmClient {
   const client = new Anthropic({ apiKey });
   return {
     async erstelle(a, signal) {
-      const res = await client.messages.create(a as unknown as Anthropic.MessageCreateParamsNonStreaming, { signal });
+      const { experte: _e, klasse: _k, ...anfrage } = a;
+      const res = await client.messages.create(anfrage as unknown as Anthropic.MessageCreateParamsNonStreaming, { signal });
       return { content: res.content.filter(b => b.type === "text" || b.type === "tool_use") as Block[], stop_reason: res.stop_reason, usage: { input_tokens: res.usage.input_tokens, output_tokens: res.usage.output_tokens } };
     },
   };

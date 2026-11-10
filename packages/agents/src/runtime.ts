@@ -56,7 +56,7 @@ export async function fuehreAus<T = unknown>(expertId: string, o: Laufoptionen, 
   try {
     for (let runde = 1; runde <= max; runde++) {
       const letzte = runde === max || erzwinge;
-      const res = await rufe(o, { model: ex.modell === "fast" ? o.modelle.fast : o.modelle.expert, max_tokens: o.maxTokens ?? 8000, system, messages, tools, tool_choice: letzte || !werkzeuge.length ? { type: "tool", name: "abgabe" } : { type: "auto" } });
+      const res = await rufe(o, { model: ex.modell === "fast" ? o.modelle.fast : o.modelle.expert, experte: expertId, klasse: ex.modell, max_tokens: o.maxTokens ?? 8000, system, messages, tools, tool_choice: letzte || !werkzeuge.length ? { type: "tool", name: "abgabe" } : { type: "auto" } });
       messages.push({ role: "assistant", content: res.content });
       const aufrufe = res.content.filter((b): b is Extract<Block, { type: "tool_use" }> => b.type === "tool_use");
       const abgabe = aufrufe.find(b => b.name === "abgabe");
@@ -98,7 +98,7 @@ export async function rueckfrage(expertId: string, o: Laufoptionen & { bisherige
     { role: "user", content: o.frage },
   ];
   for (let runde = 1; runde <= 6; runde++) {
-    const res = await rufe(o, { model: ex.modell === "fast" ? o.modelle.fast : o.modelle.expert, max_tokens: 2000, system, messages, ...(tools.length ? { tools, tool_choice: { type: "auto" as const } } : {}) });
+    const res = await rufe(o, { model: ex.modell === "fast" ? o.modelle.fast : o.modelle.expert, experte: expertId, klasse: ex.modell, max_tokens: 2000, system, messages, ...(tools.length ? { tools, tool_choice: { type: "auto" as const } } : {}) });
     messages.push({ role: "assistant", content: res.content });
     const aufrufe = res.content.filter((b): b is Extract<Block, { type: "tool_use" }> => b.type === "tool_use");
     if (!aufrufe.length) return res.content.filter((b): b is Extract<Block, { type: "text" }> => b.type === "text").map(b => b.text).join("\n").trim();

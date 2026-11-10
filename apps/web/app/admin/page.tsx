@@ -6,11 +6,12 @@ import { useApp } from "@/components/App";
 import { Datenbasis } from "@/components/admin/Datenbasis";
 import { Konjunktur } from "@/components/admin/Konjunktur";
 import { Marktberichte } from "@/components/admin/Marktberichte";
+import { Modelle } from "@/components/admin/Modelle";
 import { Zahl } from "@/components/Felder";
 import type { Einstellungen, Protokolleintrag } from "@/lib/admin";
 import { PAKETE, type PaketId } from "@/lib/quellen";
 
-const TABS = [["uebersicht", "Übersicht"], ["konten", "Konten"], ["daten", "Datenbasis"], ["berichte", "Marktberichte"], ["konjunktur", "Konjunktur & Prognosen"], ["mitteilung", "Mitteilung & Preise"], ["protokoll", "Protokoll"]] as const;
+const TABS = [["uebersicht", "Übersicht"], ["konten", "Konten"], ["daten", "Datenbasis"], ["berichte", "Marktberichte"], ["konjunktur", "Konjunktur & Prognosen"], ["modelle", "KI-Modelle"], ["mitteilung", "Mitteilung & Preise"], ["protokoll", "Protokoll"]] as const;
 type Tab = (typeof TABS)[number][0];
 const datum = (t: number | null | undefined) => t ? new Date(t).toLocaleDateString("de-DE") : "–";
 const tsd = (n: number) => n.toLocaleString("de-DE");
@@ -32,6 +33,7 @@ function Admin() {
       {tab === "daten" && <Datenbasis />}
       {tab === "berichte" && <Marktberichte />}
       {tab === "konjunktur" && <Konjunktur />}
+      {tab === "modelle" && <Modelle />}
       {tab === "mitteilung" && <Mitteilung />}
       {tab === "protokoll" && <Protokoll />}
     </div>

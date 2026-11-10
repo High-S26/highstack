@@ -1,5 +1,6 @@
 import { extractText, getDocumentProxy } from "unpdf";
-import { ausUmgebung, fuehreAus, neuerVerbrauch } from "@highstack/agents";
+import { fuehreAus, neuerVerbrauch } from "@highstack/agents";
+import { modellUmgebung } from "@/lib/modelle";
 import { BEISPIEL_ANLAGEPROFIL, BEISPIEL_INVESTOR } from "@highstack/engine";
 import { speicher } from "@/lib/speicher";
 import { bucheVerbrauch, istAdmin, keinAdmin, protokolliere } from "@/lib/admin";
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   let text = "";
   try { const doc = await getDocumentProxy(new Uint8Array(await f.arrayBuffer())); text = ((await extractText(doc, { mergePages: false })).text as string[]).map((t, i) => `[Seite ${i + 1}] ${t}`).join("\n"); } catch { /* unten */ }
   if (text.replace(/\s/g, "").length < 500) return Response.json({ fehler: "Im PDF ist kaum Text lesbar." }, { status: 422 });
-  const { client, modelle, testmodus } = ausUmgebung();
+  const { client, modelle, testmodus } = modellUmgebung();
   if (testmodus) return Response.json({ fehler: "Auslesen braucht den API-Key (Testmodus). Alternativ eine Import-Datei (JSON) einspielen." }, { status: 409 });
   const verbrauch = neuerVerbrauch();
   const r = await fuehreAus<Partial<Marktbericht>>("marktberichtleser", { verbrauch, client, modelle, eingabe: { investor: BEISPIEL_INVESTOR, anlageprofil: BEISPIEL_ANLAGEPROFIL, objekt: { ...LEERES_OBJEKT, titel: "Marktbericht" } }, signal: req.signal, maxRunden: 2, maxTokens: 32000 },

@@ -33,6 +33,16 @@ npm run experts -w @highstack/agents   # übersetzt die SKILL.md-Dateien in expe
 npm test
 ```
 
+## Lokales KI-Modell (Ollama)
+
+Einzelne Experten können statt Claude ein lokales Modell nutzen, z. B. Qwen auf dem eigenen Mac. Die Daten verlassen den Rechner dann nicht.
+
+1. Ollama installieren (ollama.com) und ein Modell laden: `ollama pull qwen3.5:9b` (ca. 5 GB, passt auf 16 GB Arbeitsspeicher).
+2. Im Admin unter „KI-Modelle“ je Experte Claude oder das lokale Modell wählen.
+3. Mit dem Vergleichslauf prüfen, wo das lokale Modell reicht: gleiche Aufgabe an beide Modelle, Bewertung gegen das Ausgabeschema, Dauer und Tokens.
+
+Fällt das lokale Modell aus oder liefert es kein gültiges Ergebnis, rechnet highstack mit Claude weiter (abschaltbar, braucht `ANTHROPIC_API_KEY`).
+
 ## Trading mit Scalable Capital
 
 highstack nutzt dafür ausschließlich die offizielle Scalable CLI (`sc`, github.com/ScalableCapital/scalable-cli), keine inoffiziellen Zugänge.

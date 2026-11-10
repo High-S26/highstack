@@ -1,4 +1,5 @@
-import { ausUmgebung, fuehreAus } from "@highstack/agents";
+import { fuehreAus } from "@highstack/agents";
+import { modellUmgebung } from "@/lib/modelle";
 import { BEISPIEL_OBJEKT, type Assetklasse } from "@highstack/engine";
 import { mandant, speicher } from "@/lib/speicher";
 import { neuesObjekt } from "@/lib/vorgaben";
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
   if (!text?.trim()) return Response.json({ fehler: "Text fehlt" }, { status: 400 });
   const s = await speicher(req); const t = mandant(req); const p = await s.profil(t);
   const apId = anlageprofilId ?? p.aktivesAnlageprofil; const ap = p.anlageprofile.find(a => a.id === apId) ?? p.anlageprofile[0]!;
-  const { client, modelle, testmodus } = ausUmgebung();
+  const { client, modelle, testmodus } = modellUmgebung();
   if (testmodus) return Response.json({ fehler: "Sichten braucht einen API-Key (ANTHROPIC_API_KEY)." }, { status: 503 });
   const r = await fuehreAus<{ objekte: Extrakt[] }>("datenanalyst", { client, modelle, eingabe: { investor: p.investor, anlageprofil: ap, objekt: { ...BEISPIEL_OBJEKT, titel: "Sichtung" } }, signal: req.signal }, `Erkenne jedes einzelne Objekt im folgenden Text und extrahiere die Daten. Text:\n"""${text.slice(0, 80000)}"""`);
   const angelegt = [];

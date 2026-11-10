@@ -1,4 +1,5 @@
-import { ausUmgebung, fuehreAus } from "@highstack/agents";
+import { fuehreAus } from "@highstack/agents";
+import { modellUmgebung } from "@/lib/modelle";
 import { BEISPIEL_OBJEKT } from "@highstack/engine";
 import { ausExtrakt, musterErkennung, textAusPdf, textAusUrl, type Extrakt } from "@/lib/erfassung";
 import { mandant, speicher } from "@/lib/speicher";
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
   const muster = musterErkennung(text, titel);
   // Foto ohne Anzeige (z. B. Landschaft): ehrlich sagen und keinen Titel aus Zufallstext vorschlagen
   if (bild && !muster.gefunden.length) { muster.felder.titel = ""; hinweis = "Auf dem Foto ist keine Anzeige zu erkennen. Bitte ein Foto des Aushangs oder Inserats wählen oder die Werte von Hand eintragen."; }
-  const { client, modelle, testmodus } = ausUmgebung();
+  const { client, modelle, testmodus } = modellUmgebung();
   if (testmodus) return Response.json({ ...muster, text: text.slice(0, 20000), hinweis: hinweis ?? (muster.gefunden.length ? undefined : "Keine Werte erkannt. Mit API-Key liest der Daten-Analyst auch freie Formulierungen.") });
   try {
     const s = await speicher(req); const p = await s.profil(mandant(req));

@@ -1,4 +1,5 @@
-import { ausUmgebung, fuehreAus, neuerVerbrauch, type Marktwerte } from "@highstack/agents";
+import { fuehreAus, neuerVerbrauch, type Marktwerte } from "@highstack/agents";
+import { modellUmgebung } from "@/lib/modelle";
 import { bucheVerbrauch, istAdmin } from "@/lib/admin";
 import { stadtAus, vermerkeAnfrage } from "@/lib/anfragen";
 import type { Objekt } from "@highstack/engine";
@@ -17,7 +18,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const erlaubt = ["ort", "titel", "asset", "baujahr", "wohnflaeche", "wohnlage", "energieklasse"] as const;
   const o = { ...gespeichert, objekt: { ...gespeichert.objekt, ...Object.fromEntries(erlaubt.filter(k => k in b).map(k => [k, b[k]])) } };
   if (!o.objekt.ort?.trim() && !o.objekt.titel?.trim()) return Response.json({ fehler: "Bitte zuerst Ort oder Stadtteil eintragen." }, { status: 400 });
-  const { client, modelle, testmodus } = ausUmgebung();
+  const { client, modelle, testmodus } = modellUmgebung();
   // Zuerst die Datenbasis: Mietspiegel der Stadt, wenn er ein passendes Feld hat
   const admin = await istAdmin(req, s);
   const ms = findeMietspiegel((await s.mietspiegel()).filter(m => admin || m.status === "geprueft"), o.objekt.ort ?? "", o.objekt.titel ?? "");

@@ -1,4 +1,5 @@
 export * from "./llm";
+export * from "./ollama";
 export * from "./experten";
 export * from "./schemas";
 export * from "./tools";

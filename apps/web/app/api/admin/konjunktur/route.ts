@@ -1,4 +1,5 @@
-import { ausUmgebung, fuehreAus, neuerVerbrauch } from "@highstack/agents";
+import { fuehreAus, neuerVerbrauch } from "@highstack/agents";
+import { modellUmgebung } from "@/lib/modelle";
 import { BEISPIEL_ANLAGEPROFIL, BEISPIEL_INVESTOR } from "@highstack/engine";
 import { leseTermine, ordneTermin, type Termin, bilanz, INDIKATOREN, leseTabelle, MECHANISMEN, rueckblick, type Ereignis, type Prognose } from "@highstack/prognose";
 import { bucheVerbrauch, istAdmin, keinAdmin, protokolliere } from "@/lib/admin";
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
           if (typeof b.text !== "string" || !b.text.trim()) throw new Error("Bitte den Text der Terminliste einfügen oder eine Datei wählen.");
           const r = leseTermine(b.text.slice(0, 200_000), { jahr, quelle: quelle || undefined }); termine = r.termine; ohneTag = r.ohneTag;
           // Fließtext (Artikel): mit KI-Schlüssel liest der Experte „Termine lesen“ zusätzlich; nur Termine, die die Muster nicht schon haben
-          const { client, modelle, testmodus } = ausUmgebung();
+          const { client, modelle, testmodus } = modellUmgebung();
           if (!testmodus && b.ki !== false && ohneTag > 3) {
             const verbrauch = neuerVerbrauch();
             const k = await fuehreAus<{ termine?: Termin[] }>("terminleser", { verbrauch, client, modelle, eingabe: { investor: BEISPIEL_INVESTOR, anlageprofil: BEISPIEL_ANLAGEPROFIL, objekt: { ...LEERES_OBJEKT, titel: "Wirtschaftskalender" } }, signal: req.signal, maxRunden: 1, maxTokens: 8000 },

@@ -1,5 +1,6 @@
 import { extractText, getDocumentProxy } from "unpdf";
-import { ausUmgebung, fuehreAus, neuerVerbrauch } from "@highstack/agents";
+import { fuehreAus, neuerVerbrauch } from "@highstack/agents";
+import { modellUmgebung } from "@/lib/modelle";
 import { BEISPIEL_ANLAGEPROFIL, BEISPIEL_INVESTOR } from "@highstack/engine";
 import { speicher } from "@/lib/speicher";
 import { leererMietspiegel, type Mietspiegel } from "@/lib/mietspiegel";
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   let text = "";
   try { const doc = await getDocumentProxy(new Uint8Array(await f.arrayBuffer())); text = ((await extractText(doc, { mergePages: false })).text as string[]).map((t, i) => `[Seite ${i + 1}] ${t}`).join("\n"); } catch { /* unten */ }
   if (text.replace(/\s/g, "").length < 200) return Response.json({ fehler: "Im PDF ist kaum Text lesbar (eingescannt?). Bitte die Tabelle von Hand erfassen." }, { status: 422 });
-  const { client, modelle, testmodus } = ausUmgebung();
+  const { client, modelle, testmodus } = modellUmgebung();
   if (testmodus) return Response.json({ fehler: "Auslesen braucht den API-Key (Testmodus). Legen Sie den Mietspiegel an und erfassen Sie die Tabelle von Hand." }, { status: 409 });
   const verbrauch = neuerVerbrauch();
   const r = await fuehreAus<Partial<Mietspiegel>>("mietspiegelleser", { verbrauch, client, modelle, eingabe: { investor: BEISPIEL_INVESTOR, anlageprofil: BEISPIEL_ANLAGEPROFIL, objekt: { ...LEERES_OBJEKT, titel: "Mietspiegel" } }, signal: req.signal, maxRunden: 2, maxTokens: 32000 },
