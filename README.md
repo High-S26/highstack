@@ -58,7 +58,7 @@ highstack nutzt dafür ausschließlich die offizielle Scalable CLI (`sc`, github
 
 Jede Order läuft in zwei Schritten: Vorschau von Scalable (Kurs, Kosten, Hinweise), dann Freigabe per Klick in highstack. Die Verbindung sehen nur Admins des Servers. Bei unklarem Ausgang einer Order sperrt highstack neue Orders, bis Sie die Umsätze in der App geprüft haben.
 
-Das Panel „DAX heute“ unter Trading rechnet ein Signal zur Eröffnung (US-Vorabend, Asien, Trend, Vortag, Eröffnungslücke), lernt die Gewichte nur aus vergangenen Tagen und zeigt den Rückblick. Tageskurse kommen von Stooq oder als CSV-Upload.
+Das Panel „DAX heute“ unter Trading rechnet ein Signal zur Eröffnung (US-Vorabend, Asien, Trend, Vortag, Eröffnungslücke), lernt die Gewichte nur aus vergangenen Tagen und zeigt den Rückblick. Tageskurse kommen von Yahoo Finance (frei, inoffizielle Schnittstelle, Eigengebrauch) oder als CSV-Upload; Stooq verlangt seit 2026 einen Schlüssel.
 
 ## Rechtlicher Rahmen
 

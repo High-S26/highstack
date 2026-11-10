@@ -1,15 +1,17 @@
-import { DAX_ISIN, gewichte, leseKerzenCsv, lerntage, rueckblickDax, tagessignal, type DaxRueckblick, type Morgenlage, type Tageskerze } from "@highstack/trading";
+import { DAX_ISIN, gewichte, leseKerzenCsv, leseYahooChart, lerntage, rueckblickDax, tagessignal, type DaxRueckblick, type Morgenlage, type Tageskerze } from "@highstack/trading";
 import { ereignisse } from "./konjunktur";
 import type { Speicher } from "./speicher";
 
 /**
- * Tageskerzen für DAX, S&P 500 und Nikkei. Quelle: Stooq (frei, ohne Schlüssel, CSV) mit Zwischenspeicher;
- * ist Stooq nicht erreichbar, bleibt der letzte Stand, oder die Daten werden als CSV hochgeladen.
+ * Tageskerzen für DAX, S&P 500 und Nikkei mit Zwischenspeicher.
+ * Quellen der Reihe nach: Yahoo Finance (Chart-Schnittstelle, frei, inoffiziell, nur für den Eigengebrauch),
+ * dann Stooq (verlangt seit 2026 einen Schlüssel bzw. sperrt Bots; wird nicht umgangen).
+ * Fällt alles aus, bleibt der letzte Stand, oder die Daten werden als CSV hochgeladen.
  */
 export const KERZEN = {
-  dax: { name: "DAX", stooq: "^dax" },
-  spx: { name: "S&P 500", stooq: "^spx" },
-  nikkei: { name: "Nikkei 225", stooq: "^nkx" },
+  dax: { name: "DAX", stooq: "^dax", yahoo: "^GDAXI" },
+  spx: { name: "S&P 500", stooq: "^spx", yahoo: "^GSPC" },
+  nikkei: { name: "Nikkei 225", stooq: "^nkx", yahoo: "^N225" },
 } as const;
 export type KerzenId = keyof typeof KERZEN;
 interface Kerzensatz { id: KerzenId; am: number; quelle: string; kerzen: Tageskerze[] }
@@ -18,6 +20,12 @@ const ART = "kerzen"; const ALTER = 6 * 3600_000;
 export const berlinDatum = (d = new Date()) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(d);
 export const berlinMinute = (d = new Date()) => { const t = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", hour12: false }).format(d).split(":").map(Number); return t[0]! * 60 + t[1]!; };
 
+async function yahoo(id: KerzenId): Promise<Tageskerze[]> {
+  const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(KERZEN[id].yahoo)}?range=15y&interval=1d&includePrePost=false`, { signal: AbortSignal.timeout(20_000), headers: { "user-agent": "Mozilla/5.0 (highstack)", accept: "application/json" } });
+  if (!r.ok) throw new Error(`Yahoo ${KERZEN[id].name}: HTTP ${r.status}`);
+  const k = leseYahooChart(await r.json()); if (k.length < 100) throw new Error(`Yahoo ${KERZEN[id].name}: keine verwertbaren Daten`);
+  return k.slice(-4000);
+}
 async function stooq(id: KerzenId): Promise<Tageskerze[]> {
   const r = await fetch(`https://stooq.com/q/d/l/?s=${encodeURIComponent(KERZEN[id].stooq)}&i=d`, { signal: AbortSignal.timeout(20_000), headers: { "user-agent": "highstack" } });
   if (!r.ok) throw new Error(`Stooq ${KERZEN[id].name}: HTTP ${r.status}`);
@@ -27,8 +35,13 @@ async function stooq(id: KerzenId): Promise<Tageskerze[]> {
 export async function kerzen(s: Speicher, id: KerzenId, erzwingen = false): Promise<Kerzensatz | null> {
   const alt = await s.globalEins<Kerzensatz>(ART, id);
   if (alt && !erzwingen && Date.now() - alt.am < ALTER) return alt;
-  try { const k = await stooq(id); const neu: Kerzensatz = { id, am: Date.now(), quelle: "Stooq", kerzen: k }; await s.speichereGlobal(ART, id, neu); return neu; }
-  catch (e) { if (alt) return alt; throw new Error(`${(e as Error).message}. Alternativ die Tageskurse als CSV hochladen (Spalten Date, Open, High, Low, Close).`); }
+  const fehler: string[] = [];
+  for (const [name, f] of [["Yahoo Finance", yahoo], ["Stooq", stooq]] as const) {
+    try { const k = await f(id); const neu: Kerzensatz = { id, am: Date.now(), quelle: name, kerzen: k }; await s.speichereGlobal(ART, id, neu); return neu; }
+    catch (e) { fehler.push((e as Error).message); }
+  }
+  if (alt) return alt;
+  throw new Error(`${fehler.join("; ")}. Alternativ die Tageskurse als CSV hochladen (Spalten Date, Open, High, Low, Close).`);
 }
 export async function hochladen(s: Speicher, id: KerzenId, csv: string) {
   const k = leseKerzenCsv(csv); if (k.length < 100) throw new Error(`Zu wenige Tage in der Datei (${k.length}); für den Rückblick braucht es mindestens 100, besser mehrere Jahre.`);

@@ -124,3 +124,13 @@ describe("Chancen aus der Historie", () => {
     expect(r.map(x => x.hebel)).toEqual([10, 20, 40]); expect(r[0]!.zielEuro).toBe(500); expect(r[0]!.stoppEuro).toBe(-500);
   });
 });
+
+import { leseYahooChart } from "../src/dax";
+describe("Yahoo-Chart", () => {
+  it("liest Tageskerzen mit Börsen-Zeitzone und überspringt Lücken", () => {
+    const j = { chart: { result: [{ meta: { gmtoffset: 3600 }, timestamp: [1762761600, 1762848000, 1762934400], indicators: { quote: [{ open: [24000, null, 24100], high: [24200, 1, 24300], low: [23900, 1, 24000], close: [24100, 1, 24250] }] } }], error: null } };
+    const k = leseYahooChart(j);
+    expect(k).toHaveLength(2); expect(k[0]).toEqual({ d: "2025-11-10", o: 24000, h: 24200, l: 23900, c: 24100 }); expect(k[1]!.d).toBe("2025-11-12");
+  });
+  it("meldet Fehler", () => { expect(() => leseYahooChart({ chart: { result: null, error: { description: "No data found" } } })).toThrow(/No data/); });
+});

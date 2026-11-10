@@ -356,3 +356,22 @@ export function optionen(p: { kerzen: Tageskerze[]; dax: number; richtung: "long
     };
   });
 }
+
+/**
+ * Tageskerzen aus der Chart-Antwort von Yahoo Finance (/v8/finance/chart, interval=1d).
+ * Datum in der Zeitzone der Börse (gmtoffset), Tage mit Lücken werden ausgelassen.
+ */
+export function leseYahooChart(j: unknown): Tageskerze[] {
+  const r = (j as { chart?: { result?: { timestamp?: number[]; meta?: { gmtoffset?: number }; indicators?: { quote?: { open?: (number | null)[]; high?: (number | null)[]; low?: (number | null)[]; close?: (number | null)[] }[] } }[]; error?: { description?: string } | null } })?.chart;
+  if (r?.error) throw new Error(r.error.description ?? "Yahoo: Fehler");
+  const x = r?.result?.[0]; const t = x?.timestamp ?? []; const q = x?.indicators?.quote?.[0]; const off = x?.meta?.gmtoffset ?? 0;
+  if (!q) return [];
+  const out: Tageskerze[] = [];
+  t.forEach((ts, i) => {
+    const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
+    if ([o, h, l, c].some(v => v == null || !Number.isFinite(v) || v <= 0)) return;
+    out.push({ d: new Date((ts + off) * 1000).toISOString().slice(0, 10), o: o!, h: h!, l: l!, c: c! });
+  });
+  // doppelte Tage (z. B. laufender Tag) zusammenfassen: letzter Eintrag gilt
+  const m = new Map(out.map(k => [k.d, k])); return [...m.values()].sort((a, b) => a.d.localeCompare(b.d));
+}

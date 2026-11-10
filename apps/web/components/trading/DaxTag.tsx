@@ -225,7 +225,7 @@ function Datenstand({ d, neu }: { d: Stand; neu: () => void }) {
         <select value={id} onChange={e => setId(e.target.value)} aria-label="Reihe für den Upload">{Object.entries(namen).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select>
         <label className="btn sm ghost">CSV hochladen<input type="file" accept=".csv,text/csv" hidden onChange={e => hoch(e.target.files?.[0])} /></label></div>
       {msg && <p className="note">{msg}</p>}
-      <p className="note">Tageskurse von Stooq (frei), zwischengespeichert. Ohne Internetzugang: CSV mit Date, Open, High, Low, Close hochladen.</p>
+      <p className="note">Tageskurse von Yahoo Finance (frei, inoffizielle Schnittstelle, Eigengebrauch), zwischengespeichert. Ohne Internetzugang: CSV mit Date, Open, High, Low, Close hochladen.</p>
     </div>
   );
 }
